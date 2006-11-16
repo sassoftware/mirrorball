@@ -191,6 +191,40 @@ class RpmSource:
         a('')
         return '\n'.join(l)
 
+class RecipeMaker:
+    def __init__(self, cvc, cfg, rpmSource):
+        self.cvc = cvc
+        self.cfg = cfg
+        self.rpmSource = rpmSource
+
+    def create(self, pkgname, recipeContents):
+        print 'creating initial template for', pkgname
+        try:
+            shutil.rmtree(pkgname)
+        except OSError, e:
+            pass
+        self.cvc.sourceCommand(self.cfg, [ "newpkg", pkgname], {})
+        cwd = os.getcwd()
+        os.chdir(pkgname)
+        try:
+            recipe = pkgname + '.recipe'
+            f = open(recipe, 'w')
+            f.write(recipeContents)
+            f.close()
+            addfiles = [ 'add', recipe ]
+            # copy all the binaries to the cwd
+            for path, fn in self.rpmSource.rpmMap[src].iteritems():
+                shutil.copy(fn, path)
+                addfiles.append(path)
+            self.cvc.sourceCommand(self.cfg, addfiles, {})
+            self.cvc.sourceCommand(self.cfg,
+                              [ 'commit' ],
+                              { 'message':
+                                'Automated initial commit of ' + recipe })
+        finally:
+            os.chdir(cwd)
+
+
 if __name__ == '__main__':
     from conary import conaryclient, conarycfg, versions, errors, cvc
     from conary import deps
@@ -227,41 +261,9 @@ if __name__ == '__main__':
     d = repos.getTroveVersionsByLabel(srccomps)
 
     # Iterate over foo:source.
+    recipeMaker = RecipeMaker(cvc, cfg, rpmSource)
     for srccomp in srccomps.iterkeys():
         if srccomp not in d:
             src = srcmap[srccomp]
             pkgname = srccomp.split(':')[0]
-            print 'creating initial template for', pkgname
-            try:
-                shutil.rmtree(pkgname)
-            except OSError, e:
-                pass
-            cvc.sourceCommand(cfg, [ "newpkg", pkgname], {})
-            cwd = os.getcwd()
-            os.chdir(pkgname)
-            try:
-                template = rpmSource.createTemplate(src)
-                recipe = pkgname + '.recipe'
-                f = open(recipe, 'w')
-                f.write(template)
-                f.close()
-                addfiles = [ 'add', recipe ]
-                # copy all the binaries to the cwd
-                for path, fn in rpmSource.rpmMap[src].iteritems():
-                    shutil.copy(fn, path)
-                    addfiles.append(path)
-                cvc.sourceCommand(cfg, addfiles, {})
-                cvc.sourceCommand(cfg,
-                                  [ 'commit' ],
-                                  { 'message':
-                                    'Automated initial commit of ' + recipe })
-                archs = rpmSource.getArchs(src)
-            finally:
-                os.chdir(cwd)
-##         except 
-##         from conary.lib import epdb
-##         epdb.st()
-##         rpmSource.createTemplate(src)
-    #print rpmSource.rpmMap
-    #print rpmSource.revMap
-    #print rpmSource.srcPath
+            recipeMaker.create(pkgname, rpmSource.createTemplate(src))
