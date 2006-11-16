@@ -28,9 +28,16 @@ ARCH = 1022
 
 class RpmSource:
     def __init__(self):
+        # {srpm: {rpm: path}
         self.rpmMap = dict()
+
+        # {name: srpm}
         self.revMap = dict()
+
+        # {srpm: path}
         self.srcPath = dict()
+
+        # {rpmfile: header}
         self.headers = dict()
 
     def getHeader(self, f):
@@ -105,12 +112,24 @@ class RpmSource:
         return srpms
 
     def transformName(self, name):
+        """
+        In name, - => _, + => _plus.
+        """
+
         return name.replace('-', '_').replace('+', '_plus')
 
     def quoteSequence(self, seq):
+        """
+        [a, b] => 'a', 'b'
+        """
+
         return ', '.join("'%s'" % x for x in sorted(seq))
 
     def getArchs(self, src):
+        """
+        @return list that goes into the archs line in the recipe.
+        """
+
         hdrs = [ self.getHeader(x) for x in self.rpmMap[src].itervalues() ]
         archs = set(h[ARCH] for h in hdrs)
         if 'i586' in archs and 'i686' in archs:
@@ -121,17 +140,27 @@ class RpmSource:
         return archs
 
     def getNames(self, src):
+        """
+        @return list that goes into the rpms line in the recipe.
+        """
+
         hdrs = [ self.getHeader(x) for x in self.rpmMap[src].itervalues() ]
         names = set(h[NAME] for h in hdrs)
         return names
 
     def getExtraArchs(self, src):
+        """
+        For the special case of RPMs that have components optimized for the
+        i686 architecture while other components are at i586, then return
+        ('i686', set(rpms that are i686 only)), otherwise return (None, None).
+        """
+
         hdrs = [ self.getHeader(x) for x in self.rpmMap[src].itervalues() ]
         archMap = {}
         for h in hdrs:
             arch = h[ARCH]
             name = h[NAME]
-            if h[ARCH] in archMap:
+            if arch in archMap:
                 archMap[arch].add(name)
             else:
                 archMap[arch] = set((name,))
@@ -141,6 +170,10 @@ class RpmSource:
         return None, None
 
     def createTemplate(self, src):
+        """
+        @return the content of the new recipe.
+        """
+
         srchdr = self.getHeader(self.srcPath[src])
         l = []
         a = l.append
@@ -180,7 +213,11 @@ if __name__ == '__main__':
     rpmSource = RpmSource()
     for root in roots:
         rpmSource.walk(root)
+
+    # {foo:source: {cfg.buildLabel: None}}
     srccomps = {}
+
+    # {foo:source: foo-1.0-1.1.src.rpm}
     srcmap = {}
     for src in rpmSource.getSrpms():
         h = rpmSource.getHeader(rpmSource.srcPath[src])
@@ -188,6 +225,8 @@ if __name__ == '__main__':
         srcmap[srccomp] = src
         srccomps[srccomp] = {cfg.buildLabel: None}
     d = repos.getTroveVersionsByLabel(srccomps)
+
+    # Iterate over foo:source.
     for srccomp in srccomps.iterkeys():
         if srccomp not in d:
             src = srcmap[srccomp]
