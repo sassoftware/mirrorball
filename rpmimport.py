@@ -297,11 +297,11 @@ class RecipeMaker:
                 "\n"
                 "    def setup(r):\n"
                 "        r.User('%(user)s', %(uid)s, group='%(group)s', groupid=%(gid)s,\n"
-                "            homedir='%(homedir)s', comment='%(comment)s', shell='%(shell)s'\n"
+                "            homedir='%(homedir)s', comment='%(comment)s', shell='%(shell)s',\n"
                 "            supplemental=[%(supgroups)s])\n"
                 % dict(user=user, uid=uid, group=group, gid=gid,
                     homedir=homedir, comment=comment, shell=shell,
-                    supgroups=', '.join(list(supgroups))))
+                    supgroups=', '.join("'%s'" % g for g in supgroups)))
 
     def create(self, pkgname, recipeContents, srpm = None):
         print 'creating initial template for', pkgname
@@ -325,6 +325,7 @@ class RecipeMaker:
                     shutil.copy(fn, path)
                     addfiles.append(path)
             self.cvc.sourceCommand(self.cfg, addfiles, {})
+            self.cvc.sourceCommand(self.cfg, ['cook', recipe], {})
             self.cvc.sourceCommand(self.cfg,
                               [ 'commit' ],
                               { 'message':
