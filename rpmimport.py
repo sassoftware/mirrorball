@@ -205,9 +205,11 @@ class RecipeMaker:
         # Get all users and groups used in this run.
         users = set()
         groups = set()
-        for header in rpmSource.headers.itervalues():
-            users = users.union(header[FILEUSERNAME])
-            groups = groups.union(header[FILEGROUPNAME])
+        for src in self.rpmSource.getSrpms():
+            for rpm in self.rpmSource.rpmMap[src].values():
+                header = self.rpmSource.getHeader(rpm)
+                users = users.union(header[FILEUSERNAME])
+                groups = groups.union(header[FILEGROUPNAME])
 
         # Remove the root user and group.
         users = users.difference(['root'])
@@ -323,10 +325,10 @@ class RecipeMaker:
                     shutil.copy(fn, path)
                     addfiles.append(path)
             self.cvc.sourceCommand(self.cfg, addfiles, {})
-            #self.cvc.sourceCommand(self.cfg,
-            #                  [ 'commit' ],
-            #                  { 'message':
-            #                    'Automated initial commit of ' + recipe })
+            self.cvc.sourceCommand(self.cfg,
+                              [ 'commit' ],
+                              { 'message':
+                                'Automated initial commit of ' + recipe })
         finally:
             os.chdir(cwd)
 
