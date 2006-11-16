@@ -15,9 +15,7 @@
 #
 
 
-import grp
 import os
-import pwd
 import sys
 import shutil
 
@@ -286,5 +284,5 @@ if __name__ == '__main__':
             groups = groups.union(header[FILEGROUPNAME])
 
     import infoimport
-    infoMaker = infoimport.InfoMaker(repos, recipeMaker)
+    infoMaker = infoimport.InfoMaker(cfg, repos, recipeMaker)
     infoMaker.makeInfo(users, groups)

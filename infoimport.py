@@ -1,5 +1,26 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2006 rPath, Inc.
+#
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
+import grp
+import pwd
+
 class InfoMaker:
-    def __init__(self, repos, recipeMaker):
+    def __init__(self, cfg, repos, recipeMaker):
+        self.cfg = cfg
         self.repos = repos
         self.recipeMaker = recipeMaker
 
@@ -83,7 +104,7 @@ class InfoMaker:
         # All the packages we might create.
         srccomps = {}
         for account in users.union(groups):
-            srccomps['info-%s:source' % (account)] = {cfg.buildLabel: None}
+            srccomps['info-%s:source' % (account)] = {self.cfg.buildLabel: None}
 
         # Get current repository contents.
         repoContents = self.repos.getTroveVersionsByLabel(srccomps)
@@ -156,4 +177,4 @@ if __name__ == '__main__':
         rpmSource.walk(root)
     recipeMaker = RecipeMaker(cvc, cfg, repos, rpmSource)
 
-    infoMaker = InfoMaker(repos, recipeMaker)
+    infoMaker = InfoMaker(cfg, repos, recipeMaker)
