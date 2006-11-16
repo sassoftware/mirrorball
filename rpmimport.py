@@ -15,14 +15,17 @@
 #
 
 
+import grp
 import os
+import pwd
 import sys
 import shutil
 
 from conary import rpmhelper
 
 # make local copies of tags for convenience
-for tag in ('NAME', 'VERSION', 'RELEASE', 'SOURCERPM'):
+for tag in ('NAME', 'VERSION', 'RELEASE', 'SOURCERPM', 'FILEUSERNAME',
+    'FILEGROUPNAME'):
     sys.modules[__name__].__dict__[tag] = getattr(rpmhelper, tag)
 ARCH = 1022
 
@@ -192,12 +195,113 @@ class RpmSource:
         return '\n'.join(l)
 
 class RecipeMaker:
-    def __init__(self, cvc, cfg, rpmSource):
+    def __init__(self, cvc, cfg, repos, rpmSource):
         self.cvc = cvc
         self.cfg = cfg
+        self.repos = repos
         self.rpmSource = rpmSource
 
-    def create(self, pkgname, recipeContents):
+    def walkUsers(self):
+        # Get all users and groups used in this run.
+        users = set()
+        groups = set()
+        for header in rpmSource.headers.itervalues():
+            users = users.union(header[FILEUSERNAME])
+            groups = groups.union(header[FILEGROUPNAME])
+
+        # Remove the root user and group.
+        users = users.difference(['root'])
+        groups = groups.difference(['root'])
+
+        # If there are groups named the same as the user, then the user must
+        # have this group as its primary group.
+        groups = groups.difference(users)
+
+        # All the packages we might create.
+        srccomps = {}
+        for account in users.union(groups):
+            srccomps['info-%s:source' % (account)] = {cfg.buildLabel: None}
+
+        # Get current repository contents.
+        repoContents = self.repos.getTroveVersionsByLabel(srccomps)
+
+        # Map username to groups it belongs to.
+        ugMap = dict()
+        for (g, a, b, us) in grp.getgrall():
+            for u in us:
+                if u in ugMap:
+                    ugMap[u].add(g)
+                else:
+                    ugMap[u] = set([g])
+
+        # Create groups.
+        for group in groups:
+            # If it already exists, then move on.
+            if group in repoContents:
+                continue
+
+            # If there is a user with this as its primary group, then create
+            # the user instead.
+            try:
+                gprop = grp.getgrnam(group)
+            except KeyError, e:
+                print "The group %s does not exist on the build system." \
+                    "  Please create it first before running this." % (group)
+                continue
+            gid = gprop[2]
+            primaries = gprop[3] + [group]
+            for u in primaries:
+                try:
+                    uprop = pwd.getpwnam(u)
+                    if uprop[3] == gid:
+                        users.add(uprop[0])
+                        groups.remove(gprop[0])
+                except KeyError, e:
+                    # No such user, oh well, ignore.
+                    pass
+
+            # Create the group recipe.
+            self.create('info-%s' % (group),
+                "class info_%(group)s(GroupInfoRecipe):\n"
+                "    name = 'info-%(group)s'\n"
+                "    version = '1'\n"
+                "\n"
+                "    def setup(r):\n"
+                "        r.Group('%(group)s', %(gid)s)\n"
+                % dict(group=group, gid=gid))
+
+        # Create users.
+        for user in users:
+            # If it already exists, then move on.
+            if user in repoContents:
+                continue
+
+            try:
+                uprop = pwd.getpwnam(user)
+            except KeyError, e:
+                print "The user %s does not exist on the build system." \
+                    "  Please create it before running this." % (user)
+                continue
+
+            (uid, gid, comment, homedir, shell) = uprop[2:]
+            gprop = grp.getgrgid(gid)
+            group = gprop[0]
+            supgroups = ugMap.get(user, set()).difference(set([group]))
+
+            self.create('info-%s' % (user),
+                "class info_%(user)s(UserInfoRecipe):\n"
+                "    name = 'info-%(user)s'\n"
+                "    version = '1'\n"
+                "\n"
+                "    def setup(r):\n"
+                "        r.User('%(user)s', %(uid)s, group='%(group)s', groupid=%(gid)s,\n"
+                "            homedir='%(homedir)s', comment='%(comment)s', shell='%(shell)s'\n"
+                "            supplemental=[%(supgroups)s])\n"
+                % dict(user=user, uid=uid, group=group, gid=gid,
+                    homedir=homedir, comment=comment, shell=shell,
+                    supgroups=', '.join(list(supgroups))))
+
+    def create(self, pkgname, recipeContents, srpm = None):
         print 'creating initial template for', pkgname
         try:
             shutil.rmtree(pkgname)
@@ -212,18 +316,19 @@ class RecipeMaker:
             f.write(recipeContents)
             f.close()
             addfiles = [ 'add', recipe ]
+
             # copy all the binaries to the cwd
-            for path, fn in self.rpmSource.rpmMap[src].iteritems():
-                shutil.copy(fn, path)
-                addfiles.append(path)
+            if srpm:
+                for path, fn in self.rpmSource.rpmMap[src].iteritems():
+                    shutil.copy(fn, path)
+                    addfiles.append(path)
             self.cvc.sourceCommand(self.cfg, addfiles, {})
-            self.cvc.sourceCommand(self.cfg,
-                              [ 'commit' ],
-                              { 'message':
-                                'Automated initial commit of ' + recipe })
+            #self.cvc.sourceCommand(self.cfg,
+            #                  [ 'commit' ],
+            #                  { 'message':
+            #                    'Automated initial commit of ' + recipe })
         finally:
             os.chdir(cwd)
-
 
 if __name__ == '__main__':
     from conary import conaryclient, conarycfg, versions, errors, cvc
@@ -247,6 +352,7 @@ if __name__ == '__main__':
     rpmSource = RpmSource()
     for root in roots:
         rpmSource.walk(root)
+    recipeMaker = RecipeMaker(cvc, cfg, repos, rpmSource)
 
     # {foo:source: {cfg.buildLabel: None}}
     srccomps = {}
@@ -261,9 +367,10 @@ if __name__ == '__main__':
     d = repos.getTroveVersionsByLabel(srccomps)
 
     # Iterate over foo:source.
-    recipeMaker = RecipeMaker(cvc, cfg, rpmSource)
     for srccomp in srccomps.iterkeys():
         if srccomp not in d:
             src = srcmap[srccomp]
             pkgname = srccomp.split(':')[0]
-            recipeMaker.create(pkgname, rpmSource.createTemplate(src))
+            recipeMaker.create(pkgname, rpmSource.createTemplate(src), src)
+
+    recipeMaker.walkUsers()
