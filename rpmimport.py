@@ -201,7 +201,62 @@ class RecipeMaker:
         self.repos = repos
         self.rpmSource = rpmSource
 
+    def closeUser(self, user, users, groups, ustaging, gstaging, ugMap):
+        """
+        If a user has supplemental groups, then create those.
+        """
+        try:
+            uprop = pwd.getpwnam(user)
+        except KeyError, e:
+            print "The user %s does not exist on the build system." \
+                "  Please create it before running this." % (user)
+            return
+
+        (uid, gid, comment, homedir, shell) = uprop[2:]
+        gprop = grp.getgrgid(gid)
+        group = gprop[0]
+        supgroups = ugMap.get(user, set()).difference(set([group]))
+        for g in supgroups:
+            if g not in groups:
+                gstaging.add(g)
+        users.add(user)
+
+    def closeGroup(self, group, users, groups, ustaging, gstaging, ugMap):
+        """
+        If there is a user with this as its primary group, then create the user
+        instead.
+        """
+
+        try:
+            gprop = grp.getgrnam(group)
+        except KeyError, e:
+            print "The group %s does not exist on the build system." \
+                "  Please create it first before running this." % (group)
+            return
+
+        gid = gprop[2]
+        primaries = gprop[3] + [group]
+        for u in primaries:
+            try:
+                uprop = pwd.getpwnam(u)
+                if uprop[3] == gid:
+                    ustaging.add(uprop[0])
+                    return
+            except KeyError, e:
+                # No such user, oh well, ignore.
+                pass
+        groups.add(group)
+
     def walkUsers(self):
+        # Map username to groups it belongs to.
+        ugMap = dict()
+        for (g, a, b, us) in grp.getgrall():
+            for u in us:
+                if u in ugMap:
+                    ugMap[u].add(g)
+                else:
+                    ugMap[u] = set([g])
+
         # Get all users and groups used in this run.
         users = set()
         groups = set()
@@ -210,6 +265,19 @@ class RecipeMaker:
                 header = self.rpmSource.getHeader(rpm)
                 users = users.union(header[FILEUSERNAME])
                 groups = groups.union(header[FILEGROUPNAME])
+
+        # Groups and users depend on each other, so do their closure.
+        ustaging = users
+        gstaging = groups
+        users = set()
+        groups = set()
+        while ustaging or gstaging:
+            for user in ustaging:
+                self.closeUser(user, users, groups, ustaging, gstaging, ugMap)
+            ustaging = set()
+            for group in gstaging:
+                self.closeGroup(group, users, groups, ustaging, gstaging, ugMap)
+            gstaging = set()
 
         # Remove the root user and group.
         users = users.difference(['root'])
@@ -227,64 +295,13 @@ class RecipeMaker:
         # Get current repository contents.
         repoContents = self.repos.getTroveVersionsByLabel(srccomps)
 
-        # Map username to groups it belongs to.
-        ugMap = dict()
-        for (g, a, b, us) in grp.getgrall():
-            for u in us:
-                if u in ugMap:
-                    ugMap[u].add(g)
-                else:
-                    ugMap[u] = set([g])
-
-        # Create groups.
-        for group in groups:
-            # If it already exists, then move on.
-            if group in repoContents:
-                continue
-
-            # If there is a user with this as its primary group, then create
-            # the user instead.
-            try:
-                gprop = grp.getgrnam(group)
-            except KeyError, e:
-                print "The group %s does not exist on the build system." \
-                    "  Please create it first before running this." % (group)
-                continue
-            gid = gprop[2]
-            primaries = gprop[3] + [group]
-            for u in primaries:
-                try:
-                    uprop = pwd.getpwnam(u)
-                    if uprop[3] == gid:
-                        users.add(uprop[0])
-                        groups.remove(gprop[0])
-                except KeyError, e:
-                    # No such user, oh well, ignore.
-                    pass
-
-            # Create the group recipe.
-            self.create('info-%s' % (group),
-                "class info_%(group)s(GroupInfoRecipe):\n"
-                "    name = 'info-%(group)s'\n"
-                "    version = '1'\n"
-                "\n"
-                "    def setup(r):\n"
-                "        r.Group('%(group)s', %(gid)s)\n"
-                % dict(group=group, gid=gid))
-
         # Create users.
         for user in users:
             # If it already exists, then move on.
-            if user in repoContents:
+            if 'info-%s:source' %user in repoContents:
                 continue
 
-            try:
-                uprop = pwd.getpwnam(user)
-            except KeyError, e:
-                print "The user %s does not exist on the build system." \
-                    "  Please create it before running this." % (user)
-                continue
-
+            uprop = pwd.getpwnam(user)
             (uid, gid, comment, homedir, shell) = uprop[2:]
             gprop = grp.getgrgid(gid)
             group = gprop[0]
@@ -302,6 +319,25 @@ class RecipeMaker:
                 % dict(user=user, uid=uid, group=group, gid=gid,
                     homedir=homedir, comment=comment, shell=shell,
                     supgroups=', '.join("'%s'" % g for g in supgroups)))
+
+        # Create groups.
+        for group in groups:
+            # If it already exists, then move on.
+            if 'info-%s:source' %group in repoContents:
+                continue
+
+            gprop = grp.getgrnam(group)
+            gid = gprop[2]
+
+            # Create the group recipe.
+            self.create('info-%s' % (group),
+                "class info_%(group)s(GroupInfoRecipe):\n"
+                "    name = 'info-%(group)s'\n"
+                "    version = '1'\n"
+                "\n"
+                "    def setup(r):\n"
+                "        r.Group('%(group)s', %(gid)s)\n"
+                % dict(group=group, gid=gid))
 
     def create(self, pkgname, recipeContents, srpm = None):
         print 'creating initial template for', pkgname
@@ -330,6 +366,7 @@ class RecipeMaker:
                               [ 'commit' ],
                               { 'message':
                                 'Automated initial commit of ' + recipe })
+            self.cvc.sourceCommand(self.cfg, ['cook', pkgname], {})
         finally:
             os.chdir(cwd)
 
