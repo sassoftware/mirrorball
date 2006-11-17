@@ -86,15 +86,16 @@ class RpmSource:
         """
 
         bins = ['aaa_base', 'acl', 'alsa', 'apache2', 'ash', 'attr',
-                'bash', 'bzip2', 'compat-libstdc++', 'coreutils',
-                'cpio', 'cracklib', 'cron', 'cyrus-sasl', 'db',
-                'dhcpcd', 'diffutils', 'e2fsprogs', 'expat', 'expect',
-                'file', 'filesystem', 'findutils', 'findutils-locate',
-                'fontconfig', 'freetype', 'freetype2', 'gawk', 'gdbm',
-                'glib2', 'glibc', 'gmp', 'gpm', 'grep', 'grub',
-                'gzip', 'insserv', 'iproute2', 'iptables', 'iputils',
-                'kbd', 'klogd', 'krb5', 'ksh', 'libaio', 'libattr',
-                'libelf', 'libgcc', 'libjpeg', 'libnscd', 'libpng',
+                'bash', 'binutils', 'bzip2', 'compat-libstdc++',
+                'coreutils', 'cpio', 'cracklib', 'cron', 'cyrus-sasl',
+                'db', 'dhcpcd', 'diffutils', 'e2fsprogs', 'expat',
+                'expect', 'file', 'filesystem', 'findutils',
+                'findutils-locate', 'fontconfig', 'freetype',
+                'freetype2', 'gawk', 'gdbm', 'glib2', 'glibc', 'gmp',
+                'gpm', 'grep', 'grub', 'gzip', 'insserv', 'iproute2',
+                'iptables', 'iputils', 'kbd', 'klogd', 'krb5', 'ksh',
+                'less', 'libaio', 'libattr', 'libelf', 'libgcc',
+                'libjpeg', 'libnscd', 'libpcap', 'libpng',
                 'libstdc++', 'libxcrypt', 'make', 'mdadm', 'mingetty',
                 'mkinitrd', 'mktemp', 'module-init-tools', 'ncurses',
                 'net-tools', 'netcfg', 'openldap2',
@@ -107,9 +108,9 @@ class RpmSource:
                 'pwdutils', 'pwdutils', 'python', 'resmgr', 'sed',
                 'slang', 'sles-release', 'sysconfig', 'sysfsutils',
                 'syslog-ng', 'sysvinit', 'sysvinit', 'tar', 'tcl',
-                'tcsh', 'termcap', 'timezone', 'udev', 'unixODBC',
-                'util-linux', 'vim', 'wget', 'wireless-tools',
-                'xorg-x11', 'zlib']
+                'tcsh', 'tcpdump', 'termcap', 'timezone', 'udev',
+                'unixODBC', 'util-linux', 'vim', 'wget',
+                'wireless-tools', 'xorg-x11', 'zlib']
 
         srpms = list()
         for b in bins:
@@ -225,12 +226,12 @@ class RecipeMaker:
                     shutil.copy(fn, path)
                     addfiles.append(path)
             self.cvc.sourceCommand(self.cfg, addfiles, {})
-            self.cvc.sourceCommand(self.cfg, ['cook', recipe], {})
+            #self.cvc.sourceCommand(self.cfg, ['cook', recipe], {})
             self.cvc.sourceCommand(self.cfg,
                               [ 'commit' ],
                               { 'message':
                                 'Automated initial commit of ' + recipe })
-            self.cvc.sourceCommand(self.cfg, ['cook', pkgname], {})
+            #self.cvc.sourceCommand(self.cfg, ['cook', pkgname], {})
         finally:
             os.chdir(cwd)
 
