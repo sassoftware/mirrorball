@@ -109,7 +109,7 @@ class RpmSource:
                 'syslog-ng', 'sysvinit', 'sysvinit', 'tar', 'tcl',
                 'tcsh', 'termcap', 'timezone', 'udev', 'unixODBC',
                 'util-linux', 'vim', 'wget', 'wireless-tools',
-                'xorg-x11', 'zlib']:
+                'xorg-x11', 'zlib']
 
         srpms = list()
         for b in bins:
