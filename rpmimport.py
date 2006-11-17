@@ -85,28 +85,31 @@ class RpmSource:
         Get all sources we think we need now.
         """
 
-        bins = ['acl', 'alsa', 'attr', 'libattr', 'ash', 'bzip2',
-                'insserv', 'coreutils', 'cpio', 'cracklib',
-                'cyrus-sasl', 'dhcpcd', 'diffutils',
-                'sles-release', 'e2fsprogs', 'expat', 'expect',
+        bins = ['aaa_base', 'acl', 'alsa', 'apache2', 'ash', 'attr',
+                'bash', 'bzip2', 'compat-libstdc++', 'coreutils',
+                'cpio', 'cracklib', 'cron', 'cyrus-sasl', 'db',
+                'dhcpcd', 'diffutils', 'e2fsprogs', 'expat', 'expect',
                 'file', 'filesystem', 'findutils', 'findutils-locate',
-                'fontconfig', 'freetype', 'gawk', 'gdbm', 'glib2',
-                'glibc', 'glibc-locale', 'glibc-i18ndata',
-                'glibc-devel', 'gmp', 'gpm', 'grep', 'grub', 'gzip',
-                'aaa_base', 'sysconfig', 'procps', 'iproute2',
-                'iptables', 'iputils', 'kbd', 'krb5', 'libaio',
-                'libelf', 'libgcc', 'compat-libstdc++', 'libstdc++',
-                'mdadm', 'mingetty', 'mkinitrd', 'mktemp',
-                'module-init-tools', 'ncurses', 'net-tools',
-                'openssl', 'pam', 'pam-modules', 'perl-Bootloader',
-                'pwdutils', 'pcre', 'perl', 'perl-DBI', 'procps',
-                'psmisc', 'python', 'sed', 'netcfg', 'pwdutils',
-                'slang', 'sqlite', 'sysfsutils', 'klogd', 'syslog-ng',
-                'sysvinit', 'tar', 'tcl', 'termcap', 'timezone',
-                'udev', 'unixODBC', 'sysvinit', 'util-linux', 'vim',
-                'cron', 'wget', 'wireless-tools', 'xorg-x11', 'zlib',
-                'perl-Bootloader' ]
-        # add rpm, popt, readline, bash, db, apache2
+                'fontconfig', 'freetype', 'freetype2', 'gawk', 'gdbm',
+                'glib2', 'glibc', 'gmp', 'gpm', 'grep', 'grub',
+                'gzip', 'insserv', 'iproute2', 'iptables', 'iputils',
+                'kbd', 'klogd', 'krb5', 'ksh', 'libaio', 'libattr',
+                'libelf', 'libgcc', 'libjpeg', 'libnscd', 'libpng',
+                'libstdc++', 'libxcrypt', 'mdadm', 'mingetty',
+                'mkinitrd', 'mktemp', 'module-init-tools', 'ncurses',
+                'net-tools', 'netcfg', 'openldap2',
+                'openldap2-client', 'openslp', 'openssl', 'pam',
+                'pam-modules', 'pcre', 'perl', 'perl-Bootloader',
+                'perl-Compress-Zlib', 'perl-DBD-SQLite', 'perl-DBI',
+                'perl-Net-Daemon', 'perl-PlRPC', 'perl-TermReadKey',
+                'perl-URI', 'perl-gettext', 'procps', 'procps',
+                'psmisc', 'pwdutils', 'pwdutils', 'python', 'resmgr',
+                'sed', 'slang', 'sles-release', 'sysconfig',
+                'sysfsutils', 'syslog-ng', 'sysvinit', 'sysvinit',
+                'tar', 'tcl', 'tcsh', 'termcap', 'timezone', 'udev',
+                'unixODBC', 'util-linux', 'vim', 'wget',
+                'wireless-tools', 'xorg-x11', 'zlib']:
+
         srpms = list()
         for b in bins:
             srpms.append(self.revMap[b])
