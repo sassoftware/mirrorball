@@ -99,7 +99,7 @@ class RpmSource:
                 'mkinitrd', 'mktemp', 'module-init-tools', 'ncurses',
                 'net-tools', 'netcfg', 'openldap2',
                 'openldap2-client', 'openslp', 'openssl', 'pam',
-                'pam-modules', 'pcre', 'perl', 'perl-Bootloader',
+                'pam-modules', 'pciutils', 'pcre', 'perl', 'perl-Bootloader',
                 'perl-Compress-Zlib', 'perl-DBD-SQLite', 'perl-DBI',
                 'perl-Net-Daemon', 'perl-PlRPC', 'perl-TermReadKey',
                 'perl-URI', 'perl-gettext', 'procps', 'procps',
