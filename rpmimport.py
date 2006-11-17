@@ -95,20 +95,21 @@ class RpmSource:
                 'gzip', 'insserv', 'iproute2', 'iptables', 'iputils',
                 'kbd', 'klogd', 'krb5', 'ksh', 'libaio', 'libattr',
                 'libelf', 'libgcc', 'libjpeg', 'libnscd', 'libpng',
-                'libstdc++', 'libxcrypt', 'mdadm', 'mingetty',
+                'libstdc++', 'libxcrypt', 'make', 'mdadm', 'mingetty',
                 'mkinitrd', 'mktemp', 'module-init-tools', 'ncurses',
                 'net-tools', 'netcfg', 'openldap2',
                 'openldap2-client', 'openslp', 'openssl', 'pam',
-                'pam-modules', 'pciutils', 'pcre', 'perl', 'perl-Bootloader',
-                'perl-Compress-Zlib', 'perl-DBD-SQLite', 'perl-DBI',
-                'perl-Net-Daemon', 'perl-PlRPC', 'perl-TermReadKey',
-                'perl-URI', 'perl-gettext', 'procps', 'procps',
-                'psmisc', 'pwdutils', 'pwdutils', 'python', 'resmgr',
-                'sed', 'slang', 'sles-release', 'sysconfig',
-                'sysfsutils', 'syslog-ng', 'sysvinit', 'sysvinit',
-                'tar', 'tcl', 'tcsh', 'termcap', 'timezone', 'udev',
-                'unixODBC', 'util-linux', 'vim', 'wget',
-                'wireless-tools', 'xorg-x11', 'zlib']:
+                'pam-modules', 'patch', 'pciutils', 'pcre', 'perl',
+                'perl-Bootloader', 'perl-Compress-Zlib',
+                'perl-DBD-SQLite', 'perl-DBI', 'perl-Net-Daemon',
+                'perl-PlRPC', 'perl-TermReadKey', 'perl-URI',
+                'perl-gettext', 'procps', 'procps', 'psmisc',
+                'pwdutils', 'pwdutils', 'python', 'resmgr', 'sed',
+                'slang', 'sles-release', 'sysconfig', 'sysfsutils',
+                'syslog-ng', 'sysvinit', 'sysvinit', 'tar', 'tcl',
+                'tcsh', 'termcap', 'timezone', 'udev', 'unixODBC',
+                'util-linux', 'vim', 'wget', 'wireless-tools',
+                'xorg-x11', 'zlib']:
 
         srpms = list()
         for b in bins:
