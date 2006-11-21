@@ -1,0 +1,225 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2006 rPath, Inc.
+#
+#
+
+from conary import rpmhelper
+
+class RPMImportRecipe(PackageRecipe):
+    name = 'rpmimport'
+    version = '1.0_1'
+    rpms = None
+    archs = [ 'noarch' ]
+    extraArch = {}
+
+    def __init__(r, *args, **kw):
+        r.usedrpms = []
+        r.headers = []
+        PackageRecipe.__init__(r, *args, **kw)
+
+    def unpack(r):
+        if not r.rpms:
+            r.rpms = [ '%(name)s' ]
+        for rpm in r.rpms:
+            # if we have a tuple, it's name, version
+            if isinstance(rpm, tuple):
+                rpmname, verrel = rpm
+                rpm = rpmname + '-%s' %verrel
+            else:
+                rpmname = rpm
+                rpm += '-%(version)s-%(release)s'
+            for rpmarch in r.archs:
+                pkgarch = rpmarch
+                if rpmarch == 'noarch':
+                    arch = True
+                elif rpmarch.startswith('i') and rpmarch.endswith('86'):
+                    # this is i586, i686 - most likely
+                    primaryArch = Arch.x86
+                    arch = primaryArch[rpmarch]
+                    if (rpmarch in r.extraArch
+                        and rpmname not in r.extraArch[rpmarch]
+                        and rpmarch == 'i686'):
+                        # handle cases like glibc, glibc-devel=i686,
+                        # but the rest are i586
+                        pkgarch = 'i586'
+                elif rpmarch == 'x86_64':
+                    arch = Arch[rpmarch]
+                else:
+                    raise RPMImportError('unsupported arch: %s' %rpmarch)
+                rpmfile = rpm + '.%s.rpm' %pkgarch
+                if arch:
+                    r.usedrpms.append(rpmfile %r.macros)
+                # follow the packaging splitting from the RPMs we're importing
+                packagename = rpmname
+                # collapse libfoo -> foo when the main package name is foo
+                # but don't collapse libbar -> bar when it's produced by the
+                # foo src rpm
+                if (not r.name.startswith('lib')
+                    and packagename.startswith('lib')
+                    and packagename[3:].startswith(r.name)):
+                    packagename = packagename[3:]
+                # collapse suffixes
+                for suffix in ('-devel', '-docs', '-doc', '-info',
+                               '-lib', '-libs', '-locale', '-man',
+                               '-i18ndata', '-html'):
+                # collapse foo-devel -> foo
+                    if rpmname.endswith(suffix):
+                        packagename = packagename[:-len(suffix)]
+                        break
+                r.addArchive(rpmfile, dir='/', use=arch, package=packagename)
+
+    def disableBuildRequirementsPolicy(r):
+        r.EnforceSonameBuildRequirements(exceptions='.*')
+        r.EnforceJavaBuildRequirements(exceptions='.*')
+        r.EnforceCILBuildRequirements(exceptions='.*')
+        r.EnforceConfigLogBuildRequirements(exceptions='.*')
+        # Note that perl and python runtime requirement CANNOT
+        # be discovered without listing them as runtime requirements,
+        # so it is important not to disable
+        # r.Enforce{Perl,Python}BuildRequirements
+
+    def disablePolicy(r):
+        r.BadInterpreterPaths(exceptions='.*')
+        r.CheckDesktopFiles(exceptions='.*')
+        r.CheckDestDir(exceptions='.*')
+        r.CheckSonames(exceptions='.*')
+        r.DanglingSymlinks(exceptions='.*')
+        r.ExecutableLibraries(exceptions='.*')
+        r.FilesForDirectories(exceptions='.*')
+        r.FilesInMandir(exceptions='.*')
+        r.FixDirModes(exceptions='.*')
+        r.FixupMultilibPaths(exceptions='.*')
+        r.LinkCount(exceptions='.*')
+        r.IgnoredSetuid(exceptions='.*')
+        r.ImproperlyShared(exceptions='.*')
+        r.NonBinariesInBindirs(exceptions='.*')
+        r.NonMultilibComponent(exceptions='.*')
+        r.NonMultilibDirectories(exceptions='.*')
+        r.NormalizeCompression(exceptions='.*')
+        r.NormalizeInterpreterPaths(exceptions='.*')
+        r.RemoveNonPackageFiles(exceptions='.*')
+        r.WarnWriteable(exceptions='.*')
+        r.WorldWriteableExecutables(exceptions='.*')
+        # ObsoletePaths does not honor exceptions
+        del r.ObsoletePaths
+
+    def disableStrip(r):
+        """
+        Default to not stripping; allow override in subclasses with:
+
+        def disableStrip(r): pass
+        """
+        r.Strip(exceptions='.*')
+
+    def policy(r):
+        """
+        hook for adding additional policy in subclasses.
+        """
+        pass
+
+    def preprocess(r):
+        "hook for adding sources/policy calls before anything else"
+        pass
+
+    def postprocess(r):
+        "hook for adding sources/policy calls after anything else"
+        pass
+
+    def readHeaders(r):
+        sourceList = r.fetchAllSources()
+        for rpmname in r.usedrpms:
+            rpmfiles = [ x for x in sourceList if os.path.basename(x) == rpmname ]
+            if len(rpmfiles) != 1:
+                raise RPMImportError('more than one source object matches '
+                                      'the "%s" rpm filename' %rpmname)
+            rpmfile = rpmfiles[0]
+            r.headers.append(rpmhelper.readHeader(file(rpmfile)))
+
+    def processFiles(r):
+        # given the set of RPM headers used, set permissions, config
+        # flags, etc appropriately
+        for header in r.headers:
+            for path, mode, rdev, flags, username, groupname in zip(
+                header.paths(),
+                header[rpmhelper.FILEMODES],
+                header[rpmhelper.FILERDEVS],
+                header[rpmhelper.FILEFLAGS],
+                header[rpmhelper.FILEUSERNAME],
+                header[rpmhelper.FILEGROUPNAME]):
+                path = util.normpath(path)
+                escaped_path = util.literalRegex(path)
+                escaped_path = escaped_path.replace('\\/', '/')
+                # handle non-root ownership
+                if username != 'root' or groupname != 'root':
+                    r.Ownership(username, groupname, escaped_path)
+                if stat.S_ISDIR(mode):
+                    # hande directories with permissions other than
+                    # root:root 755 (new conary should handle this for
+                    # us automatically)
+                    r.MakeDirs(path)
+                    if (mode & 07777 != 0755 or username != 'root'
+                        or groupname != 'root'):
+                        r.ExcludeDirectories(exceptions=escaped_path)
+                elif stat.S_ISCHR(mode) or stat.S_ISBLK(mode):
+                    if stat.S_ISCHR(mode):
+                        type='c'
+                    else:
+                        type='b'
+                    # this is correct for 32-bit device number
+                    # RPM does not provide 64-bit device number
+                    minor = rdev & 0xff | (rdev >> 12) & 0xffffff00
+                    major = (rdev >> 8) & 0xfff
+                    r.MakeDevices(escaped_path, type, major, minor,
+                                  username, groupname, mode&0777)
+                    continue
+
+                if flags & (1 << 0):
+                    # CONFIG
+                    r.Config(escaped_path)
+                if (flags & (1 << 1) or
+                      flags & (1 << 7) or
+                      flags & (1 << 8)):
+                    # DOC, LICENSE, README
+                    r.ComponentSpec('doc', escaped_path)
+                if flags & (1 << 4):
+                    # NOREPLACE
+                    r.InitialContents(escaped_path)
+                if flags & (1 << 6):
+                    # GHOST.  We only handle ghost files, not ghost dirs
+                    if stat.S_ISREG(mode):
+                        r.Create(path)
+                        r.InitialContents(escaped_path)
+                    elif stat.S_ISDIR(mode):
+                        r.ExcludeDirectories(exceptions=escaped_path)
+
+                # handle "special" permissions (although un-cpio'ing
+                # the payload should have set them all correctly, payload
+                # doesn't include things like %gost)
+                if not stat.S_ISLNK(mode):
+                    r.SetModes(path, mode & 07777)
+
+    def processRequires(r):
+        # FIXME: implement
+        pass
+
+    def processProvides(r):
+        # FIXME: implement
+        pass
+
+    def setup(r):
+        if r.__class__.__name__ == 'RPMImportRecipe':
+            return
+        r.macros.version, r.macros.release = r.version.rsplit('_', 1)
+        r.preprocess()
+        r.unpack()
+        r.policy()
+        r.readHeaders()
+        r.processFiles()
+        r.disableBuildRequirementsPolicy()
+        r.disableStrip()
+        r.disablePolicy()
+        r.postprocess()
+
+class RPMImportError(Exception):
+    pass
