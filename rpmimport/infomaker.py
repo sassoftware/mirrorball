@@ -17,6 +17,7 @@
 
 import grp
 import pwd
+import sys
 
 class InfoMaker:
     def __init__(self, cfg, repos, recipeMaker):
@@ -158,6 +159,7 @@ if __name__ == '__main__':
     from conary import deps
     from conary.lib import util
     from conary.build import use
+    from rpmimport import RecipeMaker, RpmSource
 
     sys.excepthook = util.genExcepthook(debug=True)
 
@@ -178,3 +180,4 @@ if __name__ == '__main__':
     recipeMaker = RecipeMaker(cvc, cfg, repos, rpmSource)
 
     infoMaker = InfoMaker(cfg, repos, recipeMaker)
+    infoMaker.makeInfo(set(['video']), set())
