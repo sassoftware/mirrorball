@@ -87,31 +87,30 @@ class RpmSource:
 
         bins = ['aaa_base', 'acl', 'alsa', 'apache2', 'ash', 'attr',
                 'bash', 'binutils', 'bzip2', 'compat-libstdc++',
-                'coreutils', 'cpio', 'cracklib', 'cron', 'cyrus-sasl',
+                'coreutils', 'cpio', 'cpp', 'cracklib', 'cron', 'cyrus-sasl',
                 'db', 'dhcpcd', 'diffutils', 'e2fsprogs', 'expat',
-                'expect', 'file', 'filesystem', 'findutils',
+                'expect', 'file', 'filesystem', 'fillup', 'findutils',
                 'findutils-locate', 'fontconfig', 'freetype',
-                'freetype2', 'gawk', 'gdbm', 'glib2', 'glibc', 'gmp',
+                'freetype2', 'gawk', 'gcc', 'gdbm', 'glib2', 'glibc', 'gmp',
                 'gpm', 'grep', 'grub', 'gzip', 'insserv', 'iproute2',
-                'iptables', 'iputils', 'kbd', 'klogd', 'krb5', 'ksh',
-                'less', 'libaio', 'libapr-util1', 'libapr1',
-                'libattr', 'libelf', 'libgcc', 'libjpeg', 'libnscd',
-                'libpcap', 'libpng', 'libstdc++', 'libusb',
-                'libxcrypt', 'make', 'mdadm', 'mingetty', 'mkinitrd',
-                'mktemp', 'module-init-tools', 'ncurses', 'net-tools',
-                'netcfg', 'openldap2', 'openldap2-client', 'openslp',
-                'openssl', 'pam', 'pam-modules', 'patch', 'pciutils',
-                'pcre', 'perl', 'perl-Bootloader',
-                'perl-Compress-Zlib', 'perl-DBD-SQLite', 'perl-DBI',
-                'perl-Digest-SHA1', 'perl-Net-Daemon', 'perl-PlRPC',
-                'perl-TermReadKey', 'perl-URI', 'perl-gettext',
-                'procps', 'procps', 'psmisc', 'pwdutils', 'pwdutils',
-                'python', 'resmgr', 'sed', 'slang', 'sles-release',
-                'sysconfig', 'sysfsutils', 'syslog-ng', 'sysvinit',
-                'sysvinit', 'tar', 'tcl', 'tcsh', 'tcpdump',
-                'termcap', 'timezone', 'udev', 'unixODBC',
-                'util-linux', 'vim', 'wget', 'wireless-tools',
-                'xorg-x11', 'zlib']
+                'iptables', 'iputils', 'jpeg', 'kbd', 'klogd', 'krb5', 'ksh',
+                'less', 'libaio', 'libapr1', 'libapr-util1', 'libattr', 'libcom_err', 'libelf', 'libgcc',
+                'libjpeg', 'libnscd', 'libpcap', 'libpng',
+                'libstdc++', 'libusb', 'libxcrypt', 'make', 'mdadm', 'mingetty',
+                'mkinitrd', 'mktemp', 'module-init-tools', 'ncurses',
+                'net-tools', 'netcfg', 'openldap2',
+                'openldap2-client', 'openslp', 'openssl', 'pam',
+                'pam-modules', 'patch', 'pciutils', 'pcre', 'perl',
+                'perl-Bootloader', 'perl-Compress-Zlib',
+                'perl-DBD-SQLite', 'perl-DBI', 'perl-Digest-SHA1', 'perl-Net-Daemon',
+                'perl-PlRPC', 'perl-TermReadKey', 'perl-URI',
+                'perl-gettext', 'procps', 'psmisc',
+                'pwdutils', 'python', 'python-xml', 'resmgr', 'sed',
+                'slang', 'sles-release', 'sysconfig', 'sysfsutils',
+                'syslog-ng', 'sysvinit', 'tar', 'tcl',
+                'tcsh', 'tcpdump', 'termcap', 'timezone', 'udev',
+                'unixODBC', 'util-linux', 'vim', 'wget',
+                'wireless-tools', 'xorg-x11', 'zlib']
 
         srpms = list()
         for b in bins:
@@ -197,98 +196,3 @@ class RpmSource:
             a("    extraArch = { 'i686': [ %s ] }" %self.quoteSequence(extras))
         a('')
         return '\n'.join(l)
-
-class RecipeMaker:
-    def __init__(self, cvc, cfg, repos, rpmSource):
-        self.cvc = cvc
-        self.cfg = cfg
-        self.repos = repos
-        self.rpmSource = rpmSource
-
-    def create(self, pkgname, recipeContents, srpm = None):
-        print 'creating initial template for', pkgname
-        try:
-            shutil.rmtree(pkgname)
-        except OSError, e:
-            pass
-        self.cvc.sourceCommand(self.cfg, [ "newpkg", pkgname], {})
-        cwd = os.getcwd()
-        os.chdir(pkgname)
-        try:
-            recipe = pkgname + '.recipe'
-            f = open(recipe, 'w')
-            f.write(recipeContents)
-            f.close()
-            addfiles = [ 'add', recipe ]
-
-            # copy all the binaries to the cwd
-            if srpm:
-                for path, fn in self.rpmSource.rpmMap[src].iteritems():
-                    shutil.copy(fn, path)
-                    addfiles.append(path)
-            self.cvc.sourceCommand(self.cfg, addfiles, {})
-            #self.cvc.sourceCommand(self.cfg, ['cook', recipe], {})
-            self.cvc.sourceCommand(self.cfg,
-                              [ 'commit' ],
-                              { 'message':
-                                'Automated initial commit of ' + recipe })
-            #self.cvc.sourceCommand(self.cfg, ['cook', pkgname], {})
-        finally:
-            os.chdir(cwd)
-
-if __name__ == '__main__':
-    from conary import conaryclient, conarycfg, versions, errors, cvc
-    from conary import deps
-    from conary.lib import util
-    from conary.build import use
-
-    sys.excepthook = util.genExcepthook(debug=True)
-
-    cfg = conarycfg.ConaryConfiguration(readConfigFiles=True)
-    cfg.initializeFlavors()
-
-    buildFlavor = deps.deps.parseFlavor('is:x86(i586,!i686)')
-    cfg.buildFlavor = deps.deps.overrideFlavor(cfg.buildFlavor,
-                                               buildFlavor)
-    use.setBuildFlagsFromFlavor(None, cfg.buildFlavor, error=False)
-
-    client = conaryclient.ConaryClient(cfg)
-    repos = client.getRepos()
-    roots = sys.argv[1:]
-    rpmSource = RpmSource()
-    for root in roots:
-        rpmSource.walk(root)
-    recipeMaker = RecipeMaker(cvc, cfg, repos, rpmSource)
-
-    # {foo:source: {cfg.buildLabel: None}}
-    srccomps = {}
-
-    # {foo:source: foo-1.0-1.1.src.rpm}
-    srcmap = {}
-    for src in rpmSource.getSrpms():
-        h = rpmSource.getHeader(rpmSource.srcPath[src])
-        srccomp = h[NAME] + ':source'
-        srcmap[srccomp] = src
-        srccomps[srccomp] = {cfg.buildLabel: None}
-    d = repos.getTroveVersionsByLabel(srccomps)
-
-    # Iterate over foo:source.
-    for srccomp in srccomps.iterkeys():
-        if srccomp not in d:
-            src = srcmap[srccomp]
-            pkgname = srccomp.split(':')[0]
-            recipeMaker.create(pkgname, rpmSource.createTemplate(src), src)
-
-
-    # Get all users and groups used in this run.
-    users = set()
-    groups = set()
-    for src in rpmSource.getSrpms():
-        for rpm in rpmSource.rpmMap[src].values():
-            header = rpmSource.getHeader(rpm)
-            users = users.union(header[FILEUSERNAME])
-            groups = groups.union(header[FILEGROUPNAME])
-
-    import infoimport
-    infoMaker = infoimport.InfoMaker(cfg, repos, recipeMaker)
-    infoMaker.makeInfo(users, groups)
