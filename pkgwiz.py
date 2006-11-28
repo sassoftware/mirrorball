@@ -1,7 +1,7 @@
+from conary import cvc, rpmhelper
 import conary.lib.util
-import infoimport
 import os
-import rpmimport
+from rpmimport import infomaker, recipemaker, rpmsource
 import shutil
 import sys
 
@@ -21,7 +21,7 @@ class PkgWiz:
         self.cfg = None
         self.client = None
         self.repos = None
-        self.rpmSource = rpmimport.RpmSource()
+        self.rpmSource = rpmsource.RpmSource()
         self.recipeMaker = None
 
     def help(self):
@@ -34,6 +34,10 @@ class PkgWiz:
 
         self.cfg = conarycfg.ConaryConfiguration(readConfigFiles=True)
         self.cfg.initializeFlavors()
+        cvcCommand = cvc.CvcCommand()
+        cvcCommand.setContext(self.cfg, dict())
+        if not self.cfg.buildLabel and self.cfg.installLabelPath:
+            self.cfg.buildLabel = self.cfg.installLabelPath[0]
 
         buildFlavor = deps.deps.parseFlavor('is:x86(i586,!i686)')
         self.cfg.buildFlavor = deps.deps.overrideFlavor(
@@ -42,7 +46,7 @@ class PkgWiz:
 
         self.client = conaryclient.ConaryClient(self.cfg)
         self.repos = self.client.getRepos()
-        self.recipeMaker = rpmimport.RecipeMaker(self.cfg, self.repos, self.rpmSource)
+        self.recipeMaker = recipemaker.RecipeMaker(self.cfg, self.repos, self.rpmSource)
 
     def createPkgs(self, dirs):
         for dir in dirs:
@@ -55,9 +59,9 @@ class PkgWiz:
         srcmap = {}
         for src in self.rpmSource.getSrpms():
             h = self.rpmSource.getHeader(self.rpmSource.srcPath[src])
-            srccomp = h[NAME] + ':source'
+            srccomp = h[rpmhelper.NAME] + ':source'
             srcmap[srccomp] = src
-            srccomps[srccomp] = {cfg.buildLabel: None}
+            srccomps[srccomp] = {self.cfg.buildLabel: None}
         d = self.repos.getTroveVersionsByLabel(srccomps)
 
         # Iterate over foo:source.
@@ -69,10 +73,10 @@ class PkgWiz:
             else:
                 # The package already exists in the repository, so query its
                 # version.
-                oldVersion = 1# FIXME
+                oldVersion = d[srccomp].keys()[0].trailingRevision().getVersion()
                 # Get the version
-                srchdr = self.rpmSource.getHeader(self.rpmSource.srcPath(src))
-                newVersion = '%s_%s' % (srchdr[VERSION], srchdr[RELEASE])
+                srchdr = self.rpmSource.getHeader(self.rpmSource.srcPath[src])
+                newVersion = '%s_%s' % (srchdr[rpmhelper.VERSION], srchdr[rpmhelper.RELEASE])
                 if newVersion == oldVersion:
                     continue
 
@@ -125,12 +129,6 @@ class PkgWiz:
                 cvc.sourceCommand(self.cfg,
                     [ 'commit' ], {'message': 'Automated update of ' + pkgname})
 
-    def test(self):
-        import epdb
-        epdb.st()
-        from conary.state import ConaryStateFromFile
-        conaryState = ConaryStateFromFile("/home/xiaowen/nuernberg/pwdutils/CONARY", self.repos)
-
     def createUsers(self, users):
         # Get all users and groups used in this run.
         users = set()
@@ -141,8 +139,7 @@ class PkgWiz:
                 users = users.union(header[FILEUSERNAME])
                 groups = groups.union(header[FILEGROUPNAME])
 
-        import infoimport
-        infoMaker = infoimport.InfoMaker(cfg, repos, self.recipeMaker)
+        infoMaker = infomaker.InfoMaker(cfg, repos, self.recipeMaker)
         infoMaker.makeInfo(users, groups)
 
     def main(self, argv):
@@ -158,7 +155,7 @@ class PkgWiz:
             dirs = argv[2:]
             if not dirs:
                 dirs = ['.']
-            self.test()
+            self.repo()
             self.createPkgs(dirs)
         elif 'accounts' == category:
             users = argv[2:]

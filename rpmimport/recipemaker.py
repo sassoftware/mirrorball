@@ -1,3 +1,7 @@
+import os
+import shutil
+
+
 class RecipeMaker:
     def __init__(self, cfg, repos, rpmSource):
         self.cfg = cfg
@@ -24,7 +28,7 @@ class RecipeMaker:
 
             # copy all the binaries to the cwd
             if srpm:
-                for path, fn in self.rpmSource.rpmMap[src].iteritems():
+                for path, fn in self.rpmSource.rpmMap[srpm].iteritems():
                     shutil.copy(fn, path)
                     addfiles.append(path)
             cvc.sourceCommand(self.cfg, addfiles, {})
@@ -33,6 +37,6 @@ class RecipeMaker:
                               [ 'commit' ],
                               { 'message':
                                 'Automated initial commit of ' + recipe })
-            cvc.sourceCommand(self.cfg, ['cook', pkgname], {'no-deps': None})
+            #cvc.sourceCommand(self.cfg, ['cook', pkgname], {'no-deps': None})
         finally:
             os.chdir(cwd)
