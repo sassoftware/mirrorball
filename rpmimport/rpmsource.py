@@ -126,6 +126,7 @@ class RpmSource:
             'grep',
             'grub',
             'gzip',
+            'hwinfo',
             'insserv',
             'iproute2',
             'iptables',
