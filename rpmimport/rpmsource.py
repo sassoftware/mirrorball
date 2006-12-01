@@ -101,18 +101,18 @@ class RpmSource:
                 'libstdc++', 'libusb', 'libxcrypt', 'make', 'mdadm',
                 'mingetty', 'mkinitrd', 'mktemp', 'module-init-tools',
                 'ncurses', 'net-tools', 'netcfg', 'openldap2',
-                'openldap2-client', 'openslp', 'openssh', 'openssl', 'pam',
-                'pam-modules', 'patch', 'pciutils', 'pcre', 'perl',
-                'perl-Bootloader', 'perl-Compress-Zlib',
+                'openldap2-client', 'openslp', 'openssh', 'openssl',
+                'pam', 'pam-modules', 'patch', 'pciutils', 'pcre',
+                'perl', 'perl-Bootloader', 'perl-Compress-Zlib',
                 'perl-DBD-SQLite', 'perl-DBI', 'perl-Digest-SHA1',
                 'perl-Net-Daemon', 'perl-PlRPC', 'perl-TermReadKey',
-                'perl-URI', 'perl-gettext', 'php5', 'procps', 'psmisc',
-                'pwdutils', 'python', 'python-xml', 'resmgr', 'sed',
-                'slang', 'sles-release', 'sysconfig', 'sysfsutils',
-                'syslog-ng', 'sysvinit', 'tar', 'tcl', 'tcsh',
-                'tcpdump', 'termcap', 'timezone', 'udev', 'unixODBC',
-                'util-linux', 'vim', 'wget', 'wireless-tools',
-                'xorg-x11', 'zlib']
+                'perl-URI', 'perl-gettext', 'php5', 'procps',
+                'psmisc', 'pwdutils', 'python', 'python-xml',
+                'resmgr', 'sed', 'slang', 'sles-release', 'sysconfig',
+                'sysfsutils', 'syslog-ng', 'sysvinit', 'tar', 'tcl',
+                'tcsh', 'tcpdump', 'termcap', 'timezone', 'udev',
+                'unixODBC', 'util-linux', 'vim', 'wget',
+                'wireless-tools', 'xorg-x11', 'zlib']
 
         srpms = list()
         for b in bins:
