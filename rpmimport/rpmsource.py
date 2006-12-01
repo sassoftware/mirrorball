@@ -103,7 +103,7 @@ class RpmSource:
             'cron',
             'cyrus-sasl',
             'db',
-            'dbus',
+            'dbus-1',
             'dhcpcd',
             'diffutils',
             'e2fsprogs',
