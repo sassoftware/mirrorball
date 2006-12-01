@@ -106,7 +106,7 @@ class RpmSource:
                 'perl-Bootloader', 'perl-Compress-Zlib',
                 'perl-DBD-SQLite', 'perl-DBI', 'perl-Digest-SHA1',
                 'perl-Net-Daemon', 'perl-PlRPC', 'perl-TermReadKey',
-                'perl-URI', 'perl-gettext', 'procps', 'psmisc',
+                'perl-URI', 'perl-gettext', 'php', 'procps', 'psmisc',
                 'pwdutils', 'python', 'python-xml', 'resmgr', 'sed',
                 'slang', 'sles-release', 'sysconfig', 'sysfsutils',
                 'syslog-ng', 'sysvinit', 'tar', 'tcl', 'tcsh',
