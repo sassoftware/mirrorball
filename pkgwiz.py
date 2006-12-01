@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from conary import cvc, rpmhelper
 import conary.lib.util
 import os
