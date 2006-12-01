@@ -109,8 +109,6 @@ class PkgWiz:
                 recipeFile.close()
 
                 # Remove the original RPMs and add the new ones.
-                import epdb
-                epdb.st()
                 cwd = os.getcwd()
                 os.chdir(pkgname)
                 from conary.state import ConaryStateFromFile
