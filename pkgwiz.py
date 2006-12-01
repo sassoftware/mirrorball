@@ -12,9 +12,11 @@ accounts <user>|<group> [<user>|<group> ...]
 
 pkgs can be given individual RPMs or the root of a directory tree to walk.
 
-When packages are imported, they will be checked against what's in the repository.  If newer, then check new one in.
+When packages are imported, they will be checked against what's in the
+repository.  If newer, then check new one in.
 
-accounts will create user and/or group info- packages, using information from the build system.
+accounts will create user and/or group info- packages, using
+information from the build system.
 """
 
 class PkgWiz:
