@@ -85,7 +85,7 @@ class RpmSource:
         Get all sources we think we need now.
         """
 
-        bins = [
+        bins = (
             'aaa_base',
             'acl',
             'alsa',
@@ -215,7 +215,7 @@ class RpmSource:
             'wireless-tools',
             'xorg-x11',
             'zlib'
-        ]
+        )
 
         srpms = list()
         for b in bins:
