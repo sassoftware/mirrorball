@@ -190,6 +190,7 @@ class RpmSource:
             'perl-URI',
             'perl-gettext',
             'php5',
+            'popt',
             'procps',
             'psmisc',
             'pwdutils',
