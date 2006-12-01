@@ -101,7 +101,7 @@ class RpmSource:
                 'libstdc++', 'libusb', 'libxcrypt', 'make', 'mdadm',
                 'mingetty', 'mkinitrd', 'mktemp', 'module-init-tools',
                 'ncurses', 'net-tools', 'netcfg', 'openldap2',
-                'openldap2-client', 'openslp', 'openssl', 'pam',
+                'openldap2-client', 'openslp', 'openssh', 'openssl', 'pam',
                 'pam-modules', 'patch', 'pciutils', 'pcre', 'perl',
                 'perl-Bootloader', 'perl-Compress-Zlib',
                 'perl-DBD-SQLite', 'perl-DBI', 'perl-Digest-SHA1',
