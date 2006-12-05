@@ -192,6 +192,7 @@ class RpmSource:
             'perl-URI',
             'perl-gettext',
             'php5',
+            'pkgconfig',
             'popt',
             'procps',
             'psmisc',
