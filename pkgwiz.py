@@ -1,4 +1,19 @@
 #!/usr/bin/python
+#
+# Copyright (c) 2006,2008 rPath, Inc.
+#
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 from conary import cvc, rpmhelper
 import conary.lib.util
 import os
@@ -18,6 +33,146 @@ repository.  If newer, then check new one in.
 accounts will create user and/or group info- packages, using
 information from the build system.
 """
+sles10sp1prefix = '/srv/www/html/sle/'
+sles10sp1pkgs = (
+    'aaa_base',
+    'acl',
+    'apache2',
+    'ash',
+    'attr',
+    'audit',
+    'bash',
+    'binutils',
+    'bzip2',
+    'compat-libstdc++',
+    'coreutils',
+    'cpio',
+    'cpp',
+    'cracklib',
+    'cron',
+    'cyrus-sasl',
+    'device-mapper',
+    'db',
+    'dbus-1',
+    'dhcpcd',
+    'diffutils',
+    'e2fsprogs',
+    'expat',
+    'expect',
+    'file',
+    'filesystem',
+    'fillup',
+    'findutils',
+    'findutils-locate',
+    'fontconfig',
+    'freetype',
+    'freetype2',
+    'gawk',
+    'gcc',
+    'gdbm',
+    'glib2',
+    'glibc',
+    'gmp',
+    'gpm',
+    'grep',
+    'grub',
+    'gzip',
+    'hal',
+    'hwinfo',
+    'insserv',
+    'iproute2',
+    'iptables',
+    'iputils',
+    #'java-1_4_2-sun',
+    'jpeg',
+    'kbd',
+    'klogd',
+    'krb5',
+    'ksh',
+    'less',
+    'lvm2',
+    'libaio',
+    'libapr1',
+    'libapr-util1',
+    'libattr',
+    'libcom_err',
+    'libelf',
+    'libgcc',
+    'libgssapi',
+    'libjpeg',
+    'libnscd',
+    'libpcap',
+    'libpng',
+    'libstdc++',
+    'libtool',
+    'libusb',
+    'libxcrypt',
+    'libxml2',
+    'make',
+    'mdadm',
+    'mingetty',
+    'mkinitrd',
+    'mktemp',
+    'mm',
+    'module-init-tools',
+    'ncurses',
+    'net-tools',
+    'netcfg',
+    'openct',
+    'openldap2',
+    'openldap2-client',
+    'opensc',
+    'openslp',
+    'openssh',
+    'openssl',
+    'pam',
+    'pam-modules',
+    'patch',
+    'pciutils',
+    'pcre',
+    'perl',
+    'perl-Bootloader',
+    'perl-Compress-Zlib',
+    'perl-DBD-SQLite',
+    'perl-DBI',
+    'perl-Digest-SHA1',
+    'perl-Net-Daemon',
+    'perl-PlRPC',
+    'perl-TermReadKey',
+    'perl-URI',
+    'perl-gettext',
+    'php5',
+    'pkgconfig',
+    'popt',
+    'procps',
+    'psmisc',
+    'pwdutils',
+    'python',
+    'python-xml',
+    'resmgr',
+    'sed',
+    'slang',
+    'sles-release',
+    'sysconfig',
+    'sysfsutils',
+    'syslog-ng',
+    'sysvinit',
+    'tar',
+    'tcl',
+    'tcpd',
+    'tcsh',
+    'tcpdump',
+    'termcap',
+    'timezone',
+    'udev',
+    'unixODBC',
+    'util-linux',
+    'vim',
+    'wget',
+    'wireless-tools',
+    'xorg-x11',
+    'zlib'
+    )
 
 class PkgWiz:
     def __init__(self):
@@ -30,12 +185,15 @@ class PkgWiz:
     def help(self):
         print HELP_TEXT
 
-    def repo(self):
+    def _setupRepo(self):
+        if self.cfg:
+            return
         from conary import conaryclient, conarycfg, versions, errors
         from conary import deps
         from conary.build import use
 
         self.cfg = conarycfg.ConaryConfiguration(readConfigFiles=True)
+        self.cfg.read(os.path.dirname(__file__) + '/conaryrc')
         self.cfg.initializeFlavors()
         cvcCommand = cvc.CvcCommand()
         cvcCommand.setContext(self.cfg, dict())
@@ -52,6 +210,7 @@ class PkgWiz:
         self.recipeMaker = recipemaker.RecipeMaker(self.cfg, self.repos, self.rpmSource)
 
     def createPkgs(self, dirs):
+        self._setupRepo()
         for dir in dirs:
             self.rpmSource.walk(dir)
 
@@ -60,7 +219,7 @@ class PkgWiz:
 
         # {foo:source: foo-1.0-1.1.src.rpm}
         srcmap = {}
-        for src in self.rpmSource.getSrpms():
+        for src in set(self.rpmSource.getSrpms(sles10sp1pkgs)):
             h = self.rpmSource.getHeader(self.rpmSource.srcPath[src])
             srccomp = h[rpmhelper.NAME] + ':source'
             srcmap[srccomp] = src
@@ -68,73 +227,21 @@ class PkgWiz:
         d = self.repos.getTroveVersionsByLabel(srccomps)
 
         # Iterate over foo:source.
-        for srccomp in srccomps.iterkeys():
-            src = srcmap[srccomp]
+        for srccomp in set(srccomps.iterkeys()):
+            srpm = srcmap[srccomp]
             pkgname = srccomp.split(':')[0]
             if srccomp not in d:
-                self.recipeMaker.create(pkgname, self.rpmSource.createTemplate(src), src)
+                self.recipeMaker.createManifest(pkgname, srpm, sles10sp1prefix)
             else:
-                # The package already exists in the repository, so query its
-                # version.
-                oldVersion = d[srccomp].keys()[0].trailingRevision().getVersion()
-                # Get the version
-                srchdr = self.rpmSource.getHeader(self.rpmSource.srcPath[src])
-                newVersion = '%s_%s' % (srchdr[rpmhelper.VERSION], srchdr[rpmhelper.RELEASE])
-                if newVersion == oldVersion:
-                    continue
-
-                # Check it out.
-                from conary import cvc
-                cvc.sourceCommand(self.cfg, ['checkout', pkgname])
-
-                # Look for the version string and replace it with the new.
-                import re
-                pattern = re.compile("""(?P<lead>\\s+)version\\s*=\\s*['"]([^'"\\s]+_[^'"\\s]+)['"]\\s*$""")
-                filename = os.path.join(pkgname, pkgname + ".recipe")
-                recipeFile = open(filename)
-                lines = recipeFile.readlines()
-                recipeFile.close()
-                spot = None
-                for (index, line) in lines:
-                    match = pattern.match(line)
-                    if match:
-                        spot = index
-                        break
-                if not spot:
-                    raise Exception(
-                        "The version string was not found in the %s recipe."
-                        "  Is this correct?" %pkgname)
-                lines = lines[:spot] + [match.group('lead')
-                    + "version = '%s'\n" %newVersion] + lines[spot+1:]
-                recipeFile = open(filename, 'w')
-                recipeFile.write(''.join(lines))
-                recipeFile.close()
-
-                # Remove the original RPMs and add the new ones.
-                cwd = os.getcwd()
-                os.chdir(pkgname)
-                from conary.state import ConaryStateFromFile
-                conaryState = ConaryStateFromFile("CONARY", repos)
-                state = conaryState.getSourceState()
-                rpms = []
-                for (theId, path, fileId, version) in state.iterFileList():
-                    if path.endswith('rpm'):
-                        rpms.append(path)
-                for rpm in rpms:
-                    cvc.sourceCommand(self.cfg, ['remove', rpm])
-                addfiles = ['add']
-                for path, fn in self.rpmSource.rpmMap[src].iteritems():
-                    shutil.copy(fn, path)
-                    addfiles.append(path)
-                cvc.sourceCommand(self.cfg, addfiles, {})
-                cvc.sourceCommand(self.cfg,
-                    [ 'commit' ], {'message': 'Automated update of ' + pkgname})
+                continue
+                self.recipeMaker.updateManifest(pkgname, srpm, sles10sp1prefix)
 
     def createUsers(self, users):
+        self._setupRepo()
         # Get all users and groups used in this run.
         users = set()
         groups = set()
-        for src in self.rpmSource.getSrpms():
+        for src in self.rpmSource.getSrpms(slessp1pkgs):
             for rpm in self.rpmSource.rpmMap[src].values():
                 header = self.rpmSource.getHeader(rpm)
                 users = users.union(header[FILEUSERNAME])
@@ -156,7 +263,6 @@ class PkgWiz:
             dirs = argv[2:]
             if not dirs:
                 dirs = ['.']
-            self.repo()
             self.createPkgs(dirs)
         elif 'accounts' == category:
             users = argv[2:]

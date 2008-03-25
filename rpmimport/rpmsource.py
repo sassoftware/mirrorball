@@ -1,6 +1,5 @@
-#!/usr/bin/python
 #
-# Copyright (c) 2006 rPath, Inc.
+# Copyright (c) 2006,2008 rPath, Inc.
 #
 #
 # This program is distributed under the terms of the Common Public License,
@@ -23,7 +22,7 @@ from conary import rpmhelper
 
 # make local copies of tags for convenience
 for tag in ('NAME', 'VERSION', 'RELEASE', 'SOURCERPM', 'FILEUSERNAME',
-    'FILEGROUPNAME'):
+            'FILEGROUPNAME'):
     sys.modules[__name__].__dict__[tag] = getattr(rpmhelper, tag)
 ARCH = 1022
 
@@ -62,171 +61,56 @@ class RpmSource:
     def procSrc(self, f, rpm):
         self.srcPath[rpm] = f
 
+    def getRPMS(self, src):
+        """
+        @return list of binary RPMS built from this source.
+        """
+        return [ x for x in self.rpmMap[src].itervalues() ]
+
     def walk(self, root):
         """
         Walk the tree rooted at root and collect information about rpms found.
         """
-
+        ignored = ('patch.rpm', 'delta.rpm')
         for dirpath, dirnames, filenames in os.walk(root):
             for f in filenames:
                 # ignore the 32-bit compatibility libs - we will
                 # simply use the 32-bit components from the repository
+                skip = False
                 if '32bit' in f:
+                    skip = True
+                for suffix in ignored:
+                    if f.endswith(suffix):
+                        skip = True
+                        break
+                        continue
+                if not f.endswith(".rpm"):
+                    skip = True
+                if skip:
                     continue
-                if f.endswith(".rpm"):
-                    fullpath = os.path.join(dirpath, f)
-                    if f.endswith(".src.rpm") or f.endswith('.nosrc.rpm'):
-                        self.procSrc(fullpath, f)
-                    else:
-                        self.procBin(fullpath, f)
+                fullpath = os.path.join(dirpath, f)
+                try:
+                    h = self.getHeader(fullpath)
+                except IOError:
+                    print 'bad rpm:', fullpath
+                    os.unlink(fullpath)
+                    continue
+                if h[VERSION] not in f:
+                    # ignore files like aaa_base.rpm.  We only want
+                    # one version, like aaa_base-10-0.8.x86_64.rpm
+                    continue
+                if f.endswith(".src.rpm") or f.endswith('.nosrc.rpm'):
+                    self.procSrc(fullpath, f)
+                else:
+                    self.procBin(fullpath, f)
 
-    def getSrpms(self):
+    def getSrpms(self, pkglist):
         """
-        Get all sources we think we need now.
+        Get source RPMS for a given list of binary RPM package names
         """
-
-        bins = (
-            'aaa_base',
-            'acl',
-            'alsa',
-            'apache2',
-            'ash',
-            'attr',
-            'bash',
-            'binutils',
-            'bzip2',
-            'compat-libstdc++',
-            'coreutils',
-            'cpio',
-            'cpp',
-            'cracklib',
-            'cron',
-            'cyrus-sasl',
-            'device-mapper',
-            'db',
-            'dbus-1',
-            'dhcpcd',
-            'diffutils',
-            'e2fsprogs',
-            'expat',
-            'expect',
-            'file',
-            'filesystem',
-            'fillup',
-            'findutils',
-            'findutils-locate',
-            'fontconfig',
-            'freetype',
-            'freetype2',
-            'gawk',
-            'gcc',
-            'gdbm',
-            'glib2',
-            'glibc',
-            'gmp',
-            'gpm',
-            'grep',
-            'grub',
-            'gzip',
-            'hal',
-            'hwinfo',
-            'insserv',
-            'iproute2',
-            'iptables',
-            'iputils',
-            #'java-1_4_2-sun',
-            'jpeg',
-            'kbd',
-            'klogd',
-            'krb5',
-            'ksh',
-            'less',
-            'lvm2',
-            'libaio',
-            'libapr1',
-            'libapr-util1',
-            'libattr',
-            'libcom_err',
-            'libelf',
-            'libgcc',
-            'libjpeg',
-            'libnscd',
-            'libpcap',
-            'libpng',
-            'libstdc++',
-            'libtool',
-            'libusb',
-            'libxcrypt',
-            'libxml2',
-            'make',
-            'mdadm',
-            'mingetty',
-            'mkinitrd',
-            'mktemp',
-            'mm',
-            'module-init-tools',
-            'ncurses',
-            'net-tools',
-            'netcfg',
-            'openct',
-            'openldap2',
-            'openldap2-client',
-            'opensc',
-            'openslp',
-            'openssh',
-            'openssl',
-            'pam',
-            'pam-modules',
-            'patch',
-            'pciutils',
-            'pcre',
-            'perl',
-            'perl-Bootloader',
-            'perl-Compress-Zlib',
-            'perl-DBD-SQLite',
-            'perl-DBI',
-            'perl-Digest-SHA1',
-            'perl-Net-Daemon',
-            'perl-PlRPC',
-            'perl-TermReadKey',
-            'perl-URI',
-            'perl-gettext',
-            'php5',
-            'pkgconfig',
-            'popt',
-            'procps',
-            'psmisc',
-            'pwdutils',
-            'python',
-            'python-xml',
-            'resmgr',
-            'sed',
-            'slang',
-            'sles-release',
-            'sysconfig',
-            'sysfsutils',
-            'syslog-ng',
-            'sysvinit',
-            'tar',
-            'tcl',
-            'tcpd',
-            'tcsh',
-            'tcpdump',
-            'termcap',
-            'timezone',
-            'udev',
-            'unixODBC',
-            'util-linux',
-            'vim',
-            'wget',
-            'wireless-tools',
-            'xorg-x11',
-            'zlib'
-        )
-
         srpms = list()
-        for b in bins:
-            srpms.append(self.revMap[b])
+        for p in pkglist:
+            srpms.append(self.revMap[p])
         return srpms
 
     def transformName(self, name):
@@ -306,5 +190,18 @@ class RpmSource:
         a('    archs = [ %s ]' % self.quoteSequence(archs))
         if extras:
             a("    extraArch = { 'i686': [ %s ] }" %self.quoteSequence(extras))
+        # add a trailing newline
         a('')
         return '\n'.join(l)
+
+    def createManifest(self, srpm, prefix):
+        """
+        @return the text for the manifest file.
+        """
+        l = []
+        l.append(self.srcPath[srpm])
+        l.extend([x for x in self.getRPMS(srpm)])
+        if prefix:
+            l = [ x[len(prefix):] for x in l]
+        # add a trailing newline
+        return '\n'.join(sorted(l) + [''])
