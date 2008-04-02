@@ -43,8 +43,10 @@ sles10sp1pkgs = (
     'audit',
     'bash',
     'binutils',
+    'busybox',
     'bzip2',
     'compat-libstdc++',
+    'compat-openssl097g',
     'coreutils',
     'cpio',
     'cpp',
@@ -95,6 +97,7 @@ sles10sp1pkgs = (
     'libapr1',
     'libapr-util1',
     'libattr',
+    'libcap',
     'libcom_err',
     'libelf',
     'libgcc',
@@ -170,7 +173,7 @@ sles10sp1pkgs = (
     'vim',
     'wget',
     'wireless-tools',
-    'xorg-x11',
+    #'xorg-x11',
     'zlib'
     )
 
