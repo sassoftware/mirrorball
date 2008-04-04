@@ -169,12 +169,14 @@ sles10sp1pkgs = (
     'timezone',
     'udev',
     'unixODBC',
+    'unzip',
     'util-linux',
     'vim',
     'wget',
     'wireless-tools',
     #'xorg-x11',
-    'zlib'
+    'zlib',
+    'zip',
     )
 
 class PkgWiz:
