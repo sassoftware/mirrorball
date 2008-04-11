@@ -60,12 +60,12 @@ class RecipeMaker:
                              [ 'commit' ],
                              { 'message':
                                'Automated initial commit of %s:source' %pkgname})
-            cvc.sourceCommand(self.cfg, ['cook', pkgname], {'no-deps': None})
-            cfg = copy.copy(self.cfg)
-            buildFlavor = deps.deps.parseFlavor('is:x86_64')
-            cfg.buildFlavor = deps.deps.overrideFlavor(
-                cfg.buildFlavor, buildFlavor)
-            cvc.sourceCommand(cfg, ['cook', pkgname], {'no-deps': None})
+            #cvc.sourceCommand(self.cfg, ['cook', pkgname], {'no-deps': None})
+            #cfg = copy.copy(self.cfg)
+            #buildFlavor = deps.deps.parseFlavor('is:x86_64')
+            #cfg.buildFlavor = deps.deps.overrideFlavor(
+            #    cfg.buildFlavor, buildFlavor)
+            #cvc.sourceCommand(cfg, ['cook', pkgname], {'no-deps': None})
         finally:
             os.chdir(cwd)
 
