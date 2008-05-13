@@ -38,7 +38,6 @@ sles10sp1pkgs = (
     'aaa_base',
     'acl',
     'apache2',
-    'apache2-mod_php',
     'apache2-mod_python',
     'ash',
     'attr',
