@@ -23,9 +23,6 @@ attr-rgx=[a-z_][a-zA-Z0-9_]{2,30}$
 # Good variable names which should always be accepted, separated by a comma
 good-names=i,j,k,n,v,f,ex,Run,_,db,cu,__
 
-
-
-
 [REPORTS]
 files-output=yes
 reports=yes

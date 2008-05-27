@@ -15,9 +15,6 @@
 import os
 import sys
 
-import epdb
-epdb.st()
-
 # set default SLEESTACK_PATH, if it was not set.
 parDir = '/'.join(os.path.realpath(__file__).split('/')[:-2])
 parDir = os.path.dirname(parDir)

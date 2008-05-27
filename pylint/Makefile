@@ -24,6 +24,11 @@ pylint:
 	@./run_pylint
 	@echo Done.  Error output is in the reports/ directory.
 
+short:
+	@echo running pylint...
+	@./run_pylint --reports=n --files-output=n
+	@echo Done.
+
 clean:
 	rm -rf reports *,cover
 
