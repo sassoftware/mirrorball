@@ -24,13 +24,10 @@ attr-rgx=[a-z_][a-zA-Z0-9_]{2,30}$
 good-names=XmlObj,Elem
 
 
-
-
 [REPORTS]
 files-output=yes
 reports=yes
 include-ids=yes
 
 [MESSAGES CONTROL]
-disable-msg=W0102,W0142
-#,I0011
+disable-msg=W0102,W0142,I0011
