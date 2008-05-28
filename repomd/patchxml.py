@@ -22,12 +22,6 @@ class _Patch(xmllib.BaseNode):
     # R0902 - Too many instance attributes
     # pylint: disable-msg=R0902
 
-    # W0232 - Class has no __init__ method (Yes, really it does)
-    # pylint: disable-msg=W0232
-
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     name = None
     summary = None
     description = None
@@ -95,12 +89,6 @@ class _Atoms(xmllib.BaseNode):
     '''
     Parser for the atoms element of a path-*.xml file.
     '''
-
-    # W0232 - Class has no __init__ method (Yes, really it does)
-    # pylint: disable-msg=W0232
-
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
 
     def addChild(self, child):
         '''
