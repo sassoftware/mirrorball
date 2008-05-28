@@ -68,12 +68,15 @@ def setup():
     # set default RMAKE_TEST_PATH, if it was not set.
     rmakeTestPath = setPathFromEnv('RMAKE_TEST_PATH', 'rmake-private/test')
 
+    # set default XMLLIB_PATH, if it was not set.
+    xmllibPath = setPathFromEnv('XMLLIB_PATH', 'rpath-xmllib')
+
     testDir = os.path.dirname(os.path.realpath(__file__))
 
     # Insert the following paths into the python path and sys path in
     # listed order.
     paths = (mirrorballPath, rmakePath, testDir, conaryPath, conaryTestPath,
-             rmakeTestPath)
+             rmakeTestPath, xmllibPath)
     pythonPath = os.environ.get('PYTHONPATH', "")
     for p in reversed(paths):
         if p in sys.path:
