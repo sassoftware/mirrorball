@@ -36,7 +36,11 @@ conaryPath = setPathFromEnv('CONARY_PATH', 'conary')
 # set default RMAKE_PATH, if it was not set.
 rmakePath = setPathFromEnv('RMAKE_PATH', 'rmake')
 
-for path in rmakePath, conaryPath, mirrorballPath:
+# set default XMLLIB_PATH, if it was not set.
+xmllibPath = setPathFromEnv('XMLLIB_PATH', 'rpath-xmllib')
+
+# paths end up in the opposite order than they are listed.
+for path in xmllibPath, rmakePath, conaryPath, mirrorballPath:
     if path in sys.path:
         sys.path.remove(path)
     sys.path.insert(0, path)
