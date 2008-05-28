@@ -173,6 +173,7 @@ sles10sp1pkgs = (
     'resmgr',
     'samba',
     'sed',
+    'sendmail',
     'slang',
     'sles-release',
     'strace',
