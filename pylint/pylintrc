@@ -21,7 +21,7 @@ variable-rgx=[a-z][a-zA-Z0-9]*$
 attr-rgx=[a-z_][a-zA-Z0-9_]{2,30}$
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=XmlObj,Elem
+good-names=log,_
 
 
 [REPORTS]
