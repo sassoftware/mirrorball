@@ -12,17 +12,32 @@
 # full details.
 #
 
+'''
+Module for parsing patches.xml from the repository metadata.
+'''
+
 __all__ = ('PatchesXml', )
 
 # import stable api
 from rpath_common.xmllib import api1 as xmllib
 
-from patchxml import PatchXml
-from xmlcommon import XmlFileParser
-from errors import UnknownElementError
+from repomd.patchxml import PatchXml
+from repomd.xmlcommon import XmlFileParser
+from repomd.errors import UnknownElementError
 
 class _Patches(xmllib.BaseNode):
+    '''
+    Python representation of patches.xml from the repository metadata.
+    '''
+
     def addChild(self, child):
+        '''
+        Parse children of patches element.
+        '''
+
+        # W0212 - Access to a protected member _parser of a client class
+        # pylint: disable-msg=W0212
+
         if child.getName() == 'patch':
             child.id = child.getAttribute('id')
             child._parser = PatchXml(None, child.location)
@@ -32,27 +47,51 @@ class _Patches(xmllib.BaseNode):
             raise UnknownElementError(child)
 
     def getPatches(self):
+        '''
+        Get a list of all patches in the repository.
+        @return list of _PatchElement instances
+        '''
+
         return self.getChildren('patch')
 
 
 class _PatchElement(xmllib.BaseNode):
+    '''
+    Parser for patch element of patches.xml.
+    '''
+
     id = None
     checksum = ''
     checksumType = 'sha'
     location = ''
 
     def addChild(self, child):
+        '''
+        Parse children of patch element.
+        '''
+
         if child.getName() == 'checksum':
             self.checksum = child.finalize()
             self.checksumType = child.getAttribute('type')
         elif child.getName() == 'location':
             self.location = child.getAttribute('href')
         else:
-            raise UnkownElementError(child)
+            raise UnknownElementError(child)
 
 
 class PatchesXml(XmlFileParser):
+    '''
+    Handle registering all types for parsing patches.xml.
+    '''
+
+    # R0903 - Too few public methods
+    # pylint: disable-msg=R0903
+
     def _registerTypes(self):
+        '''
+        Setup databinder to parse xml.
+        '''
+
         self._databinder.registerType(_Patches, name='patches')
         self._databinder.registerType(_PatchElement, name='patch')
         self._databinder.registerType(xmllib.StringNode, name='checksum')

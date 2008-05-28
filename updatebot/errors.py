@@ -25,7 +25,7 @@ class UpdateBotError(Exception):
     _template = 'An unknown error has occured.'
 
     def __init__(self, **kwargs):
-        RuntimeError.__init__(self)
+        Exception.__init__(self)
 
         self._kwargs = kwargs
 

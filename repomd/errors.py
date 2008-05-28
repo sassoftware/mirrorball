@@ -12,18 +12,30 @@
 # full details.
 #
 
-public_errors = ('RepoMdError', 'ParseError', 'UnknownElementError')
+'''
+Errors specific to repomd module.
+'''
 
-__all__ = public_errors + ('public_errors', )
+__all__ = ('RepoMdError', 'ParseError', 'UnknownElementError')
 
 class RepoMdError(Exception):
-    pass
+    '''
+    Base exception for all repomd exceptions. This should never be
+    expllicitly raised.
+    '''
 
 class ParseError(RepoMdError):
-    pass
+    '''
+    Base parsing error.
+    '''
 
 class UnknownElementError(ParseError):
+    '''
+    Raised when unhandled elements are found in the parser.
+    '''
+
     def __init__(self, element):
+        ParseError.__init__(self)
         self._element = element
         self._error = 'Element %s is not supported by this parser.'
 
@@ -31,7 +43,12 @@ class UnknownElementError(ParseError):
         return self._error % (self._element.getAbsoluteName(), )
 
 class UnknownAttributeError(UnknownElementError):
+    '''
+    Raised when unhandled attributes are found in the parser.
+    '''
+
     def __init__(self, element, attribute):
         UnknownElementError.__init__(self, element)
         self._attribute = attribute
-        self._error = 'Attribute %s of %%s is not supported by this parser.' % (attribute, )
+        self._error = ('Attribute %s of %%s is not supported by this '
+                       'parser.' % (attribute, ))

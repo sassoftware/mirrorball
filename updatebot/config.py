@@ -12,12 +12,21 @@
 # full details.
 #
 
+'''
+Configuration module for updatebot.
+'''
+
 from conary.lib import cfg
-from rmake.build.buildcfg import CfgTroveSpec
-from conary.lib.cfgtypes import CfgList, CfgString, CfgInt, CfgDict
-from conary.lib.cfgtypes import CfgQuotedLineList, CfgBool, ParseError
-from conary.conarycfg import CfgFlavor, CfgLabel, CfgInstallLabelPath
+from conary.lib.cfgtypes import CfgString
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
-    configPath      = CfgString     # path to configuration files (conaryrc, rmakerc)
+    '''
+    Config class for updatebot.
+    '''
+
+    # R0904 - to many public methods
+    # pylint: disable-msg=R0904
+
+    # path to configuration files (conaryrc, rmakerc)
+    configPath      = CfgString
     commitMessage   = (CfgString, 'Automated commit by updateBot')

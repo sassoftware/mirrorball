@@ -12,6 +12,10 @@
 # full details.
 #
 
+'''
+Repository access module.
+'''
+
 __all__ = ('Repository', )
 
 import os
@@ -20,10 +24,24 @@ import tempfile
 import urlgrabber
 
 class Repository(object):
+    '''
+    Access files from the repository.
+    '''
+
+    # R0903 - Too few public methods
+    # pylint: disable-msg=R0903
+
     def __init__(self, repoUrl):
         self._repoUrl = repoUrl
 
     def get(self, fileName):
+        '''
+        Download a file from the repository.
+        @param fileName: relative path to file
+        @type fileName: string
+        @return open file instance
+        '''
+
         fn = self._getTempFile()
         realUrl = self._getRealUrl(fileName)
         dlFile = urlgrabber.urlgrab(realUrl, filename=fn)
@@ -33,8 +51,20 @@ class Repository(object):
         else:
             return open(dlFile)
 
-    def _getTempFile(self):
+    @classmethod
+    def _getTempFile(cls):
+        '''
+        Generate a tempory filename.
+        @return name of tempory file
+        '''
+
         return tempfile.mktemp(prefix='mdparse')
 
     def _getRealUrl(self, path):
+        '''
+        @param path: relative path to repository file
+        @type path: string
+        @return full repository url
+        '''
+
         return self._repoUrl + '/' + path

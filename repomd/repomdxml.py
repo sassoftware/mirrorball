@@ -12,18 +12,33 @@
 # full details.
 #
 
+'''
+Module for parsing repomd.xml files from the repository metadata.
+'''
+
 __all__ = ('RepoMdXml', )
 
 # use stable api
 from rpath_common.xmllib import api1 as xmllib
 
-from primaryxml import PrimaryXml
-from patchesxml import PatchesXml
-from xmlcommon import XmlFileParser
-from errors import UnknownElementError
+from repomd.primaryxml import PrimaryXml
+from repomd.patchesxml import PatchesXml
+from repomd.xmlcommon import XmlFileParser
+from repomd.errors import UnknownElementError
 
 class _RepoMd(xmllib.BaseNode):
+    '''
+    Python representation of repomd.xml from the repository metadata.
+    '''
+
     def addChild(self, child):
+        '''
+        Parse children of repomd element.
+        '''
+
+        # W0212 - Access to a protected member _parser of a client class
+        # pylint: disable-msg=W0212
+
         if child.getName() == 'data':
             child.type = child.getAttribute('type')
             if child.type == 'patches':
@@ -37,6 +52,15 @@ class _RepoMd(xmllib.BaseNode):
             raise UnknownElementError(child)
 
     def getRepoData(self, name=None):
+        '''
+        Get data elements of repomd xml file.
+        @param name: filter by type of node
+        @type name: string
+        @return list of nodes
+        @return single node
+        @return None
+        '''
+
         if not name:
             return self.getChildren('data')
 
@@ -48,6 +72,10 @@ class _RepoMd(xmllib.BaseNode):
 
 
 class _RepoMdDataElement(xmllib.BaseNode):
+    '''
+    Parser for repomd.xml data elements.
+    '''
+
     location = ''
     checksum = ''
     checksumType = 'sha'
@@ -56,6 +84,10 @@ class _RepoMdDataElement(xmllib.BaseNode):
     openChecksumType = 'sha'
 
     def addChild(self, child):
+        '''
+        Parse children of data element.
+        '''
+
         if child.getName() == 'location':
             self.location = child.getAttribute('href')
         elif child.getName() == 'checksum':
@@ -71,7 +103,18 @@ class _RepoMdDataElement(xmllib.BaseNode):
 
 
 class RepoMdXml(XmlFileParser):
+    '''
+    Handle registering all types for parsing repomd.xml file.
+    '''
+
+    # R0903 - Too few public methods
+    # pylint: disable-msg=R0903
+
     def _registerTypes(self):
+        '''
+        Setup databinder to parse xml.
+        '''
+
         self._databinder.registerType(_RepoMd, name='repomd')
         self._databinder.registerType(_RepoMdDataElement, name='data')
         self._databinder.registerType(xmllib.StringNode, name='checksum')

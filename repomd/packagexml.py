@@ -12,13 +12,25 @@
 # full details.
 #
 
+'''
+Module for parsing package sections of xml files from the repository metadata.
+'''
+
 __all__ = ('PackageXmlMixIn', )
 
 from rpath_common.xmllib import api1 as xmllib
 
-from errors import UnknownElementError, UnknownAttributeError
+from repomd.errors import UnknownElementError, UnknownAttributeError
 
 class _Package(xmllib.BaseNode):
+    '''
+    Python representation of package section of xml files from the repository
+    metadata.
+    '''
+
+    # R0902 - Too many instance attributes
+    # pylint: disable-msg=R0902
+
     name = None
     arch = None
     epoch = None
@@ -36,6 +48,7 @@ class _Package(xmllib.BaseNode):
     installedSize = None
     archiveSize = None
     location = None
+    format = None
     license = None
     vendor = None
     group = None
@@ -45,6 +58,17 @@ class _Package(xmllib.BaseNode):
     headerEnd = None
 
     def addChild(self, child):
+        '''
+        Parse children of package element.
+        '''
+
+        # FIXME: There should be a better way to setup a parser.
+        # R0912 - Too many branches
+        # pylint: disable-msg=R0912
+
+        # R0915 - Too many statements
+        # pylint: disable-msg=R0915
+
         if child.getName() == 'name':
             self.name = child.finalize()
         elif child.getName() == 'arch':
@@ -104,7 +128,15 @@ class _Package(xmllib.BaseNode):
 
 
 class _RpmRequires(xmllib.BaseNode):
+    '''
+    Parse any element that contains rpm:entry or suse:entry elements.
+    '''
+
     def addChild(self, child):
+        '''
+        Parse rpm:entry and suse:entry nodes.
+        '''
+
         if child.getName() in ('rpm:entry', 'suse:entry'):
             for attr, value in child.iterAttributes():
                 child.kind = None
@@ -137,27 +169,48 @@ class _RpmRequires(xmllib.BaseNode):
 
 
 class _RpmRecommends(_RpmRequires):
-    pass
+    '''
+    Parse rpm:recommends children.
+    '''
 
 
 class _RpmProvides(_RpmRequires):
-    pass
+    '''
+    Parse rpm:provides children.
+    '''
 
 
 class _RpmObsoletes(_RpmRequires):
-    pass
+    '''
+    Parse rpm:obsoletes children.
+    '''
 
 
 class _RpmConflicts(_RpmRequires):
-    pass
+    '''
+    Parse rpm:conflicts children.
+    '''
 
 
 class _SuseFreshens(_RpmRequires):
-    pass
+    '''
+    Parse suse:freshens children.
+    '''
 
 
 class PackageXmlMixIn(object):
+    '''
+    Handle registering all types for parsing package elements.
+    '''
+
+    # R0903 - Too few public methods
+    # pylint: disable-msg=R0903
+
     def _registerTypes(self):
+        '''
+        Setup databinder to parse xml.
+        '''
+
         self._databinder.registerType(_Package, name='package')
         self._databinder.registerType(xmllib.StringNode, name='name')
         self._databinder.registerType(xmllib.StringNode, name='arch')
@@ -166,14 +219,25 @@ class PackageXmlMixIn(object):
         self._databinder.registerType(xmllib.StringNode, name='description')
         self._databinder.registerType(xmllib.StringNode, name='url')
         # FIXME: really shouldn't need to comment these out
-        #self._databinder.registerType(xmllib.StringNode, name='license', namespace='rpm')
-        #self._databinder.registerType(xmllib.StringNode, name='vendor', namespace='rpm')
-        #self._databinder.registerType(xmllib.StringNode, name='group', namespace='rpm')
-        #self._databinder.registerType(xmllib.StringNode, name='buildhost', namespace='rpm')
-        #self._databinder.registerType(xmllib.StringNode, name='sourcerpm', namespace='rpm')
-        self._databinder.registerType(_RpmRequires, name='requires', namespace='rpm')
-        self._databinder.registerType(_RpmRecommends, name='recommends', namespace='rpm')
-        self._databinder.registerType(_RpmProvides, name='provides', namespace='rpm')
-        self._databinder.registerType(_RpmObsoletes, name='obsoletes', namespace='rpm')
-        self._databinder.registerType(_RpmConflicts, name='conflicts', namespace='rpm')
-        self._databinder.registerType(_SuseFreshens, name='freshens', namespace='suse')
+        # self._databinder.registerType(xmllib.StringNode, name='license',
+        #                               namespace='rpm')
+        # self._databinder.registerType(xmllib.StringNode, name='vendor',
+        #                               namespace='rpm')
+        # self._databinder.registerType(xmllib.StringNode, name='group',
+        #                               namespace='rpm')
+        # self._databinder.registerType(xmllib.StringNode, name='buildhost',
+        #                               namespace='rpm')
+        # self._databinder.registerType(xmllib.StringNode, name='sourcerpm',
+        #                               namespace='rpm')
+        self._databinder.registerType(_RpmRequires, name='requires',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmRecommends, name='recommends',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmProvides, name='provides',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmObsoletes, name='obsoletes',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmConflicts, name='conflicts',
+                                      namespace='rpm')
+        self._databinder.registerType(_SuseFreshens, name='freshens',
+                                      namespace='suse')

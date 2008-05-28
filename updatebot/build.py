@@ -12,12 +12,16 @@
 # full details.
 #
 
+'''
+Builder object implementation.
+'''
+
 import time
 import logging
 
 from rmake.cmdline import helper, monitor, commit
 
-from errors import JobFailedError, CommitFailedError
+from updatebot.errors import JobFailedError, CommitFailedError
 
 log = logging.getLogger('updateBot.build')
 
@@ -29,22 +33,26 @@ class Builder(object):
     @type cfg: config.UpdateBotConfig
     '''
 
+    # R0903 - Too few public methods
+    # pylint: disable-msg=R0903
+
     def __init__(self, cfg):
         self._cfg = cfg
 
         self._helper = helper.rMakeHelper(root=self._cfg.configPath)
 
 
-    def build(self, trvSpecs):
+    def build(self, troveSpecs):
         '''
         Build a list of troves.
-        @param trvSpecs: list of trove specs
-        @type trvSpecs: [(name, versionObj, flavorObj), ...]
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @return troveMap: dictionary of troveSpecs to built troves
         '''
 
         # Create rMake job
         log.info('Creating build job: %s' % (troveSpecs, ))
-        job = self._helper.creatBuild(troveSpecs)
+        job = self._helper.createBuildJob(troveSpecs)
         jobId = self._helper.buildJob(job)
         log.info('Started jobId: %s' % jobId)
 
@@ -67,12 +75,13 @@ class Builder(object):
         # Do the commit
         startTime = time.time()
         log.info('Starting commit of job %d', jobId)
-        self._helper.startCommit(jobId)
+        self._helper.client.startCommit(jobId)
         succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
                                             [job, ],
                                             self._helper.buildConfig.reposName,
                                             self._cfg.commitMessage)
         if not succeeded:
+            self._helper.client.commitFailed([jobId, ], data)
             raise CommitFailedError(jobId=job.jobId, why=data)
 
         log.info('Commit of job %d completed in %.02f seconds',
@@ -83,6 +92,8 @@ class Builder(object):
             for buildTroveTuple, committedList in troveTupleDict.iteritems():
                 troveMap[buildTroveTuple] = committedList
 
+        self._helper.client.commitSucceeded(data)
+
         return troveMap
 
 
@@ -92,6 +103,9 @@ class _StatusOnlyDisplay(monitor.JobLogDisplay):
 
     Copied from bob3
     '''
+
+    # R0901 - Too many ancestors
+    # pylint: disable-msg=R0901
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         '''Don't care about trove logs'''
