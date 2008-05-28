@@ -125,6 +125,7 @@ sles10sp1pkgs = (
     'logrotate',
     'lvm2',
     'lzo',
+    'm4',
     'make',
     'mdadm',
     'mingetty',
