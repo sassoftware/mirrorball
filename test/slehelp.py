@@ -17,12 +17,13 @@ testsuite.setup()
 
 import rmakehelp
 
-from updateBot import config
+from updatebot import config
 
 class Helper(rmakehelp.RmakeHelper):
     def setUp(self):
         rmakehelp.RmakeHelper.setUp(self)
-        self.updateBotCfg = config.UpdateBotConfig(False)
+        self.updateBotCfg = config.UpdateBotConfig()
+        self.updateBotCfg.configPath = self.cfg.root
         self.cfg.user = ('test', 'test')
         self.writeFile(self.cfg.root + '/conaryrc', '')
 
