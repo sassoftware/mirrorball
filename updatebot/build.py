@@ -41,7 +41,6 @@ class Builder(object):
 
         self._helper = helper.rMakeHelper(root=self._cfg.configPath)
 
-
     def build(self, troveSpecs):
         '''
         Build a list of troves.
@@ -50,15 +49,46 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         '''
 
+        jobId = self._startJob(troveSpecs)
+        self._monitorJob(jobId)
+        self._sanityCheckJob(jobId)
+        trvMap = self._commitJob(jobId)
+
+        return trvMap
+
+    def _startJob(self, troveSpecs):
+        '''
+        Create and start a rMake build.
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @return integer jobId
+        '''
+
         # Create rMake job
         log.info('Creating build job: %s' % (troveSpecs, ))
         job = self._helper.createBuildJob(troveSpecs)
         jobId = self._helper.buildJob(job)
         log.info('Started jobId: %s' % jobId)
 
+        return jobId
+
+    def _monitorJob(self, jobId):
+        '''
+        Monitor job status, block until complete.
+        @param jobId: rMake job ID
+        @type jobId: integer
+        '''
+
         # Watch build, wait for completion
         monitor.monitorJob(self._helper.client, jobId,
             exitOnFinish=True, displayClass=_StatusOnlyDisplay)
+
+    def _sanityCheckJob(self, jobId):
+        '''
+        Verify the status of a job.
+        @param jobId: rMake job ID
+        @type jobId: integer
+        '''
 
         # Check for errors
         job = self._helper.getJob(jobId)
@@ -72,8 +102,17 @@ class Builder(object):
             log.error('Job %d has no built troves', jobId)
             raise JobFailedError(jobId=jobId, why='Job built no troves')
 
+    def _commitJob(self, jobId):
+        '''
+        Commit completed job.
+        @param jobId: rMake job ID
+        @type jobId: integer
+        @return troveMap: dictionary of troveSpecs to built troves
+        '''
+
         # Do the commit
         startTime = time.time()
+        job = self._helper.getJob(jobId)
         log.info('Starting commit of job %d', jobId)
         self._helper.client.startCommit(jobId)
         succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
@@ -88,7 +127,7 @@ class Builder(object):
                  jobId, time.time() - startTime)
 
         troveMap = {}
-        for _, troveTupleDict in data.iteritems():
+        for troveTupleDict in data.itervalues():
             for buildTroveTuple, committedList in troveTupleDict.iteritems():
                 troveMap[buildTroveTuple] = committedList
 
@@ -109,8 +148,6 @@ class _StatusOnlyDisplay(monitor.JobLogDisplay):
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         '''Don't care about trove logs'''
-        pass
 
     def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
         '''Don't care about resolving/installing chroot'''
-        pass
