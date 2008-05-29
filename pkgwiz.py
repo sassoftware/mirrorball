@@ -123,6 +123,7 @@ sles10sp1pkgs = (
     'libxml2-python',
     'libxslt',
     'logrotate',
+    'lsof',
     'lvm2',
     'lzo',
     'm4',
