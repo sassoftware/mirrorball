@@ -56,6 +56,9 @@ def setup():
             sys.path.insert(0, thisPath)
         return thisPath
 
+    # set default COVERAGE_PATH, if it was not set.
+    coveragePath = setPathFromEnv('COVERAGE_PATH', 'utils')
+
     # set default CONARY_PATH, if it was not set.
     conaryPath = setPathFromEnv('CONARY_PATH', 'conary')
 
