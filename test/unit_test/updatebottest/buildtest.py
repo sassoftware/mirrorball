@@ -24,18 +24,6 @@ from updatebot import build
 from updatebot import errors
 
 class BuilderTest(slehelp.Helper):
-    def _getBuilder(self):
-        mockJob = mock.MockObject(stableReturnValues=True)
-        mockJob.isFailed._mock.setReturn(False)
-        mockJob.isFinished._mock.setReturn(False)
-        mockJob.iterBuiltTroves._mock.setReturn([])
-        mockHelper = mock.MockObject(stableReturnValues=True)
-        mockHelper.createBuildJob._mock.setReturn(mockJob)
-        mockHelper.buildJob._mock.setReturn(1)
-        mockHelper.getJob._mock.setReturn(mockJob)
-        builder = build.Builder(self.updateBotCfg)
-
-
     def testStartJob(self):
         trvSpecs = (('foo', '', ''), )
 
