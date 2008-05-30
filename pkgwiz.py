@@ -14,12 +14,24 @@
 # full details.
 #
 
-from conary import cvc, rpmhelper
+from conary import cvc
 import conary.lib.util
 import os
-from rpmimport import infomaker, recipemaker, rpmsource
+from rpmimport import infomaker, recipemaker, rpmsource, rpmhelper
 import shutil
 import sys
+
+DEFAULT_URL = 'http://install.rdu.rpath.com/sle/'
+DEFAULT_BASE_PATHS = [
+    'SLES10-SP1/sles-10-i586',
+    'SLES10-SP1/sles-10-x86_64',
+    'SLE10-Debuginfo-Updates/sles-10-i586',
+    'SLE10-Debuginfo-Updates/sles-10-x86_64',
+    'SLES10-SP1-Online/sles-10-i586',
+    'SLES10-SP1-Online/sles-10-x86_64',
+    'SLES10-Updates/sles-10-i586',
+    'SLES10-Updates/sles-10-x86_64',
+]
 
 HELP_TEXT = """
 pkgs <dir>|<pkg> [<dir>|<pkg> ...]
@@ -238,10 +250,10 @@ class PkgWiz:
         self.repos = self.client.getRepos()
         self.recipeMaker = recipemaker.RecipeMaker(self.cfg, self.repos, self.rpmSource)
 
-    def createPkgs(self, dirs):
+    def createPkgs(self, url, basePaths):
         self._setupRepo()
-        for dir in dirs:
-            self.rpmSource.walk(dir)
+        for basePath in basePaths:
+            self.rpmSource.load(url, basePath)
 
         # {foo:source: {cfg.buildLabel: None}}
         srccomps = {}
@@ -249,8 +261,8 @@ class PkgWiz:
         # {foo:source: foo-1.0-1.1.src.rpm}
         srcmap = {}
         for src in set(self.rpmSource.getSrpms(sles10sp1pkgs)):
-            h = self.rpmSource.getHeader(self.rpmSource.srcPath[src])
-            srccomp = h[rpmhelper.NAME] + ':source'
+            name = self.rpmSource.srcPath[src].name
+            srccomp = name + ':source'
             srcmap[srccomp] = src
             srccomps[srccomp] = {self.cfg.buildLabel: None}
         d = self.repos.getTroveVersionsByLabel(srccomps)
@@ -272,7 +284,7 @@ class PkgWiz:
         groups = set()
         for src in self.rpmSource.getSrpms(slessp1pkgs):
             for rpm in self.rpmSource.rpmMap[src].values():
-                header = self.rpmSource.getHeader(rpm)
+                header = rpmhelper.readHeader(rpm.location)
                 users = users.union(header[FILEUSERNAME])
                 groups = groups.union(header[FILEGROUPNAME])
 
@@ -289,10 +301,17 @@ class PkgWiz:
             return
         category = argv[1]
         if 'pkgs' == category:
-            dirs = argv[2:]
-            if not dirs:
-                dirs = ['.']
-            self.createPkgs(dirs)
+            url = None
+            basePaths = None
+            if len(argv) >= 3:
+                url = argv[2]
+            if len(argv) >= 4:
+                basePaths = argv[3:]
+            if not url:
+                url = DEFAULT_URL
+            if not basePaths:
+                basePaths = DEFAULT_BASE_PATHS
+            self.createPkgs(url, basePaths)
         elif 'accounts' == category:
             users = argv[2:]
             self.createUsers(users)

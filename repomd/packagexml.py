@@ -56,6 +56,7 @@ class _Package(xmllib.BaseNode):
     sourcerpm = None
     headerStart = None
     headerEnd = None
+    licenseToConfirm = None
 
     def addChild(self, child):
         '''
@@ -115,7 +116,9 @@ class _Package(xmllib.BaseNode):
                     self.headerEnd = node.getAttribute('end')
                 elif node.getName() in ('rpm:provides', 'rpm:requires',
                                         'rpm:obsoletes', 'rpm:recommends',
-                                        'rpm:conflicts', 'suse:freshens'):
+                                        'rpm:conflicts', 'suse:freshens',
+                                        'rpm:enhances', 'rpm:supplements',
+                                        'rpm:suggests', ):
                     self.format.append(node)
                 elif node.getName() == 'file':
                     pass
@@ -123,8 +126,13 @@ class _Package(xmllib.BaseNode):
                     raise UnknownElementError(node)
         elif child.getName() == 'pkgfiles':
             pass
+        elif child.getName() == 'suse:license-to-confirm':
+            self.licenseToConfirm = child.finalize()
         else:
             raise UnknownElementError(child)
+
+    def __str__(self):
+        return '%(name)s-%(version)s-%(release)s' % self.__dict__
 
 
 class _RpmRequires(xmllib.BaseNode):
@@ -192,6 +200,24 @@ class _RpmConflicts(_RpmRequires):
     '''
 
 
+class _RpmEnhances(_RpmRequires):
+    '''
+    Parse rpm:enhances children.
+    '''
+
+
+class _RpmSupplements(_RpmRequires):
+    '''
+    Parse rpm:supplements children.
+    '''
+
+
+class _RpmSuggests(_RpmRequires):
+    '''
+    Parse rpm:suggests children.
+    '''
+
+
 class _SuseFreshens(_RpmRequires):
     '''
     Parse suse:freshens children.
@@ -239,5 +265,14 @@ class PackageXmlMixIn(object):
                                       namespace='rpm')
         self._databinder.registerType(_RpmConflicts, name='conflicts',
                                       namespace='rpm')
+        self._databinder.registerType(_RpmEnhances, name='enhances',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmSupplements, name='supplements',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmSuggests, name='suggests',
+                                      namespace='rpm')
         self._databinder.registerType(_SuseFreshens, name='freshens',
+                                      namespace='suse')
+        self._databinder.registerType(xmllib.StringNode,
+                                      name='license-to-confirm',
                                       namespace='suse')

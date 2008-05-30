@@ -14,12 +14,19 @@
 # full details.
 #
 
-import copy
+'''
+Module for creating package recipes and managing source components.
+'''
+
 import os
 import shutil
-from conary import cvc, deps
+from conary import cvc
 
-class RecipeMaker:
+class RecipeMaker(object):
+    '''
+    Class for creating and managing rpm factory based source components.
+    '''
+
     def __init__(self, cfg, repos, rpmSource):
         self.cfg = cfg
         self.repos = repos
@@ -59,7 +66,8 @@ class RecipeMaker:
             cvc.sourceCommand(self.cfg,
                              [ 'commit' ],
                              { 'message':
-                               'Automated initial commit of %s:source' %pkgname})
+                               'Automated initial commit of %s:source'
+                                % pkgname})
             #cvc.sourceCommand(self.cfg, ['cook', pkgname], {'no-deps': None})
             #cfg = copy.copy(self.cfg)
             #buildFlavor = deps.deps.parseFlavor('is:x86_64')
