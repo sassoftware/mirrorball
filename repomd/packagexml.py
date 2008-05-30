@@ -126,6 +126,9 @@ class _Package(xmllib.BaseNode):
         else:
             raise UnknownElementError(child)
 
+    def __str__(self):
+        return '%(name)s-%(version)s-%(release)s' % self.__dict__
+
 
 class _RpmRequires(xmllib.BaseNode):
     '''
