@@ -14,90 +14,101 @@
 # full details.
 #
 
-'''
-Module for creating package recipes and managing source components.
-'''
+"""
+Module for creating factory manifest and managing source components
+"""
 
 import os
 import shutil
 from conary import cvc
 
 class RecipeMaker(object):
-    '''
+    """
     Class for creating and managing rpm factory based source components.
-    '''
+    """
 
     def __init__(self, cfg, repos, rpmSource):
         self.cfg = cfg
         self.repos = repos
         self.rpmSource = rpmSource
 
-    def _createSourceComponent(self, pkgname, recipeContents=None,
-                               manifestContents=None, newPkgArgs={}):
+    def _updateSourceComponent(self, pkgname, manifestContents,
+                               comment):
+        """
+        Update the manifest file in the current working directory,
+        preform a test cook, and commit
+        Assumptions: current working directory is a checkout
+        """
+        f = open('manifest', 'w')
+        f.write(manifestContents)
+        f.close()
+        try:
+            cvc.sourceCommand(self.cfg, ['cook'], {'no-deps': None})
+        except Exception, e:
+            print '++++++ error building', pkgname, str(e)
+            return
+        return
+        cvc.sourceCommand(self.cfg,
+                         [ 'commit' ],
+                         { 'message':
+                           '%s of %s:source' % (comment, pkgname)})
+
+    def _newpkg(self, pkgname):
+        """
+        Run the "cvc newpkg" related tasks when creating a new :source
+        component.
+        Assumption: current working directory is where the new checkout
+                    should be created
+        Side effect: current working directory will be the checkout
+                     directory when this method returns
+        """
         print 'creating initial template for', pkgname
         try:
             shutil.rmtree(pkgname)
         except OSError, e:
             pass
-        cvc.sourceCommand(self.cfg, [ "newpkg", pkgname ], newPkgArgs)
-        cwd = os.getcwd()
+        cvc.sourceCommand(self.cfg, [ "newpkg", pkgname ],
+                          {'factory':'sle-rpm'})
         os.chdir(pkgname)
-        try:
-            addfiles = [ 'add' ]
-            if recipeContents:
-                recipe = pkgname + '.recipe'
-                f = open(recipe, 'w')
-                f.write(recipeContents)
-                f.close()
-                addfiles.append(recipe)
-            if manifestContents:
-                manifest = 'manifest'
-                f = open(manifest, 'w')
-                f.write(manifestContents)
-                f.close()
-                addfiles.append(manifest)
+        f = open(manifest, 'w')
+        f.close()
+        addfiles.append(manifest)
+        cvc.sourceCommand(self.cfg, addfiles, {'text':True})
 
-            cvc.sourceCommand(self.cfg, addfiles, {'text':True})
-            try:
-                cvc.sourceCommand(self.cfg, ['cook'], {'no-deps': None})
-            except Exception, e:
-                print '++++++ error building', pkgname, str(e)
-                return
-            cvc.sourceCommand(self.cfg,
-                             [ 'commit' ],
-                             { 'message':
-                               'Automated initial commit of %s:source'
-                                % pkgname})
-            #cvc.sourceCommand(self.cfg, ['cook', pkgname], {'no-deps': None})
-            #cfg = copy.copy(self.cfg)
-            #buildFlavor = deps.deps.parseFlavor('is:x86_64')
-            #cfg.buildFlavor = deps.deps.overrideFlavor(
-            #    cfg.buildFlavor, buildFlavor)
-            #cvc.sourceCommand(cfg, ['cook', pkgname], {'no-deps': None})
+    def _checkout(self, pkgname):
+        """
+        Check out an existing :source component
+        Assumption: current working directory is where the new checkout
+                    should be created
+        Side effect: current working directory will be the checkout
+                     directory when this method returns
+        """
+        print 'updating', pkgname
+        try:
+            shutil.rmtree(pkgname)
+        except OSError, e:
+            pass
+        cvc.sourceCommand(self.cfg, [ 'co', pkgname ], {})
+        os.chdir(pkgname)
+
+    def _createOrUpdate(self, pkgname, srpm, create=False, update=False):
+        assert(create or update)
+        manifest = self.rpmSource.createManifest(srpm)
+
+        cwd = os.getcwd()
+        try:
+            if create:
+                self._newpkg(pkgname)
+                comment = 'Automated initial commit'
+            else:
+                self._checkout(pkgname)
+                comment = 'Automated update'
+            self._updateSourceComponent(pkgname, manifest, comment)
         finally:
             os.chdir(cwd)
 
-    def _updateSourceComponent(self):
-        raise NotImplemented
+    def createManifest(self, pkgname, srpm):
+        self._createOrUpdate(pkgname, srpm, create=True)
 
-    def _createOrUpdateManifest(self, pkgname, srpm, prefix,
-                                create=False, update=False):
-        assert(create or update)
-        manifest = self.rpmSource.createManifest(srpm, prefix)
-
-        if create:
-            fn = self._createSourceComponent
-        else:
-            fn = self._updateSourceComponent
-
-        fn(pkgname, manifestContents=manifest,
-           newPkgArgs={'factory':'sle-rpm'})
-
-    def createManifest(self, pkgname, srpm, prefix):
-        self._createOrUpdateManifest(pkgname, srpm, prefix, create=True)
-
-    def updateManifest(self, pkgname, srpm, prefix):
-        self._createOrUpdateManifest(pkgname, srpm, prefix, update=True)
-
-    def createRecipe(self, pkgname, recipeContents):
-        self._createSourceComponent(pkgname, recipeContents=recipeContents)
+    def updateManifest(self, pkgname, srpm):
+        self._createOrUpdate(pkgname, srpm, update=True)
