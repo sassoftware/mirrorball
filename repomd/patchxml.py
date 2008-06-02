@@ -10,30 +10,18 @@ __all__ = ('PatchXml', )
 
 from rpath_common.xmllib import api1 as xmllib
 
-from repomd.xmlcommon import XmlFileParser
+from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.packagexml import PackageXmlMixIn
 from repomd.errors import UnknownElementError
 
-class _Patch(xmllib.BaseNode):
+class _Patch(SlotNode):
     '''
     Python representation of patch-*.xml from the repository metadata.
     '''
-
-    # R0902 - Too many instance attributes
-    # pylint: disable-msg=R0902
-
-    name = None
-    summary = None
-    description = None
-    version = None
-    release = None
-    requires = None
-    recommends = None
-    rebootNeeded = False
-    licenseToConfirm = None
-    packageManager = False
-    category = None
-    packages = None
+    __slots__ = ('name', 'summary', 'description', 'version',
+                 'release', 'requires', 'recommends', 'rebootNeeded',
+                 'licenseToConfirm', 'packageManager', 'category',
+                 'packages')
 
     def addChild(self, child):
         '''

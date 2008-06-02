@@ -62,3 +62,12 @@ class XmlFileParser(object):
                     child._parser._repository = self._repository
 
         return self._data
+
+
+class SlotNode(xmllib.BaseNode):
+    __slots__ = ()
+
+    def __init__(self, *args, **kw):
+        for attr in self.__slots__:
+            setattr(self, attr, None)
+        xmllib.BaseNode.__init__(self, *args, **kw)

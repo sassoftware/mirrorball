@@ -21,42 +21,20 @@ __all__ = ('PackageXmlMixIn', )
 from rpath_common.xmllib import api1 as xmllib
 
 from repomd.errors import UnknownElementError, UnknownAttributeError
+from repomd.xmlcommon import SlotNode
 
-class _Package(xmllib.BaseNode):
+class _Package(SlotNode):
     '''
     Python representation of package section of xml files from the repository
     metadata.
     '''
-
-    # R0902 - Too many instance attributes
-    # pylint: disable-msg=R0902
-
-    name = None
-    arch = None
-    epoch = None
-    version = None
-    release = None
-    checksum = None
-    checksumType = None
-    summary = None
-    description = None
-    packager = None
-    url = None
-    fileTimestamp = None
-    buildTimestamp = None
-    packageSize = None
-    installedSize = None
-    archiveSize = None
-    location = None
-    format = None
-    license = None
-    vendor = None
-    group = None
-    buildhost = None
-    sourcerpm = None
-    headerStart = None
-    headerEnd = None
-    licenseToConfirm = None
+    __slots__ = ('name', 'arch', 'epoch', 'version', 'release',
+                 'checksum', 'checksumType', 'summary', 'description',
+                 'fileTimestamp', 'buildTimestamp', 'packageSize',
+                 'installedSize', 'archiveSize', 'location', 'format',
+                 'license', 'vendor', 'group', 'buildhost',
+                 'sourcerpm', 'headerStart', 'headerEnd',
+                 'licenseToConfirm')
 
     def addChild(self, child):
         '''
