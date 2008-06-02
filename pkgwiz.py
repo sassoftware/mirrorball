@@ -17,36 +17,29 @@
 from conary import cvc
 import conary.lib.util
 import os
+import tempfile
 from rpmimport import infomaker, recipemaker, rpmsource, rpmhelper
+import rpmvercmp
 import shutil
 import sys
 
 DEFAULT_URL = 'http://install.rdu.rpath.com/sle/'
 DEFAULT_BASE_PATHS = [
-    'SLES10-SP1/sles-10-i586',
-    'SLES10-SP1/sles-10-x86_64',
-    'SLE10-Debuginfo-Updates/sles-10-i586',
-    'SLE10-Debuginfo-Updates/sles-10-x86_64',
-    'SLES10-SP1-Online/sles-10-i586',
-    'SLES10-SP1-Online/sles-10-x86_64',
-    'SLES10-Updates/sles-10-i586',
-    'SLES10-Updates/sles-10-x86_64',
+    'SLES10-SP2/sles-10-i586',
+    'SLES10-SP2/sles-10-x86_64',
+    'SLES10-SP2-Online/sles-10-i586',
+    'SLES10-SP2-Online/sles-10-x86_64',
+    'SLES10-SP2-Updates/sles-10-i586',
+    'SLES10-SP2-Updates/sles-10-x86_64',
 ]
 
 HELP_TEXT = """
-pkgs <dir>|<pkg> [<dir>|<pkg> ...]
-accounts <user>|<group> [<user>|<group> ...]
-
-pkgs can be given individual RPMs or the root of a directory tree to walk.
+[<base url>] [[repo path 1] [repo path 2] ... [repo path N]]
 
 When packages are imported, they will be checked against what's in the
 repository.  If newer, then check new one in.
-
-accounts will create user and/or group info- packages, using
-information from the build system.
 """
-sles10sp1prefix = '/srv/www/html/sle/'
-sles10sp1pkgs = (
+sles10pkgs = (
     'aaa_base',
     'acl',
     'apache2',
@@ -254,70 +247,60 @@ class PkgWiz:
         self._setupRepo()
         for basePath in basePaths:
             self.rpmSource.load(url, basePath)
-
         # {foo:source: {cfg.buildLabel: None}}
         srccomps = {}
 
         # {foo:source: foo-1.0-1.1.src.rpm}
         srcmap = {}
-        for src in set(self.rpmSource.getSrpms(sles10sp1pkgs)):
+        for src in set(self.rpmSource.getSrpms(sles10pkgs)):
             name = self.rpmSource.srcPath[src].name
             srccomp = name + ':source'
             srcmap[srccomp] = src
             srccomps[srccomp] = {self.cfg.buildLabel: None}
-        d = self.repos.getTroveVersionsByLabel(srccomps)
+        d = self.repos.getTroveLeavesByLabel(srccomps)
 
         # Iterate over foo:source.
-        for srccomp in set(srccomps.iterkeys()):
+        for srccomp in sorted(list(set(srccomps.iterkeys()))):
             srpm = srcmap[srccomp]
             pkgname = srccomp.split(':')[0]
             if srccomp not in d:
-                self.recipeMaker.createManifest(pkgname, srpm, sles10sp1prefix)
+                self.recipeMaker.createManifest(pkgname, srpm)
             else:
-                continue
-                self.recipeMaker.updateManifest(pkgname, srpm, sles10sp1prefix)
-
-    def createUsers(self, users):
-        self._setupRepo()
-        # Get all users and groups used in this run.
-        users = set()
-        groups = set()
-        for src in self.rpmSource.getSrpms(slessp1pkgs):
-            for rpm in self.rpmSource.rpmMap[src].values():
-                header = rpmhelper.readHeader(rpm.location)
-                users = users.union(header[FILEUSERNAME])
-                groups = groups.union(header[FILEGROUPNAME])
-
-        infoMaker = infomaker.InfoMaker(cfg, repos, self.recipeMaker)
-        infoMaker.makeInfo(users, groups)
+                # aaa_base-10-12.46.src.rpm -> 10_12.46
+                ver = '_'.join(srpm.rsplit('.', 2)[0].rsplit('-', 2)[1:3])
+                curVer = str(d[srccomp].keys()[0].trailingRevision().version)
+                if rpmvercmp.rpmvercmp(ver, curVer) == 1:
+                    self.recipeMaker.updateManifest(pkgname, srpm)
 
     def main(self, argv):
         if '--debug' in argv:
             argv.remove('--debug')
             sys.excepthook = conary.lib.util.genExcepthook(debug=True)
 
-        if len(argv) < 2:
+        if '--help' in argv:
             self.help()
-            return
-        category = argv[1]
-        if 'pkgs' == category:
-            url = None
-            basePaths = None
-            if len(argv) >= 3:
-                url = argv[2]
-            if len(argv) >= 4:
-                basePaths = argv[3:]
-            if not url:
-                url = DEFAULT_URL
-            if not basePaths:
-                basePaths = DEFAULT_BASE_PATHS
+            return 0
+
+        url = None
+        basePaths = None
+        if len(argv) >= 2:
+            url = argv[1]
+        if len(argv) >= 3:
+            basePaths = argv[2:]
+        if not url:
+            url = DEFAULT_URL
+        if not basePaths:
+            basePaths = DEFAULT_BASE_PATHS
+        cwd = os.getcwd()
+        tmpdir = tempfile.mkdtemp()
+        print 'workdir is', tmpdir
+        os.chdir(tmpdir)
+        try:
             self.createPkgs(url, basePaths)
-        elif 'accounts' == category:
-            users = argv[2:]
-            self.createUsers(users)
-        else:
-            self.help()
-            return
+        finally:
+            os.chdir(cwd)
+
+        return 0
 
 if __name__ == '__main__':
     pkgWiz = PkgWiz()
