@@ -291,6 +291,11 @@ class PkgWiz:
             url = DEFAULT_URL
         if not basePaths:
             basePaths = DEFAULT_BASE_PATHS
+
+        if not url.startswith('http'):
+            self.help()
+            return 1
+
         cwd = os.getcwd()
         tmpdir = tempfile.mkdtemp()
         print 'workdir is', tmpdir
