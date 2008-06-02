@@ -47,7 +47,6 @@ class RecipeMaker(object):
         except Exception, e:
             print '++++++ error building', pkgname, str(e)
             return
-        return
         cvc.sourceCommand(self.cfg,
                          [ 'commit' ],
                          { 'message':
