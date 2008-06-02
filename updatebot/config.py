@@ -17,7 +17,7 @@ Configuration module for updatebot.
 '''
 
 from conary.lib import cfg
-from conary.lib.cfgtypes import CfgString
+from conary.lib.cfgtypes import CfgString, CfgList
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     '''
@@ -28,5 +28,8 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # pylint: disable-msg=R0904
 
     # path to configuration files (conaryrc, rmakerc)
-    configPath      = CfgString
-    commitMessage   = (CfgString, 'Automated commit by updateBot')
+    configPath          = CfgString
+    commitMessage       = (CfgString, 'Automated commit by updateBot')
+
+    repositoryUrl       = CfgString
+    repositoryPaths     = CfgList(CfgLineList(CfgString))
