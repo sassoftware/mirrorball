@@ -63,7 +63,8 @@ class ConaryHelper(object):
 
         return srcTrvs
 
-    def _findLatest(self, trvlst):
+    @classmethod
+    def _findLatest(cls, trvlst):
         """
         Given a list of trove specs, find the most recent versions.
         @param trvlst: list of trove specs
@@ -108,7 +109,8 @@ class ConaryHelper(object):
 
         return srcTrvs
 
-    def _getTrove(self, cs, name, version, flavor):
+    @classmethod
+    def _getTrove(cls, cs, name, version, flavor):
         """
         Get a trove object for a given name, version, flavor from a changeset.
         @param cs: conary changeset object
@@ -126,17 +128,19 @@ class ConaryHelper(object):
         trv = trove.Trove(troveCs, skipIntegrityChecks=True)
         return trv
 
+
 if __name__ == '__main__':
     import sys
     from conary.lib import util as cnyutil
     sys.excepthook = cnyutil.genExcepthook()
 
-    import config
-    cfg = config.UpdateBotConfig()
-    cfg.topGroup = ('group-dist', 'sle.rpath.com@rpath:sle-devel', None)
-    cfg.configPath = '../'
+    from updatebot import config
+    Cfg = config.UpdateBotConfig()
+    Cfg.topGroup = ('group-dist', 'sle.rpath.com@rpath:sle-devel', None)
+    Cfg.configPath = '../'
 
-    obj = ConaryHelper(cfg)
-    srcTrvs = obj.getSourceTrovesInTopLevel()
+    Obj = ConaryHelper(Cfg)
+    SrcTrvs = Obj.getSourceTroves()
 
-    import epdb ; epdb.st()
+    import epdb
+    epdb.st()
