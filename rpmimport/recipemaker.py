@@ -64,15 +64,14 @@ class RecipeMaker(object):
         print 'creating initial template for', pkgname
         try:
             shutil.rmtree(pkgname)
-        except OSError, e:
+        except OSError:
             pass
         cvc.sourceCommand(self.cfg, [ "newpkg", pkgname ],
                           {'factory':'sle-rpm'})
         os.chdir(pkgname)
-        f = open(manifest, 'w')
+        f = open('manifest', 'w')
         f.close()
-        addfiles.append(manifest)
-        cvc.sourceCommand(self.cfg, addfiles, {'text':True})
+        cvc.sourceCommand(self.cfg, [ 'add', 'manifest' ], {'text':True})
 
     def _checkout(self, pkgname):
         """
@@ -85,12 +84,25 @@ class RecipeMaker(object):
         print 'updating', pkgname
         try:
             shutil.rmtree(pkgname)
-        except OSError, e:
+        except OSError:
             pass
         cvc.sourceCommand(self.cfg, [ 'co', pkgname ], {})
         os.chdir(pkgname)
 
     def _createOrUpdate(self, pkgname, srpm, create=False, update=False):
+        """
+        Manage a package manifest file.
+        NOTE: either create or update must be True.
+        @param pkgname: name of the package
+        @type pkgname: string
+        @param srpm: name of hte source RPM file
+        @type srpm: string
+        @param create: create a package
+        @type create: boolean
+        @param update: update a package
+        @type update: boolean
+        """
+
         assert(create or update)
         manifest = self.rpmSource.createManifest(srpm)
 
@@ -107,7 +119,23 @@ class RecipeMaker(object):
             os.chdir(cwd)
 
     def createManifest(self, pkgname, srpm):
+        """
+        Create a manifest file.
+        @param pkgname: name of the package
+        @type pkgname: string
+        @param srpm: name of hte source RPM file
+        @type srpm: string
+        """
+
         self._createOrUpdate(pkgname, srpm, create=True)
 
     def updateManifest(self, pkgname, srpm):
+        """
+        Update a manifest file.
+        @param pkgname: name of the package
+        @type pkgname: string
+        @param srpm: name of hte source RPM file
+        @type srpm: string
+        """
+
         self._createOrUpdate(pkgname, srpm, update=True)
