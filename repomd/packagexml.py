@@ -28,6 +28,10 @@ class _Package(SlotNode):
     Python representation of package section of xml files from the repository
     metadata.
     """
+
+    # R0902 - Too many instance attributes
+    # pylint: disable-msg=R0902
+
     __slots__ = ('name', 'arch', 'epoch', 'version', 'release',
                  'checksum', 'checksumType', 'summary', 'description',
                  'fileTimestamp', 'buildTimestamp', 'packageSize',
@@ -40,6 +44,7 @@ class _Package(SlotNode):
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__
     # pylint: disable-msg=W0201
+
 
     def addChild(self, child):
         """

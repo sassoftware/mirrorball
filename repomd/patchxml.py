@@ -18,6 +18,10 @@ class _Patch(SlotNode):
     """
     Python representation of patch-*.xml from the repository metadata.
     """
+
+    # R0902 - Too many instance attributes
+    # pylint: disable-msg=R0902
+
     __slots__ = ('name', 'summary', 'description', 'version',
                  'release', 'requires', 'recommends', 'rebootNeeded',
                  'licenseToConfirm', 'packageManager', 'category',
