@@ -147,7 +147,11 @@ class _StatusOnlyDisplay(monitor.JobLogDisplay):
     # pylint: disable-msg=R0901
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
-        """Don't care about trove logs'''
+        """
+        Don't care about trove logs
+        """
 
     def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
-        """Don't care about resolving/installing chroot'''
+        """
+        Don't care about resolving/installing chroot
+        """
