@@ -106,7 +106,7 @@ class RpmSource(object):
             self.rpmMap[srpm] = {longLoc: package}
         self.revMap[package.name] = srpm
 
-    def load(self, url, basePath):
+    def load(self, url, basePath=''):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -117,6 +117,17 @@ class RpmSource(object):
         """
 
         client = repomd.Client(url + '/' + basePath)
+        self.loadFromClient(client)
+
+    def loadFromClient(self, client, basePath=''):
+        '''
+        Walk the yum repository rooted at url/basePath and collect information
+        about rpms found.
+        @param client: client object for extracting data from the repo metadata
+        @type client: repomd.Client
+        @param basePath: path to prefix location metadata with
+        @type basePath: string
+        '''
 
         for pkg in client.getPackageDetail():
             # ignore the 32-bit compatibility libs - we will
