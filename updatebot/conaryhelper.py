@@ -127,20 +127,3 @@ class ConaryHelper(object):
         troveCs = cs.getNewTroveVersion(name, version, flavor)
         trv = trove.Trove(troveCs, skipIntegrityChecks=True)
         return trv
-
-
-if __name__ == '__main__':
-    import sys
-    from conary.lib import util as cnyutil
-    sys.excepthook = cnyutil.genExcepthook()
-
-    from updatebot import config
-    Cfg = config.UpdateBotConfig()
-    Cfg.topGroup = ('group-dist', 'sle.rpath.com@rpath:sle-devel', None)
-    Cfg.configPath = '../'
-
-    Obj = ConaryHelper(Cfg)
-    SrcTrvs = Obj.getSourceTroves()
-
-    import epdb
-    epdb.st()
