@@ -18,6 +18,7 @@ Configuration module for updatebot.
 
 from conary.lib import cfg
 from conary.lib.cfgtypes import CfgString, CfgList
+from rmake.build.buildcfg import CfgTroveSpec
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     '''
@@ -32,4 +33,7 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     commitMessage       = (CfgString, 'Automated commit by updateBot')
 
     repositoryUrl       = CfgString
-    repositoryPaths     = CfgList(CfgLineList(CfgString))
+    repositoryPaths     = (CfgList(CfgString), ['/'])
+
+    topGroup            = CfgTroveSpec
+
