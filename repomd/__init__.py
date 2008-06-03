@@ -12,7 +12,7 @@
 # full details.
 #
 
-'''
+"""
 Common repository metadata parsing library.
 
 Handles parsing most yum metadata including SuSE proprietary patch/delta rpm
@@ -30,7 +30,7 @@ Example:
 > for patch in patches:
 >     # print all of the advisories in the repository
 >     print patch.description
-'''
+"""
 
 from repomd.repomdxml import RepoMdXml
 from repomd.repository import Repository
@@ -39,9 +39,9 @@ from repomd.errors import RepoMdError, ParseError, UnknownElementError
 __all__ = ('Client', 'RepoMdError', 'ParseError', 'UnknownElementError')
 
 class Client(object):
-    '''
+    """
     Client object for extracting information from repository metadata.
-    '''
+    """
 
     def __init__(self, repoUrl):
         self._repoUrl = repoUrl
@@ -51,27 +51,27 @@ class Client(object):
         self._repomd = RepoMdXml(self._repo, self._baseMdPath).parse()
 
     def getRepos(self):
-        '''
+        """
         Get a repository instance.
         @return instance of repomd.repository.Repository
-        '''
+        """
 
         return self._repo
 
     def getPatchDetail(self):
-        '''
+        """
         Get a list instances representing all patch data in the repository.
         @return [repomd.patchxml._Patch, ...]
-        '''
+        """
 
         node = self._repomd.getRepoData('patches')
         return [ x.parseChildren() for x in node.parseChildren().getPatches() ]
 
     def getPackageDetail(self):
-        '''
+        """
         Get a list instances representing all packages in the repository.
         @ return [repomd.packagexml._Package, ...]
-        '''
+        """
 
         node = self._repomd.getRepoData('primary')
         return node.parseChildren().getPackages()

@@ -12,9 +12,9 @@
 # full details.
 #
 
-'''
+"""
 Builder object implementation.
-'''
+"""
 
 import time
 import logging
@@ -26,12 +26,12 @@ from updatebot.errors import JobFailedError, CommitFailedError
 log = logging.getLogger('updateBot.build')
 
 class Builder(object):
-    '''
+    """
     Class for wrapping the rMake api until we can switch to using rBuild.
 
     @param cfg: updateBot configuration object
     @type cfg: config.UpdateBotConfig
-    '''
+    """
 
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
@@ -42,12 +42,12 @@ class Builder(object):
         self._helper = helper.rMakeHelper(root=self._cfg.configPath)
 
     def build(self, troveSpecs):
-        '''
+        """
         Build a list of troves.
         @param troveSpecs: list of trove specs
         @type troveSpecs: [(name, versionObj, flavorObj), ...]
         @return troveMap: dictionary of troveSpecs to built troves
-        '''
+        """
 
         jobId = self._startJob(troveSpecs)
         self._monitorJob(jobId)
@@ -57,12 +57,12 @@ class Builder(object):
         return trvMap
 
     def _startJob(self, troveSpecs):
-        '''
+        """
         Create and start a rMake build.
         @param troveSpecs: list of trove specs
         @type troveSpecs: [(name, versionObj, flavorObj), ...]
         @return integer jobId
-        '''
+        """
 
         # Create rMake job
         log.info('Creating build job: %s' % (troveSpecs, ))
@@ -73,22 +73,22 @@ class Builder(object):
         return jobId
 
     def _monitorJob(self, jobId):
-        '''
+        """
         Monitor job status, block until complete.
         @param jobId: rMake job ID
         @type jobId: integer
-        '''
+        """
 
         # Watch build, wait for completion
         monitor.monitorJob(self._helper.client, jobId,
             exitOnFinish=True, displayClass=_StatusOnlyDisplay)
 
     def _sanityCheckJob(self, jobId):
-        '''
+        """
         Verify the status of a job.
         @param jobId: rMake job ID
         @type jobId: integer
-        '''
+        """
 
         # Check for errors
         job = self._helper.getJob(jobId)
@@ -103,12 +103,12 @@ class Builder(object):
             raise JobFailedError(jobId=jobId, why='Job built no troves')
 
     def _commitJob(self, jobId):
-        '''
+        """
         Commit completed job.
         @param jobId: rMake job ID
         @type jobId: integer
         @return troveMap: dictionary of troveSpecs to built troves
-        '''
+        """
 
         # Do the commit
         startTime = time.time()
@@ -137,17 +137,17 @@ class Builder(object):
 
 
 class _StatusOnlyDisplay(monitor.JobLogDisplay):
-    '''
+    """
     Display only job and trove status. No log output.
 
     Copied from bob3
-    '''
+    """
 
     # R0901 - Too many ancestors
     # pylint: disable-msg=R0901
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
-        '''Don't care about trove logs'''
+        """Don't care about trove logs'''
 
     def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
-        '''Don't care about resolving/installing chroot'''
+        """Don't care about resolving/installing chroot'''

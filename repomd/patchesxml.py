@@ -12,9 +12,9 @@
 # full details.
 #
 
-'''
+"""
 Module for parsing patches.xml from the repository metadata.
-'''
+"""
 
 __all__ = ('PatchesXml', )
 
@@ -26,14 +26,14 @@ from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
 class _Patches(xmllib.BaseNode):
-    '''
+    """
     Python representation of patches.xml from the repository metadata.
-    '''
+    """
 
     def addChild(self, child):
-        '''
+        """
         Parse children of patches element.
-        '''
+        """
 
         # W0212 - Access to a protected member _parser of a client class
         # pylint: disable-msg=W0212
@@ -47,24 +47,24 @@ class _Patches(xmllib.BaseNode):
             raise UnknownElementError(child)
 
     def getPatches(self):
-        '''
+        """
         Get a list of all patches in the repository.
         @return list of _PatchElement instances
-        '''
+        """
 
         return self.getChildren('patch')
 
 
 class _PatchElement(SlotNode):
-    '''
+    """
     Parser for patch element of patches.xml.
-    '''
+    """
     __slots__ = ('id', 'checksum', 'checksumType', 'location')
 
     def addChild(self, child):
-        '''
+        """
         Parse children of patch element.
-        '''
+        """
 
         if child.getName() == 'checksum':
             self.checksum = child.finalize()
@@ -76,17 +76,17 @@ class _PatchElement(SlotNode):
 
 
 class PatchesXml(XmlFileParser):
-    '''
+    """
     Handle registering all types for parsing patches.xml.
-    '''
+    """
 
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
 
     def _registerTypes(self):
-        '''
+        """
         Setup databinder to parse xml.
-        '''
+        """
 
         self._databinder.registerType(_Patches, name='patches')
         self._databinder.registerType(_PatchElement, name='patch')

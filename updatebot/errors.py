@@ -12,14 +12,14 @@
 # full details.
 #
 
-'''
+"""
 UpdateBot specific errors.
-'''
+"""
 
 class UpdateBotError(Exception):
-    '''
+    """
     Base UpdateBot Error for all other errors to inherit from.
-    '''
+    """
 
     _params = []
     _template = 'An unknown error has occured.'
@@ -42,18 +42,18 @@ class UpdateBotError(Exception):
 
 
 class CommitFailedError(UpdateBotError):
-    '''
+    """
     CommitFailedError, raised when failing to commit to a repository.
-    '''
+    """
 
     _params = ['jobId', 'why']
     _template = 'rMake job %(jobId)d failed to commit: %(why)s'
 
 
 class JobFailedError(UpdateBotError):
-    '''
+    """
     JobFailedError, raised when an rMake job fails.
-    '''
+    """
 
     _params = ['jobId', 'why']
     _templates = 'rMake job %(jobId)s failed: %(why)s'

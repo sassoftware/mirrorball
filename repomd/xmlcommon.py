@@ -12,18 +12,18 @@
 # full details.
 #
 
-'''
+"""
 Base module for common super classes for repomd.
-'''
+"""
 
 __all__ = ('XmlFileParser', )
 
 from rpath_common.xmllib import api1 as xmllib
 
 class XmlFileParser(object):
-    '''
+    """
     Base class for handling databinder setup.
-    '''
+    """
 
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
@@ -38,17 +38,17 @@ class XmlFileParser(object):
         self._data = None
 
     def _registerTypes(self):
-        '''
+        """
         Method stub for sub classes to implement.
-        '''
+        """
 
     def parse(self, refresh=False):
-        '''
+        """
         Parse an xml file.
         @param refresh: refresh the cached parser results
         @type refresh: bool
         @return sub class xmllib.BaseNode
-        '''
+        """
 
         # W0212 - Access to a protected member _parser of a client class
         # pylint: disable-msg=W0212

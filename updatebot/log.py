@@ -12,17 +12,17 @@
 # full details.
 #
 
-'''
+"""
 Module of logging related functions.
-'''
+"""
 
 import sys
 import logging
 
 def addRootLogger():
-    '''
+    """
     Setup the root logger that should be inherited by all other loggers.
-    '''
+    """
 
     rootLog = logging.getLogger('')
     handler = logging.StreamHandler(sys.stdout)

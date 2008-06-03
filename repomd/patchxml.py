@@ -2,9 +2,9 @@
 # Copryright (c) 2008 rPath, Inc.
 #
 
-'''
+"""
 Module for parsing patch-*.xml files from the repository metadata.
-'''
+"""
 
 __all__ = ('PatchXml', )
 
@@ -15,18 +15,18 @@ from repomd.packagexml import PackageXmlMixIn
 from repomd.errors import UnknownElementError
 
 class _Patch(SlotNode):
-    '''
+    """
     Python representation of patch-*.xml from the repository metadata.
-    '''
+    """
     __slots__ = ('name', 'summary', 'description', 'version',
                  'release', 'requires', 'recommends', 'rebootNeeded',
                  'licenseToConfirm', 'packageManager', 'category',
                  'packages')
 
     def addChild(self, child):
-        '''
+        """
         Parse children of patch element.
-        '''
+        """
 
         # FIXME: There should be a better way to setup a parser.
         # R0912 - Too many branches
@@ -74,14 +74,14 @@ class _Patch(SlotNode):
 
 
 class _Atoms(xmllib.BaseNode):
-    '''
+    """
     Parser for the atoms element of a path-*.xml file.
-    '''
+    """
 
     def addChild(self, child):
-        '''
+        """
         Parse children of atoms element.
-        '''
+        """
 
         if child.getName() == 'package':
             child.type = child.getAttribute('type')
@@ -95,17 +95,17 @@ class _Atoms(xmllib.BaseNode):
 
 
 class PatchXml(XmlFileParser, PackageXmlMixIn):
-    '''
+    """
     Handle registering all types for parsing patch-*.xml files.
-    '''
+    """
 
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
 
     def _registerTypes(self):
-        '''
+        """
         Setup databinder to parse xml.
-        '''
+        """
 
         PackageXmlMixIn._registerTypes(self)
         self._databinder.registerType(_Patch, name='patch')

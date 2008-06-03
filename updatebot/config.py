@@ -12,18 +12,18 @@
 # full details.
 #
 
-'''
+"""
 Configuration module for updatebot.
-'''
+"""
 
 from conary.lib import cfg
 from conary.lib.cfgtypes import CfgString, CfgList
 from rmake.build.buildcfg import CfgTroveSpec
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
-    '''
+    """
     Config class for updatebot.
-    '''
+    """
 
     # R0904 - to many public methods
     # pylint: disable-msg=R0904

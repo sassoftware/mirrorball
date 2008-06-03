@@ -12,7 +12,7 @@
 # full details.
 #
 
-'''
+"""
 UpdateBot is a module for automated updating of a conary repository from a
 SLES yum/rpm repository.
-'''
+"""

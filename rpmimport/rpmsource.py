@@ -110,14 +110,14 @@ class RpmSource(object):
         self.loadFromClient(client)
 
     def loadFromClient(self, client, basePath=''):
-        '''
+        """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
         @param client: client object for extracting data from the repo metadata
         @type client: repomd.Client
         @param basePath: path to prefix location metadata with
         @type basePath: string
-        '''
+        """
 
         for pkg in client.getPackageDetail():
             # ignore the 32-bit compatibility libs - we will

@@ -12,7 +12,7 @@
 # full details.
 #
 
-'''
+"""
 Module for managing (importing, creating, updating) RPMs in a conary
 repository.
-'''
+"""

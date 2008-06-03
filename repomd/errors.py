@@ -12,27 +12,27 @@
 # full details.
 #
 
-'''
+"""
 Errors specific to repomd module.
-'''
+"""
 
 __all__ = ('RepoMdError', 'ParseError', 'UnknownElementError')
 
 class RepoMdError(Exception):
-    '''
+    """
     Base exception for all repomd exceptions. This should never be
     expllicitly raised.
-    '''
+    """
 
 class ParseError(RepoMdError):
-    '''
+    """
     Base parsing error.
-    '''
+    """
 
 class UnknownElementError(ParseError):
-    '''
+    """
     Raised when unhandled elements are found in the parser.
-    '''
+    """
 
     def __init__(self, element):
         ParseError.__init__(self)
@@ -43,9 +43,9 @@ class UnknownElementError(ParseError):
         return self._error % (self._element.getAbsoluteName(), )
 
 class UnknownAttributeError(UnknownElementError):
-    '''
+    """
     Raised when unhandled attributes are found in the parser.
-    '''
+    """
 
     def __init__(self, element, attribute):
         UnknownElementError.__init__(self, element)

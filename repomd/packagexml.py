@@ -12,9 +12,9 @@
 # full details.
 #
 
-'''
+"""
 Module for parsing package sections of xml files from the repository metadata.
-'''
+"""
 
 __all__ = ('PackageXmlMixIn', )
 
@@ -24,10 +24,10 @@ from repomd.errors import UnknownElementError, UnknownAttributeError
 from repomd.xmlcommon import SlotNode
 
 class _Package(SlotNode):
-    '''
+    """
     Python representation of package section of xml files from the repository
     metadata.
-    '''
+    """
     __slots__ = ('name', 'arch', 'epoch', 'version', 'release',
                  'checksum', 'checksumType', 'summary', 'description',
                  'fileTimestamp', 'buildTimestamp', 'packageSize',
@@ -37,9 +37,9 @@ class _Package(SlotNode):
                  'licenseToConfirm')
 
     def addChild(self, child):
-        '''
+        """
         Parse children of package element.
-        '''
+        """
 
         # FIXME: There should be a better way to setup a parser.
         # R0912 - Too many branches
@@ -114,14 +114,14 @@ class _Package(SlotNode):
 
 
 class _RpmRequires(xmllib.BaseNode):
-    '''
+    """
     Parse any element that contains rpm:entry or suse:entry elements.
-    '''
+    """
 
     def addChild(self, child):
-        '''
+        """
         Parse rpm:entry and suse:entry nodes.
-        '''
+        """
 
         if child.getName() in ('rpm:entry', 'suse:entry'):
             for attr, value in child.iterAttributes():
@@ -155,65 +155,65 @@ class _RpmRequires(xmllib.BaseNode):
 
 
 class _RpmRecommends(_RpmRequires):
-    '''
+    """
     Parse rpm:recommends children.
-    '''
+    """
 
 
 class _RpmProvides(_RpmRequires):
-    '''
+    """
     Parse rpm:provides children.
-    '''
+    """
 
 
 class _RpmObsoletes(_RpmRequires):
-    '''
+    """
     Parse rpm:obsoletes children.
-    '''
+    """
 
 
 class _RpmConflicts(_RpmRequires):
-    '''
+    """
     Parse rpm:conflicts children.
-    '''
+    """
 
 
 class _RpmEnhances(_RpmRequires):
-    '''
+    """
     Parse rpm:enhances children.
-    '''
+    """
 
 
 class _RpmSupplements(_RpmRequires):
-    '''
+    """
     Parse rpm:supplements children.
-    '''
+    """
 
 
 class _RpmSuggests(_RpmRequires):
-    '''
+    """
     Parse rpm:suggests children.
-    '''
+    """
 
 
 class _SuseFreshens(_RpmRequires):
-    '''
+    """
     Parse suse:freshens children.
-    '''
+    """
 
 
 class PackageXmlMixIn(object):
-    '''
+    """
     Handle registering all types for parsing package elements.
-    '''
+    """
 
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
 
     def _registerTypes(self):
-        '''
+        """
         Setup databinder to parse xml.
-        '''
+        """
 
         self._databinder.registerType(_Package, name='package')
         self._databinder.registerType(xmllib.StringNode, name='name')

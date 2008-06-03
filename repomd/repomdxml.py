@@ -12,9 +12,9 @@
 # full details.
 #
 
-'''
+"""
 Module for parsing repomd.xml files from the repository metadata.
-'''
+"""
 
 __all__ = ('RepoMdXml', )
 
@@ -27,14 +27,14 @@ from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
 class _RepoMd(xmllib.BaseNode):
-    '''
+    """
     Python representation of repomd.xml from the repository metadata.
-    '''
+    """
 
     def addChild(self, child):
-        '''
+        """
         Parse children of repomd element.
-        '''
+        """
 
         # W0212 - Access to a protected member _parser of a client class
         # pylint: disable-msg=W0212
@@ -52,14 +52,14 @@ class _RepoMd(xmllib.BaseNode):
             raise UnknownElementError(child)
 
     def getRepoData(self, name=None):
-        '''
+        """
         Get data elements of repomd xml file.
         @param name: filter by type of node
         @type name: string
         @return list of nodes
         @return single node
         @return None
-        '''
+        """
 
         if not name:
             return self.getChildren('data')
@@ -72,16 +72,16 @@ class _RepoMd(xmllib.BaseNode):
 
 
 class _RepoMdDataElement(SlotNode):
-    '''
+    """
     Parser for repomd.xml data elements.
-    '''
+    """
     __slots__ = ('location', 'checksum', 'checksumType', 'timestamp',
                  'openChecksum', 'openChecksumType')
 
     def addChild(self, child):
-        '''
+        """
         Parse children of data element.
-        '''
+        """
 
         if child.getName() == 'location':
             self.location = child.getAttribute('href')
@@ -98,17 +98,17 @@ class _RepoMdDataElement(SlotNode):
 
 
 class RepoMdXml(XmlFileParser):
-    '''
+    """
     Handle registering all types for parsing repomd.xml file.
-    '''
+    """
 
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
 
     def _registerTypes(self):
-        '''
+        """
         Setup databinder to parse xml.
-        '''
+        """
 
         self._databinder.registerType(_RepoMd, name='repomd')
         self._databinder.registerType(_RepoMdDataElement, name='data')
