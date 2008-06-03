@@ -16,7 +16,7 @@
 Base module for common super classes for repomd.
 """
 
-__all__ = ('XmlFileParser', )
+__all__ = ('XmlFileParser', 'SlotNode')
 
 from rpath_common.xmllib import api1 as xmllib
 
@@ -65,6 +65,10 @@ class XmlFileParser(object):
 
 
 class SlotNode(xmllib.BaseNode):
+    """
+    XML node class that initializes all __slots__ entries to None.
+    """
+
     __slots__ = ()
 
     def __init__(self, *args, **kw):

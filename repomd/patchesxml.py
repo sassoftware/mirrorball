@@ -61,6 +61,11 @@ class _PatchElement(SlotNode):
     """
     __slots__ = ('id', 'checksum', 'checksumType', 'location')
 
+    # All attributes are defined in __init__ by iterating over __slots__,
+    # this confuses pylint.
+    # W0201 - Attribute $foo defined outside __init__
+    # pylint: disable-msg=W0201
+
     def addChild(self, child):
         """
         Parse children of patch element.
