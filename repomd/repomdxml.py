@@ -23,7 +23,7 @@ from rpath_common.xmllib import api1 as xmllib
 
 from repomd.primaryxml import PrimaryXml
 from repomd.patchesxml import PatchesXml
-from repomd.xmlcommon import XmlFileParser
+from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
 class _RepoMd(xmllib.BaseNode):
@@ -71,17 +71,12 @@ class _RepoMd(xmllib.BaseNode):
         return None
 
 
-class _RepoMdDataElement(xmllib.BaseNode):
+class _RepoMdDataElement(SlotNode):
     '''
     Parser for repomd.xml data elements.
     '''
-
-    location = ''
-    checksum = ''
-    checksumType = 'sha'
-    timestamp = ''
-    openChecksum = ''
-    openChecksumType = 'sha'
+    __slots__ = ('location', 'checksum', 'checksumType', 'timestamp',
+                 'openChecksum', 'openChecksumType')
 
     def addChild(self, child):
         '''

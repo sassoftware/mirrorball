@@ -20,8 +20,9 @@ __all__ = ('Repository', )
 
 import os
 import gzip
+import shutil
 import tempfile
-import urlgrabber
+import urllib2
 
 class Repository(object):
     '''
@@ -44,12 +45,16 @@ class Repository(object):
 
         fn = self._getTempFile()
         realUrl = self._getRealUrl(fileName)
-        dlFile = urlgrabber.urlgrab(realUrl, filename=fn)
+
+        inf = urllib2.urlopen(realUrl)
+        outf = open(fn, 'w')
+        shutil.copyfileobj(inf, outf)
 
         if os.path.basename(fileName).endswith('.gz'):
-            return gzip.open(dlFile)
+            return gzip.open(fn)
         else:
-            return open(dlFile)
+            return open(fn)
+        os.unlink(fn)
 
     @classmethod
     def _getTempFile(cls):

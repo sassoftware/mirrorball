@@ -13,18 +13,18 @@
 # full details.
 #
 
-'''
+"""
 Module for interacting with packages in multiple yum repositories.
-'''
+"""
 
 import os
 
 import repomd
 
 class PackageChecksumMismatchError(Exception):
-    '''
+    """
     Exception for packages that have checksums that don't match.
-    '''
+    """
 
     def __init__(self, pkg1, pkg2):
         Exception.__init__(self)
@@ -38,9 +38,9 @@ class PackageChecksumMismatchError(Exception):
 
 
 class RpmSource(object):
-    '''
+    """
     Class that builds maps of packages from multiple yum repositories.
-    '''
+    """
 
     def __init__(self):
         # {srpm: {rpm: path}
@@ -52,30 +52,14 @@ class RpmSource(object):
         # {srpm: path}
         self.srcPath = dict()
 
-    @classmethod
-    def transformName(cls, name):
-        """
-        In name, - => _, + => _plus.
-        """
-
-        return name.replace('-', '_').replace('+', '_plus')
-
-    @classmethod
-    def quoteSequence(cls, seq):
-        """
-        [a, b] => 'a', 'b'
-        """
-
-        return ', '.join("'%s'" % x for x in sorted(seq))
-
     def _procSrc(self, basePath, package):
-        '''
+        """
         Process source rpms.
         @param basePath: path to yum repository.
         @type basePath: string
         @param package: package object
         @type package: repomd.packagexml._Package
-        '''
+        """
         shortSrpm = os.path.basename(package.location)
         longLoc = basePath + '/' + package.location
         if shortSrpm in self.srcPath:
@@ -90,17 +74,23 @@ class RpmSource(object):
             self.srcPath[shortSrpm] = package
 
     def _procBin(self, basePath, package):
-        '''
+        """
         Process binary rpms.
         @param basePath: path to yum repository.
         @type basePath: string
         @param package: package object
         @type package: repomd.packagexml._Package
-        '''
+        """
         srpm = package.sourcerpm
-        longLoc = basePath + '/' +  package.location
+        longLoc = basePath + '/' + package.location
         package.location = longLoc
         if self.rpmMap.has_key(srpm):
+            shortLoc = os.path.basename(package.location)
+            # remove duplicates of this binary RPM - last one wins
+            existing = [ x for x in self.rpmMap[srpm].iterkeys()
+                         if os.path.basename(x) == shortLoc ]
+            for key in existing:
+                del self.rpmMap[srpm][key]
             self.rpmMap[srpm][longLoc] = package
         else:
             self.rpmMap[srpm] = {longLoc: package}
@@ -195,14 +185,12 @@ class RpmSource(object):
                 return 'i686', archMap['i686']
         return None, None
 
-    def createManifest(self, srpm, prefix):
+    def createManifest(self, srpm):
         """
         @return the text for the manifest file.
         """
         l = []
         l.append(self.srcPath[srpm].location)
-        l.extend([x for x in self.getRPMS(srpm)])
-        if prefix:
-            l = [ x[len(prefix):] for x in l]
+        l.extend([x.location for x in self.getRPMS(srpm)])
         # add a trailing newline
         return '\n'.join(sorted(l) + [''])

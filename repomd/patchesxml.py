@@ -22,7 +22,7 @@ __all__ = ('PatchesXml', )
 from rpath_common.xmllib import api1 as xmllib
 
 from repomd.patchxml import PatchXml
-from repomd.xmlcommon import XmlFileParser
+from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
 class _Patches(xmllib.BaseNode):
@@ -55,15 +55,11 @@ class _Patches(xmllib.BaseNode):
         return self.getChildren('patch')
 
 
-class _PatchElement(xmllib.BaseNode):
+class _PatchElement(SlotNode):
     '''
     Parser for patch element of patches.xml.
     '''
-
-    id = None
-    checksum = ''
-    checksumType = 'sha'
-    location = ''
+    __slots__ = ('id', 'checksum', 'checksumType', 'location')
 
     def addChild(self, child):
         '''
