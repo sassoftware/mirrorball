@@ -18,7 +18,7 @@ from conary import cvc
 import conary.lib.util
 import os
 import tempfile
-from rpmimport import infomaker, recipemaker, rpmsource, rpmhelper
+from rpmimport import recipemaker, rpmsource, rpmhelper
 import rpmvercmp
 import shutil
 import sys
