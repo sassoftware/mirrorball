@@ -32,13 +32,6 @@ class RecipeMaker(object):
         self.repos = repos
         self.rpmSource = rpmSource
 
-    def _cvc(self, *args, **kwargs):
-        """
-        Run cvc command.
-        """
-
-        cvc.sourceCommand(self.cfg, *args, **kwargs)
-
     def _updateSourceComponent(self, pkgname, manifestContents,
                                comment):
         """
@@ -50,11 +43,14 @@ class RecipeMaker(object):
         f.write(manifestContents)
         f.close()
         try:
-            self._cvc('cook', no-deps=None)
+            cvc.sourceCommand(self.cfg, ['cook'], {'no-deps': None})
         except Exception, e:
             print '++++++ error building', pkgname, str(e)
             return
-        self._cvc('commit', message='%s of %s:source' % (comment, pkgname))
+        cvc.sourceCommand(self.cfg,
+                         [ 'commit' ],
+                         { 'message':
+                           '%s of %s:source' % (comment, pkgname)})
 
     def _newpkg(self, pkgname):
         """
@@ -70,11 +66,12 @@ class RecipeMaker(object):
             shutil.rmtree(pkgname)
         except OSError:
             pass
-        self._cvc('newpkg', pkgname, factory='sle-rpm')
+        cvc.sourceCommand(self.cfg, [ "newpkg", pkgname ],
+                          {'factory':'sle-rpm'})
         os.chdir(pkgname)
         f = open('manifest', 'w')
         f.close()
-        self._cvc('add', 'manifest', text=True)
+        cvc.sourceCommand(self.cfg, [ 'add', 'manifest' ], {'text':True})
 
     def _checkout(self, pkgname):
         """
@@ -89,7 +86,7 @@ class RecipeMaker(object):
             shutil.rmtree(pkgname)
         except OSError:
             pass
-        self._cvc('co', pkgname)
+        cvc.sourceCommand(self.cfg, [ 'co', pkgname ], {})
         os.chdir(pkgname)
 
     def _createOrUpdate(self, pkgname, srpm, create=False, update=False):
