@@ -107,7 +107,7 @@ class RpmSource(object):
         """
 
         client = repomd.Client(url + '/' + basePath)
-        self.loadFromClient(client)
+        self.loadFromClient(client, basePath=basePath)
 
     def loadFromClient(self, client, basePath=''):
         """
