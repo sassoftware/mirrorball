@@ -122,6 +122,10 @@ class _Package(SlotNode):
     def __str__(self):
         return '%(name)s-%(version)s-%(release)s' % self.__dict__
 
+    def __hash__(self):
+        return hash((self.name, self.epoch, self.version, self.release,
+                     self.arch))
+
 
 class _RpmRequires(xmllib.BaseNode):
     """
