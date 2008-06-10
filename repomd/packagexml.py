@@ -18,6 +18,8 @@ Module for parsing package sections of xml files from the repository metadata.
 
 __all__ = ('PackageXmlMixIn', )
 
+import os
+
 from rpath_common.xmllib import api1 as xmllib
 
 from repomd.errors import UnknownElementError, UnknownAttributeError
@@ -120,7 +122,10 @@ class _Package(SlotNode):
             raise UnknownElementError(child)
 
     def __str__(self):
-        return '%(name)s-%(version)s-%(release)s' % self.__dict__
+        return '-'.join([self.name, self.epoch, self.version, self.release])
+
+    def __repr__(self):
+        return os.path.basename(self.location)
 
     def __hash__(self):
         return hash((self.name, self.epoch, self.version, self.release,
