@@ -18,6 +18,8 @@ Module for common utility functions.
 
 import os
 
+from rpmvercmp import rpmvercmp
+
 def join(a, *b):
     """
     Version of os.path.join that doesn't reroot when it finds a leading /.
@@ -27,3 +29,39 @@ def join(a, *b):
     for path in b:
         root += os.sep + os.path.normpath(path)
     return root
+
+def srpmToConaryVersion(srcPkg):
+    """
+    Get the equvialent conary version from a srcPkg object.
+    @param srcPkg: package object for a srpm
+    @type srcPkg: repomd.packagexml._Package
+    @return conary trailing version
+    """
+
+    version = srcPkg.version.replace('-', '_')
+    release = srcPkg.release.replace('-', '_')
+    cnyver = '_'.join([version, release])
+    return cnyver
+
+def packagevercmp(a, b):
+    """
+    Compare two package objects.
+    @param a: package object from repo metadata
+    @type a: repomd.packagexml._Package
+    @param b: package object from repo metadata
+    @type b: repomd.packagexml._Package
+    """
+
+    epochcmp = rpmvercmp(a.epoch, b.epoch)
+    if epochcmp != 0:
+        return epochcmp
+
+    vercmp = rpmvercmp(a.version, b.version)
+    if vercmp != 0:
+        return vercmp
+
+    relcmp = rpmvercmp(a.release, b.release)
+    if relcmp != 0:
+        return relcmp
+
+    return 0
