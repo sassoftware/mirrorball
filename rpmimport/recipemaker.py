@@ -27,9 +27,8 @@ class RecipeMaker(object):
     Class for creating and managing rpm factory based source components.
     """
 
-    def __init__(self, cfg, repos, rpmSource):
+    def __init__(self, cfg, rpmSource):
         self.cfg = cfg
-        self.repos = repos
         self.rpmSource = rpmSource
 
     def _updateSourceComponent(self, pkgname, manifestContents,
@@ -139,3 +138,18 @@ class RecipeMaker(object):
         """
 
         self._createOrUpdate(pkgname, srpm, update=True)
+
+    def getManifest(self, pkgname):
+        """
+        Get the contents of the manifest file.
+        @param pkgname: name of the package
+        @type pkgname: string
+        @return manifest contents
+        """
+
+        cwd = os.getcwd()
+        os.chdir(tempfile.mkdtemp())
+        self._checkout(pkgname)
+        manifest = open('manifest').readlines()
+        os.chdir(cwd)
+        return manifest
