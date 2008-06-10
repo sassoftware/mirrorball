@@ -57,3 +57,38 @@ class JobFailedError(UpdateBotError):
 
     _params = ['jobId', 'why']
     _templates = 'rMake job %(jobId)s failed: %(why)s'
+
+
+class UnhandledUpdateError(UpdateBotError):
+    """
+    UnhandledUpdateError, raised when the bot finds a state that it does not
+    know how to handle.
+    """
+
+    _params = ['why']
+    _template = 'An unhandled update case has occured: %(why)s'
+
+
+class TooManySrpmsError(UnhandledUpdateError):
+    """
+    TooManySrpmsError, raised when the bot finds multiple srpms of the same
+    version.
+    """
+
+class UpdateGoesBackwardsError(UnhandledUpdateError):
+    """
+    UpdateGoesBackwardsError, raised when the bot tries to update to an older
+    version.
+    """
+
+class UpdateRemovesPackageError(UnhandledUpdateError):
+    """
+    UpdateRemovesPackageError, raised when the bot tries to remove an rpm from
+    the manifest.
+    """
+
+class TooManyFlavorsFoundError(UnhandledUpdateError):
+    """
+    TooManFlavorsFoundError, raised when the bot finds more flavors of the top
+    level group trove than expected.
+    """
