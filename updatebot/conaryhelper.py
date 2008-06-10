@@ -43,22 +43,35 @@ class ConaryHelper(object):
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
 
-    def getSourceTroves(self, group=None):
+    def getConaryConfig(self):
+        """
+        Get a conary config instance.
+        @return conary configuration object
+        """
+
+        return self._ccfg
+
+    def getSourceTroves(self, group):
         """
         Find all of the source troves included in group. If group is None use
         the top level group config option.
-        @param group: optional argument to specify the group to query
+        @param group: group to query
         @type group: None or troveTuple (name, versionStr, flavorStr)
         @return set of source trove specs
         """
 
-        if not group:
-            group = self._cfg.topGroup
-
         trvlst = self._repos.findTrove(self._ccfg.buildLabel, group)
 
+        latest = self._findLatest(trvlst)
+
+        # Magic number should probably be a config option.
+        # 2 here is the number of flavors expected.
+        if len(latest) != 2:
+            raise TooManyFlavorsFoundError(why=latest)
+
         srcTrvs = set()
-        for trv in self._findLatest(trvlst):
+        for trv in latest:
+            log.info('querying %s for source troves' % (trv, ))
             srcTrvs.update(self._getSourceTroves(trv))
 
         return srcTrvs
@@ -98,14 +111,15 @@ class ConaryHelper(object):
         cl = [ (name, (None, None), (version, flavor), True) ]
         cs = self._client.createChangeSet(cl, withFiles=False,
                                           withFileContents=False,
-                                          skipNotByDefault=False)
+                                          recurse=False)
 
         topTrove = self._getTrove(cs, name, version, flavor)
 
         srcTrvs = set()
-        for n, v, f in topTrove.iterTroveList(weakRefs=True):
-            trv = self._getTrove(cs, n, v, f)
-            srcTrvs.add((trv.getSourceName(), v.getSourceVersion(), None))
+        sources = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME,
+                        list(topTrove.iterTroveList(weakRefs=True)))
+        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True)):
+            srcTrvs.add((sources[i](), v.getSourceVersion(), None))
 
         return srcTrvs
 
@@ -124,6 +138,7 @@ class ConaryHelper(object):
         @return conary.trove.Trove object
         """
 
+        #log.debug('getting trove for (%s, %s, %s)' % (name, version, flavor))
         troveCs = cs.getNewTroveVersion(name, version, flavor)
         trv = trove.Trove(troveCs, skipIntegrityChecks=True)
         return trv
