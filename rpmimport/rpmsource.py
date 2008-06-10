@@ -87,11 +87,6 @@ class RpmSource(object):
         package.location = longLoc
         if self.rpmMap.has_key(srpm):
             shortLoc = os.path.basename(package.location)
-            # remove duplicates of this binary RPM - last one wins
-            #existing = [ x for x in self.rpmMap[srpm].iterkeys()
-            #             if os.path.basename(x) == shortLoc ]
-            #for key in existing:
-            #    del self.rpmMap[srpm][key]
             self.rpmMap[srpm][longLoc] = package
         else:
             self.rpmMap[srpm] = {longLoc: package}
@@ -216,6 +211,13 @@ class RpmSource(object):
         """
         l = []
         l.append(self.srcPath[srpm].location)
-        l.extend([x.location for x in self.getRPMS(srpm)])
+
+        locs = []
+        for loc in self.getRPMS(srpm):
+            baseLoc = os.path.basename(loc)
+            if baseLoc not in locs:
+                locs.append(baseLoc)
+                l.append(loc)
+
         # add a trailing newline
         return '\n'.join(sorted(l) + [''])
