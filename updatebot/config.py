@@ -37,3 +37,4 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     topGroup            = CfgTroveSpec
 
+    excludePackages     = CfgList(CfgString)
