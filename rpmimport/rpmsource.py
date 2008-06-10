@@ -18,24 +18,11 @@ Module for interacting with packages in multiple yum repositories.
 """
 
 import os
+import logging
 
 import repomd
 
-class PackageChecksumMismatchError(Exception):
-    """
-    Exception for packages that have checksums that don't match.
-    """
-
-    def __init__(self, pkg1, pkg2):
-        Exception.__init__(self)
-        self.pkg1 = pkg1
-        self.pkg2 = pkg2
-
-    def __str___(self):
-        return ('The checksums of %s (%s) and %s (%s) do not match.'
-                % (self.pkg1, self.pkg1.checksum, self.pkg2,
-                   self.pkg2.checksum))
-
+log = logging.getLogger('rpmimport.rpmsource')
 
 class RpmSource(object):
     """
@@ -52,6 +39,21 @@ class RpmSource(object):
         # {srpm: path}
         self.srcPath = dict()
 
+        # {location: srpm}
+        self.locationMap = dict()
+
+        # {srcPkg: srpmname}
+        self.srcPkgNameMap = dict()
+
+        # {srcPkg: [binPkg, ... ] }
+        self.srcPkgMap = dict()
+
+        # {binPkg: srcPkg}
+        self.binPkgMap = dict()
+
+        # {srcName: [srcPkg, ... ] }
+        self.srcNameMap = dict()
+
     def _procSrc(self, basePath, package):
         """
         Process source rpms.
@@ -62,16 +64,15 @@ class RpmSource(object):
         """
         shortSrpm = os.path.basename(package.location)
         longLoc = basePath + '/' + package.location
-        if shortSrpm in self.srcPath:
-            #if package.checksum != self.srcPath[shortSrpm].checksum:
-            #    raise PackageChecksumMismatchError(package,
-            #                                       self.srcPath[shortSrpm])
-            #else:
-            #    return
-            pass
-        else:
-            package.location = longLoc
+        package.location = longLoc
+        if shortSrpm not in self.srcPath:
             self.srcPath[shortSrpm] = package
+
+        self.srcPkgNameMap[package] = shortSrpm
+
+        if package.name not in self.srcNameMap:
+            self.srcNameMap[package.name] = []
+        self.srcNameMap[package.name].append(package)
 
     def _procBin(self, basePath, package):
         """
@@ -87,10 +88,10 @@ class RpmSource(object):
         if self.rpmMap.has_key(srpm):
             shortLoc = os.path.basename(package.location)
             # remove duplicates of this binary RPM - last one wins
-            existing = [ x for x in self.rpmMap[srpm].iterkeys()
-                         if os.path.basename(x) == shortLoc ]
-            for key in existing:
-                del self.rpmMap[srpm][key]
+            #existing = [ x for x in self.rpmMap[srpm].iterkeys()
+            #             if os.path.basename(x) == shortLoc ]
+            #for key in existing:
+            #    del self.rpmMap[srpm][key]
             self.rpmMap[srpm][longLoc] = package
         else:
             self.rpmMap[srpm] = {longLoc: package}
@@ -129,6 +130,30 @@ class RpmSource(object):
                 self._procSrc(basePath, pkg)
             else:
                 self._procBin(basePath, pkg)
+
+    def finalize(self):
+        # Now that we have processed all of the rpms, build some more data
+        # structures.
+        count = 0
+        for pkg, shortSrpm in self.srcPkgNameMap.iteritems():
+            if pkg in self.srcPkgMap:
+                continue
+
+            if shortSrpm not in self.rpmMap:
+                count += 1
+                #log.warn('found source without binary rpms: %s' % pkg)
+                if pkg in self.srcNameMap[pkg.name]:
+                    self.srcNameMap[pkg.name].remove(pkg)
+                continue
+
+            self.srcPkgMap[pkg] = self.rpmMap[shortSrpm].values()
+            self.srcPkgMap[pkg].append(pkg)
+
+            for binPkg in self.srcPkgMap[pkg]:
+                self.locationMap[binPkg.location] = binPkg
+                self.binPkgMap[binPkg] = pkg
+
+        log.warn('found %s source rpms without matching binary rpms' % count)
 
     def getNames(self, src):
         """
