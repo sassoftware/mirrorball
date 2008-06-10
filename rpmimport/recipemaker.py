@@ -20,6 +20,7 @@ Module for creating factory manifest and managing source components
 
 import os
 import shutil
+import tempfile
 from conary import cvc
 
 class RecipeMaker(object):
@@ -148,8 +149,15 @@ class RecipeMaker(object):
         """
 
         cwd = os.getcwd()
-        os.chdir(tempfile.mkdtemp())
+        tmpdir = tempfile.mkdtemp()
+        os.chdir(tmpdir)
         self._checkout(pkgname)
         manifest = open('manifest').readlines()
         os.chdir(cwd)
+
+        try:
+            shutil.rmtree(tmpdir)
+        except OSError:
+            pass
+
         return manifest
