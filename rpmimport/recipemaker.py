@@ -149,7 +149,7 @@ class RecipeMaker(object):
         """
 
         cwd = os.getcwd()
-        tmpdir = tempfile.mkdtemp()
+        tmpdir = tempfile.mkdtemp(prefix='rpmimport-')
         os.chdir(tmpdir)
         self._checkout(pkgname)
         manifest = open('manifest').readlines()
