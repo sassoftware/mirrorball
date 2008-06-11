@@ -23,6 +23,7 @@ from conary.deps import deps
 from conary import conaryclient, conarycfg, trove
 
 from updatebot import util
+from updatebot.errors import TooManyFlavorsFoundError
 
 log = logging.getLogger('updatebot.conaryhelper')
 
