@@ -116,10 +116,14 @@ class ConaryHelper(object):
 
         topTrove = self._getTrove(cs, name, version, flavor)
 
+        # Iterate over both strong and weak refs because msw said it was a
+        # good idea.
         srcTrvs = set()
         sources = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME,
-                        list(topTrove.iterTroveList(weakRefs=True)))
-        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True)):
+                    list(topTrove.iterTroveList(weakRefs=True,
+                                                strongRefs=True)))
+        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True,
+                                                            strongRefs=True)):
             srcTrvs.add((sources[i](), v.getSourceVersion(), None))
 
         return srcTrvs
