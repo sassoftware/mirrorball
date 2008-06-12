@@ -130,7 +130,6 @@ class Updater(object):
         """
 
         needsUpdate = False
-        newLocations = [ x.location for x in self._rpmSource.srcPkgMap[srpm] ]
         newNames = [ x.name for x in self._rpmSource.srcPkgMap[srpm] ]
         manifest = [ x.strip() for x in self._recipeMaker.getManifest(nvf[0]) ]
         for line in manifest:
