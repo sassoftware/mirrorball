@@ -65,6 +65,10 @@ class Client(object):
         """
 
         node = self._repomd.getRepoData('patches')
+
+        if node is None:
+            return []
+
         return [ x.parseChildren() for x in node.parseChildren().getPatches() ]
 
     def getPackageDetail(self):
