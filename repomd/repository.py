@@ -51,10 +51,11 @@ class Repository(object):
         shutil.copyfileobj(inf, outf)
 
         if os.path.basename(fileName).endswith('.gz'):
-            return gzip.open(fn)
+            fh = gzip.open(fn)
         else:
-            return open(fn)
+            fh = open(fn)
         os.unlink(fn)
+        return fh
 
     @classmethod
     def _getTempFile(cls):
