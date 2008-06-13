@@ -54,6 +54,9 @@ class RpmSource(object):
         # {srcName: [srcPkg, ... ] }
         self.srcNameMap = dict()
 
+        # {binName: [binPkg, ... ] }
+        self.binNameMap = dict()
+
     def _procSrc(self, basePath, package):
         """
         Process source rpms.
@@ -91,6 +94,10 @@ class RpmSource(object):
         else:
             self.rpmMap[srpm] = {longLoc: package}
         self.revMap[package.name] = srpm
+
+        if package.name not in self.binNameMap:
+            self.binNameMap[package.name] = []
+        self.binNameMap[package.name].append(package)
 
     def load(self, url, basePath=''):
         """
