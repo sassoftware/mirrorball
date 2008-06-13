@@ -56,6 +56,8 @@ class _Patch(SlotNode):
             self.requires = child.getChildren('entry', namespace='rpm')
         elif child.getName() == 'rpm:recommends':
             self.recommends = child.getChildren('entry', namespace='rpm')
+        elif child.getName() == 'rpm:obsoletes':
+            self.obsoletes = child.getChildren('entry', namespace='rpm')
         elif child.getName() == 'reboot-needed':
             self.rebootNeeded = True
         elif child.getName() == 'license-to-confirm':
