@@ -26,6 +26,7 @@ from updatebot import util
 from updatebot import build
 from updatebot import update
 from updatebot import advise
+from updatebot import patchsource
 from updatebot.errors import *
 
 log = logging.getLogger('updatebot.bot')
@@ -40,8 +41,10 @@ class Bot(object):
 
         self._clients = {}
         self._rpmSource = rpmsource.RpmSource()
+        self._patchSource = patchsource.PatchSource()
         self._updater = update.Updater(self._cfg, self._rpmSource)
-        self._advisor = advise.Advisor(self._cfg, self._rpmSource)
+        self._advisor = advise.Advisor(self._cfg, self._rpmSource,
+                                       self._patchSource)
         self._builder = build.Builder(self._cfg)
 
     def _populateRpmSource(self):
@@ -57,6 +60,16 @@ class Bot(object):
             self._clients[repo] = client
         self._rpmSource.finalize()
 
+    def _populatePatchSource(self):
+        """
+        Populate the patch source data structures.
+        """
+
+        for path, client in self._clients.iteritems():
+            log.info('loading %s/%s patch information'
+                     % (self._cfg.repositoryUrl, path))
+            self._patchSource.loadFromClient(client, path)
+
     def run(self):
         """
         Update the conary repository from the yum repositories.
@@ -69,6 +82,10 @@ class Bot(object):
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
+
+        # Don't populate the patch source until we knoe that there are
+        # updatas.
+        self._populatePatchSource()
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
