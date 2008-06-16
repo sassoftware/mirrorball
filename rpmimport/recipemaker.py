@@ -20,8 +20,11 @@ Module for creating factory manifest and managing source components
 
 import os
 import shutil
+import logging
 import tempfile
 from conary import cvc
+
+log = logging.getLogger('rpmimport.recipemaker')
 
 class RecipeMaker(object):
     """
@@ -45,8 +48,8 @@ class RecipeMaker(object):
         try:
             cvc.sourceCommand(self.cfg, ['cook'], {'no-deps': None})
         except Exception, e:
-            print '++++++ error building', pkgname, str(e)
-            return
+            log.error('++++++ error building %s %s' % (pkgname, str(e)))
+            raise
         cvc.sourceCommand(self.cfg,
                          [ 'commit' ],
                          { 'message':
@@ -61,7 +64,7 @@ class RecipeMaker(object):
         Side effect: current working directory will be the checkout
                      directory when this method returns
         """
-        print 'creating initial template for', pkgname
+        log.info('creating initial template for %s' % pkgname)
         try:
             shutil.rmtree(pkgname)
         except OSError:
@@ -81,7 +84,7 @@ class RecipeMaker(object):
         Side effect: current working directory will be the checkout
                      directory when this method returns
         """
-        print 'updating', pkgname
+        log.info('updating %s' % pkgname)
         try:
             shutil.rmtree(pkgname)
         except OSError:
