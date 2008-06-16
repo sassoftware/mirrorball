@@ -92,3 +92,16 @@ class TooManyFlavorsFoundError(UnhandledUpdateError):
     TooManFlavorsFoundError, raised when the bot finds more flavors of the top
     level group trove than expected.
     """
+
+class AdvisoryError(UnhandledUpdateError):
+    """
+    Base error for other advisory errors to inherit from.
+    """
+
+    _template = 'An advisory error has occured: %(why)s'
+
+class NoAdvisoryFoundError(AdvisoryError):
+    """
+    NoAdvisoryFoundError, raised when the bot can not find an advisory for an
+    updated package.
+    """
