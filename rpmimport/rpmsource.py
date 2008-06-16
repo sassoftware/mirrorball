@@ -88,11 +88,10 @@ class RpmSource(object):
         srpm = package.sourcerpm
         longLoc = basePath + '/' + package.location
         package.location = longLoc
-        if self.rpmMap.has_key(srpm):
-            shortLoc = os.path.basename(package.location)
-            self.rpmMap[srpm][longLoc] = package
-        else:
-            self.rpmMap[srpm] = {longLoc: package}
+
+        if srpm not in self.rpmMap:
+            self.rpmMap[srpm] = {}
+        self.rpmMap[srpm][longLoc] = package
         self.revMap[package.name] = srpm
 
         if package.name not in self.binNameMap:
