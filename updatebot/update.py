@@ -146,6 +146,19 @@ class Updater(object):
 
             # make sure we aren't trying to remove a package
             if binPkg.name not in newNames:
-                raise UpdateRemovesPackageError(why='%s not in %s' % (binPkg.name, newNames))
+                # Novell releases updates to only the binary rpms of a package
+                # that have chnaged. We have to use binaries from the old srpm.
+                # Get the last version of the pkg and add it to the srcPkgMap.
+                log.warn('using old version of package %s' % binPkg)
+                pkgs = self._rpmSource.binNameMap[binPkg.name]
+                pkgs.sort(util.packagevercmp)
+
+                # Raise an exception if the versions of the packages aren't equal.
+                if rpmvercmp(pkg[-1].version, binPkg.version) != 0:
+                    raise UpdateRemovesPackageError(why='all rpms in the '
+                            'manifest should have the same version, trying '
+                            'to add %s' % (pkgs[-1], ))
+
+                self._rpmSource.srcPkgMap[srpm].append(pkgs[-1])
 
         return needsUpdate
