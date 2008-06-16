@@ -76,6 +76,7 @@ class RpmSource(object):
         if package.name not in self.srcNameMap:
             self.srcNameMap[package.name] = []
         self.srcNameMap[package.name].append(package)
+        self.locationMap[package.location] = package
 
     def _procBin(self, basePath, package):
         """
@@ -97,6 +98,7 @@ class RpmSource(object):
         if package.name not in self.binNameMap:
             self.binNameMap[package.name] = []
         self.binNameMap[package.name].append(package)
+        self.locationMap[package.location] = package
 
     def load(self, url, basePath=''):
         """
@@ -151,7 +153,6 @@ class RpmSource(object):
             self.srcPkgMap[pkg].append(pkg)
 
             for binPkg in self.srcPkgMap[pkg]:
-                self.locationMap[binPkg.location] = binPkg
                 self.binPkgMap[binPkg] = pkg
 
         log.warn('found %s source rpms without matching binary rpms' % count)
