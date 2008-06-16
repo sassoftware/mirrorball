@@ -154,7 +154,7 @@ class Updater(object):
                 pkgs.sort(util.packagevercmp)
 
                 # Raise an exception if the versions of the packages aren't equal.
-                if rpmvercmp(pkg[-1].version, binPkg.version) != 0:
+                if rpmvercmp(pkgs[-1].version, binPkg.version) != 0:
                     raise UpdateRemovesPackageError(why='all rpms in the '
                             'manifest should have the same version, trying '
                             'to add %s' % (pkgs[-1], ))
