@@ -148,20 +148,43 @@ class UpdateTest(slehelp.Helper):
 
         oldBinPkg1 = mock.MockObject(stableReturnValues=True)
         oldBinPkg2 = mock.MockObject(stableReturnValues=True)
+        oldBinPkg3 = mock.MockObject(stableReturnValues=True)
+        oldBinPkg4 = mock.MockObject(stableReturnValues=True)
 
         oldBinPkg1._mock.set(name='foo')
         oldBinPkg2._mock.set(name='foo-devel')
+        oldBinPkg3._mock.set(name='bar')
+        oldBinPkg3._mock.set(version='1')
+        oldBinPkg4._mock.set(name='bar')
+        oldBinPkg4._mock.set(version='0')
 
         newSrcPkg = mock.MockObject()
         oldSrcPkg = mock.MockObject()
+        oldSrcPkg2 = mock.MockObject()
 
-        srcPkgMap = {newSrcPkg: [newBinPkg1, newBinPkg2]}
-        locationMap = {'a': oldBinPkg1, 'b': oldBinPkg2}
-        binPkgMap = {oldBinPkg1: oldSrcPkg, oldBinPkg2: oldSrcPkg}
+        srcPkgMap = {newSrcPkg: [newBinPkg1,
+                                 newBinPkg2],
+                     oldSrcPkg: [oldBinPkg1,
+                                 oldBinPkg2,
+                                 oldBinPkg3],
+                     oldSrcPkg2: [oldBinPkg4, ]}
+
+        locationMap = {'a': oldBinPkg1,
+                       'b': oldBinPkg2,
+                       'c': oldBinPkg3}
+
+        binPkgMap = {oldBinPkg1: oldSrcPkg,
+                     oldBinPkg2: oldSrcPkg,
+                     oldBinPkg3: oldSrcPkg,
+                     oldBinPkg4: oldSrcPkg2}
+
+        binNameMap = {'bar': [oldBinPkg3,
+                              oldBinPkg4]}
 
         mockRpmSource._mock.set(srcPkgMap=srcPkgMap)
         mockRpmSource._mock.set(locationMap=locationMap)
         mockRpmSource._mock.set(binPkgMap=binPkgMap)
+        mockRpmSource._mock.set(binNameMap=binNameMap)
 
         mockRecipeMaker = mock.MockObject(stableReturnValues=True)
         mockRecipeMaker.getManifest._mock.setReturn(['a', 'b'], 'foo')
@@ -194,9 +217,26 @@ class UpdateTest(slehelp.Helper):
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
 
-        # test remove package exception
-        oldBinPkg2._mock.set(name='bar')
-        mockPackageVerCmp._mock.setReturn(1, newSrcPkg, oldSrcPkg)
+        # test remove package without exception
+        mockRecipeMaker.getManifest._mock.setReturn(['a', 'c'], 'foo')
+        mockPackageVerCmp._mock.setReturn(0, newSrcPkg, oldSrcPkg)
+        mockPackageVerCmp._mock.setReturn(1, oldBinPkg3, oldBinPkg4)
+        mockPackageVerCmp._mock.setReturn(-1, oldBinPkg4, oldBinPkg3)
+        result = updater._sanitizeTrove(trvSpec, newSrcPkg)
+        self.failUnlessEqual(result, False)
+        mockRecipeMaker.getManifest._mock.assertCalled('foo')
+        mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
+        mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
+        self.failUnless(oldBinPkg3 in srcPkgMap[newSrcPkg])
+        # reset srcPkgMap
+        srcPkgMap[newSrcPkg].remove(oldBinPkg3)
+
+        # test remove package with exception
+        oldBinPkg4._mock.set(version='2')
+        mockRecipeMaker.getManifest._mock.setReturn(['a', 'c'], 'foo')
+        mockPackageVerCmp._mock.setReturn(0, newSrcPkg, oldSrcPkg)
+        mockPackageVerCmp._mock.setReturn(-1, oldBinPkg3, oldBinPkg4)
+        mockPackageVerCmp._mock.setReturn(1, oldBinPkg4, oldBinPkg3)
         self.failUnlessRaises(errors.UpdateRemovesPackageError,
             updater._sanitizeTrove, trvSpec, newSrcPkg)
         mockRecipeMaker.getManifest._mock.assertCalled('foo')
