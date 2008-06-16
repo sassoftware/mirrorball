@@ -53,15 +53,15 @@ class XmlFileParser(object):
         # W0212 - Access to a protected member _parser of a client class
         # pylint: disable-msg=W0212
 
-        if not self._data or refresh:
-            fn = self._repository.get(self._path)
-            self._data = self._databinder.parseFile(fn)
+        #if not self._data or refresh:
+        fn = self._repository.get(self._path)
+        data = self._databinder.parseFile(fn)
 
-            for child in self._data.iterChildren():
-                if hasattr(child, '_parser'):
-                    child._parser._repository = self._repository
+        for child in data.iterChildren():
+            if hasattr(child, '_parser'):
+                child._parser._repository = self._repository
 
-        return self._data
+        return data
 
 
 class SlotNode(xmllib.BaseNode):
