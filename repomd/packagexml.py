@@ -22,6 +22,8 @@ import os
 
 from rpath_common.xmllib import api1 as xmllib
 
+from updatebot import util
+
 from repomd.errors import UnknownElementError, UnknownAttributeError
 from repomd.xmlcommon import SlotNode
 
@@ -130,6 +132,13 @@ class _Package(SlotNode):
     def __hash__(self):
         return hash((self.name, self.epoch, self.version, self.release,
                      self.arch))
+
+    def __cmp__(self, other):
+        pkgvercmp = util.packagevercmp(self, other)
+        if pkgvercmp != 0:
+            return pkgvercmp
+
+        return cmp(self.location, other.location)
 
 
 class _RpmRequires(xmllib.BaseNode):
