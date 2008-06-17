@@ -17,13 +17,15 @@ Module to wrap around conary api. Maybe this could be replaced by rbuild at
 some point.
 """
 
+import os
 import logging
+import tempfile
 
 from conary.deps import deps
-from conary import conaryclient, conarycfg, trove
+from conary import conaryclient, conarycfg, trove, checkin
 
 from updatebot import util
-from updatebot.errors import TooManyFlavorsFoundError
+from updatebot.errors import TooManyFlavorsFoundError, NoManifestFoundError
 
 log = logging.getLogger('updatebot.conaryhelper')
 
@@ -147,3 +149,124 @@ class ConaryHelper(object):
         troveCs = cs.getNewTroveVersion(name, version, flavor)
         trv = trove.Trove(troveCs, skipIntegrityChecks=True)
         return trv
+
+    def getManifest(self, pkgname):
+        """
+        Get the contents of the manifest file from the source component for a
+        given package.
+        @param pkgname: name of the package to retrieve
+        @type pkgname: string
+        @return manifest for pkgname
+        """
+
+        log.info('retrieving manifest for %s' % pkgname)
+        recipeDir = self._checkout(pkgname)
+        manifestFileName = util.join(recipeDir, 'manifest')
+
+        if not os.path.exists(manifestFileName):
+            raise NoManifestFoundError(pkgname=pkgname, dir=recipeDir)
+
+        manifest = [ x.strip() for x in open(manifestFileName).readlines() ]
+        util.rmtree(recipeDir)
+        return manifest
+
+    def setManifest(self, pkgname, manifest, commitMessage=''):
+        """
+        Create/Update a manifest file.
+        @param pkgname: name of the package
+        @type pkgname: string
+        @param manifest: list of files to go in the manifest file
+        @type manifest: list(string, string, ...)
+        @param commitMessage: optional argument for setting the commit message
+                              to use when committing to the repository.
+        @type commitMessage: string
+        """
+
+        log.info('setting manifest for %s' % pkgname)
+
+        # Figure out if we should create or update.
+        if not self._getVersionsByName('%s:source' % pkgname):
+            recipeDir = self._newpkg(pkgname)
+        else:
+            recipeDir = self._checkout(pkgname)
+
+        # Update manifest file.
+        manifestFileName = util.join(recipeDir, 'manifest')
+        manifestfh = open(manifestFileName, 'w')
+        manifestfh.write('\n'.join(manifest))
+        manifestfh.close()
+
+        # Commit to repository.
+        self._commit(recipeDir, commitMessage)
+        util.rmtree(recipeDir)
+
+        # Get new version of source trove.
+        return self._getVersionsByName('%s:source' % pkgname)
+
+    def _checkout(self, pkgname):
+        """
+        Checkout a source component from the repository.
+        @param pkgname: name of the package to checkout
+        @type pkgname: string
+        @return checkout directory
+        """
+
+        log.info('checking out %s' % pkgname)
+
+        recipeDir = tempfile.mkdtemp(prefix='conaryhelper-')
+        checkin.checkout(self._repos, self._ccfg, recipeDir, [pkgname, ])
+
+        return recipeDir
+
+    def _commit(self, pkgDir, commitMessage):
+        """
+        Commit a source trove to the repository.
+        @param pkgDir: directory returned by checkout
+        @type pkgDir: string
+        @param commitMessage: commit message to use.
+        @type commitMessage: string
+        """
+
+        log.info('committing %s' % os.path.basename(pkgDir))
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(pkgDir)
+            checkin.commit(self._repos, self._ccfg, commitMessage)
+        finally:
+            os.chdir(cwd)
+
+    def _newpkg(self, pkgname):
+        """
+        Create a new source component.
+        @param pkgname: name of the package to create.
+        @type pkgname: string
+        @return checkout directory
+        """
+
+        log.info('creating new package %s' % pkgname)
+
+        recipeDir = tempfile.mkdtemp(prefix='conaryhelper-')
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(recipeDir)
+            checkin.newTrove(self._repos, self._ccfg, pkgname)
+        finally:
+            os.chdir(cwd)
+
+        return util.join(recipeDir, pkgname)
+
+    def _getVersionsByName(self, pkgname):
+        """
+        Figure out if a trove exists in the repository.
+        @param pkgname: name of the package to look for.
+        @type pkgname: string
+        """
+
+        label = self._ccfg.buildLabel
+
+        trvMap = self._repos.getTroveLeavesByLabel({pkgname: {label: None }})
+        verMap = trvMap.get(pkgname, {})
+        versions = verMap.keys()
+        return versions

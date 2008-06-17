@@ -15,6 +15,7 @@
 
 import testsetup
 
+import os
 import mock
 import slehelp
 
@@ -22,6 +23,7 @@ from conary import trove
 from conary import versions
 from conary.deps import deps
 
+from updatebot import util
 from updatebot import errors
 from updatebot import conaryhelper
 
@@ -211,6 +213,150 @@ class ConaryHelperTest(slehelp.Helper):
         mockCs.getNewTroveVersion._mock.assertCalled(*trvSpec)
         mockTroveTrove._mock.assertCalled(mockTroveCs,
                                           skipIntegrityChecks=True)
+
+    def testGetManifest(self):
+        trvName = 'foo'
+        mockCheckout = mock.MockObject(stableReturnValues=True)
+        mockCheckout._mock.setReturn('foo', trvName)
+
+        expected = ['bar', 'baz']
+
+        os.mkdir('foo')
+        fh = open('foo/manifest', 'w')
+        fh.write('\n'.join(expected))
+        fh.close()
+
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        self.mock(helper, '_checkout', mockCheckout)
+
+        result = helper.getManifest(trvName)
+        self.failUnlessEqual(expected, result)
+        self.failUnless(not os.path.exists('foo'))
+        mockCheckout._mock.assertCalled(trvName)
+
+        self.failUnlessRaises(errors.NoManifestFoundError,
+                              helper.getManifest, trvName)
+        mockCheckout._mock.assertCalled(trvName)
+
+    def testSetManifest(self):
+        trvName = 'foo'
+        manifestLst = ['bar', 'baz']
+        commitMessage = 'foobar'
+
+        mockTrove = mock.MockObject(stableReturnValues=True)
+        mockRmTree = mock.MockObject(stableReturnValues=True)
+        mockCommit = mock.MockObject(stableReturnValues=True)
+        mockNewPkg = mock.MockObject(stableReturnValues=True)
+        mockCheckout = mock.MockObject(stableReturnValues=True)
+        mockGetVersionsByName = mock.MockObject(stableReturnValues=False)
+
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        self.mock(helper, '_commit', mockCommit)
+        self.mock(helper, '_newpkg', mockNewPkg)
+        self.mock(helper, '_checkout', mockCheckout)
+        self.mock(helper, '_getVersionsByName', mockGetVersionsByName)
+        self.mock(util, 'rmtree', mockRmTree)
+
+        # new pkg case
+        os.mkdir('foo')
+        mockGetVersionsByName._mock.setReturn([], '%s:source' % trvName)
+        mockNewPkg._mock.setReturn('foo', trvName)
+
+        result = helper.setManifest(trvName, manifestLst, commitMessage)
+        self.failUnlessEqual(result, [])
+        self.failUnless(os.path.exists('foo/manifest'))
+        self.failUnlessEqual(open('foo/manifest').read(), 'bar\nbaz')
+        mockGetVersionsByName._mock.assertCalled('%s:source' % trvName)
+        mockNewPkg._mock.assertCalled(trvName)
+        mockCheckout._mock.assertNotCalled()
+        mockCommit._mock.assertCalled('foo', commitMessage)
+        mockRmTree._mock.assertCalled('foo')
+
+        # checkout case
+        os.mkdir('bar')
+        mockGetVersionsByName._mock.setReturn(['bar', ], '%s:source' % trvName)
+        mockCheckout._mock.setReturn('bar', trvName)
+
+        result = helper.setManifest(trvName, manifestLst, commitMessage)
+        self.failUnlessEqual(result, ['bar', ])
+        self.failUnless(os.path.exists('bar/manifest'))
+        self.failUnlessEqual(open('bar/manifest').read(), 'bar\nbaz')
+        mockGetVersionsByName._mock.assertCalled('%s:source' % trvName)
+        mockNewPkg._mock.assertNotCalled()
+        mockCheckout._mock.assertCalled(trvName)
+        mockCommit._mock.assertCalled('bar', commitMessage)
+        mockRmTree._mock.assertCalled('bar')
+
+    def testCheckout(self):
+        mockTempFile = mock.MockObject(stableReturnValues=True)
+        mockTempFile.mkdtemp._mock.setReturn('foodir', prefix='conaryhelper-')
+
+        mockCheckin = mock.MockObject(stableReturnValues=True)
+        self.mock(conaryhelper, 'checkin', mockCheckin)
+        self.mock(conaryhelper, 'tempfile', mockTempFile)
+
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        result = helper._checkout('foo')
+        self.failUnlessEqual(result, 'foodir')
+        mockCheckin.checkout._mock.assertCalled(helper._repos, helper._ccfg,
+                                                'foodir', ['foo', ])
+        mockTempFile.mkdtemp._mock.assertCalled(prefix='conaryhelper-')
+
+    def testCommit(self):
+        mockCheckin = mock.MockObject()
+        self.mock(conaryhelper, 'checkin', mockCheckin)
+
+        os.mkdir('foo')
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        result = helper._commit('foo', 'foocommit')
+        self.failUnlessEqual(result, None)
+        mockCheckin.commit._mock.assertCalled(helper._repos, helper._ccfg,
+                                              'foocommit')
+
+    def testNewPkg(self):
+        mockTempFile = mock.MockObject(stableReturnValues=True)
+        mockTempFile.mkdtemp._mock.setReturn('foodir', prefix='conaryhelper-')
+        mockCheckin = mock.MockObject()
+        self.mock(conaryhelper, 'checkin', mockCheckin)
+        self.mock(conaryhelper, 'tempfile', mockTempFile)
+
+        os.mkdir('foodir')
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        result = helper._newpkg('foo')
+        self.failUnlessEqual(result, 'foodir/foo')
+        mockTempFile.mkdtemp._mock.assertCalled(prefix='conaryhelper-')
+        mockCheckin.newTrove._mock.assertCalled(helper._repos, helper._ccfg,
+                                                'foo')
+
+    def testGetVersionByName(self):
+        pkgName = 'foo'
+        mockCfg = mock.MockObject()
+        mockLabel = mock.MockObject()
+        mockRepos = mock.MockObject()
+        mockVersion = mock.MockObject()
+
+        mockCfg._mock.set(buildLabel=mockLabel)
+        mockRepos.getTroveLeavesByLabel._mock.setReturn(
+            {pkgName: {mockVersion: None}},
+            {pkgName: {mockLabel: None}})
+
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        helper._repos = mockRepos
+        helper._ccfg = mockCfg
+
+        result = helper._getVersionsByName(pkgName)
+        self.failUnlessEqual(result, [mockVersion, ])
+        mockRepos.getTroveLeavesByLabel._mock.assertCalled(
+            {pkgName: {mockLabel: None}})
+
+        mockRepos.getTroveLeavesByLabel._mock.setReturn(
+            {},
+            {pkgName: {mockLabel: None}})
+
+        result = helper._getVersionsByName(pkgName)
+        self.failUnlessEqual(result, [])
+        mockRepos.getTroveLeavesByLabel._mock.assertCalled(
+            {pkgName: {mockLabel: None}})
 
 
 testsetup.main()
