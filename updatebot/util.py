@@ -17,6 +17,7 @@ Module for common utility functions.
 """
 
 import os
+from conary.lib.util import rmtree
 
 from rpmvercmp import rpmvercmp
 
