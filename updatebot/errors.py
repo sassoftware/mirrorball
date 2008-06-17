@@ -93,6 +93,15 @@ class TooManyFlavorsFoundError(UnhandledUpdateError):
     level group trove than expected.
     """
 
+class NoManifestFoundError(UnhandledUpdateError):
+    """
+    NoManifestFoundError, raised when the bot checks out a source component
+    and doesn't find a manifest file.
+    """
+
+    _params = ['pkgname', 'dir']
+    _template = 'No manifest was found for %(pkgname)s in directory %(dir)s'
+
 class AdvisoryError(UnhandledUpdateError):
     """
     Base error for other advisory errors to inherit from.
