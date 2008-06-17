@@ -7,3 +7,4 @@
 .*\/testsetup\.py$
 .*\/\.times$
 .*\/\.coverage\/.*
+^pylint\/reports
