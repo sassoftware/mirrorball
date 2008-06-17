@@ -124,7 +124,7 @@ class _Package(SlotNode):
             raise UnknownElementError(child)
 
     def __str__(self):
-        return '-'.join([self.name, self.epoch, self.version, self.release])
+        return '-'.join([self.name, self.epoch, self.version, self.release, self.arch])
 
     def __repr__(self):
         return os.path.basename(self.location)
@@ -137,6 +137,10 @@ class _Package(SlotNode):
         pkgvercmp = util.packagevercmp(self, other)
         if pkgvercmp != 0:
             return pkgvercmp
+
+        archcmp = cmp(self.arch, other.arch)
+        if archcmp != 0:
+            return archcmp
 
         return cmp(self.location, other.location)
 
