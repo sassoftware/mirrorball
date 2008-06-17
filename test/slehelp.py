@@ -15,6 +15,7 @@
 import testsuite
 testsuite.setup()
 
+import os
 import rmakehelp
 
 from updatebot import config
@@ -26,6 +27,7 @@ class Helper(rmakehelp.RmakeHelper):
         self.updateBotCfg.configPath = self.cfg.root
         self.cfg.user = ('test', 'test')
         self.writeFile(self.cfg.root + '/conaryrc', '')
+        os.chdir(self.workDir)
 
     def initializeFlavor(self):
         pass
