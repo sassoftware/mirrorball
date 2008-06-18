@@ -45,20 +45,24 @@ class Advisor(object):
         for nvf, srcPkg in trvLst:
             patches = set()
             for binPkg in self._rpmSource.srcPkgMap[srcPkg]:
-                # Don't check srpms.
-                if binPkg is srcPkg:
-                    continue
-
                 if binPkg in self._patchSource.pkgMap:
                     patches.update(self._patchSource.pkgMap[binPkg])
+
+            for binPkg in self._rpmSource.srcPkgMap[srcPkg]:
+                # Don't check srpms.
+                if binPkg is srcPkg or binPkg in self._patchSource.pkgMap:
+                    continue
                 elif self._hasException(binPkg):
                     log.info('found advisory exception for %s' % binPkg)
                     log.debug(binPkg.location)
                 elif not self._isSecurity(binPkg):
                     log.info('package not in updates repository %s' % binPkg)
                     log.debug(binPkg.location)
+                elif len(patches) > 0:
+                    log.info('found package not mentioned in advisory %s' % binPkg)
+                    log.debug(binPkg.location)
                 else:
-                    log.error('could not find patch for %s' % binPkg)
+                    log.error('could not find advisory for %s' % binPkg)
                     raise NoAdvisoryFoundError(why=binPkg)
 
             if (nvf, srcPkg) not in self._cache:
