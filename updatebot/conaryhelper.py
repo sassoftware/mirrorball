@@ -22,6 +22,7 @@ import logging
 import tempfile
 
 from conary.deps import deps
+from conary.build import use
 from conary import conaryclient, conarycfg, trove, checkin
 
 from updatebot import util
@@ -39,9 +40,11 @@ class ConaryHelper(object):
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
         self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
-        self._ccfg.flavor = deps.parseFlavor('')
-        # FIXME: do we need to initialize flavors or not?
-        #self._ccfg.initializeFlavors()
+        # Have to initialize flavors to commit to the repository.
+        self._ccfg.initializeFlavors()
+
+        # Setup flavor objects
+        use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor, error=False)
 
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
@@ -194,6 +197,7 @@ class ConaryHelper(object):
         manifestFileName = util.join(recipeDir, 'manifest')
         manifestfh = open(manifestFileName, 'w')
         manifestfh.write('\n'.join(manifest))
+        manifestfh.write('\n')
         manifestfh.close()
 
         # Commit to repository.
@@ -270,3 +274,36 @@ class ConaryHelper(object):
         verMap = trvMap.get(pkgname, {})
         versions = verMap.keys()
         return versions
+
+    def promote(self, trvLst, expected, targetLabel):
+        """
+        Promote a group and its contents to a target label.
+        @param trvLst: list of troves to publish
+        @type trvLst: [(name, version, flavor), ... ]
+        @param expected: list of troves that are expected to be published.
+        @type expected: [(name, version, flavor), ...]
+        @param targetLabel: table to publish to
+        @type targetLabel: conary Label object
+        """
+
+        fromLabel = trvLst[0][1].getTrailingRevision().label
+        success, cs = client.createSiblingCloneChangeSet({fromLabel:targetLabel},
+                                                         trvLst,
+                                                         cloneSources=True)
+        if not success:
+            raise PromoteFailedError(what=trvLst)
+
+        packageList = [ x.getNewNameVersionFlavor()
+                        for x in cs.iterNewTroveList() ]
+
+        oldPkgs = set([ (x[0], x[2]) for x in expected ])
+        newPkgs = set([ (x[0], x[2]) for x in packageList ])
+
+        difference = oldPkgs.difference(newPkgs)
+        if difference != set():
+            raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
+
+        self._repos.commitChangeSet(cs)
+
+        return packageList
+
