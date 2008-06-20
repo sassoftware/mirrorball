@@ -53,7 +53,7 @@ class Bot(object):
         """
 
         for repo in self._cfg.repositoryPaths:
-            log.info('loading %s/%s repository data'
+            log.info('loading repository data %s/%s'
                      % (self._cfg.repositoryUrl, repo))
             client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
             self._rpmSource.loadFromClient(client, repo)
@@ -66,7 +66,7 @@ class Bot(object):
         """
 
         for path, client in self._clients.iteritems():
-            log.info('loading %s/%s patch information'
+            log.info('loading patch information %s/%s'
                      % (self._cfg.repositoryUrl, path))
             self._patchSource.loadFromClient(client, path)
 
@@ -83,35 +83,42 @@ class Bot(object):
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
 
-        # Don't populate the patch source until we knoe that there are
-        # updatas.
-        self._populatePatchSource()
+        # Don't populate the patch source until we know that there are
+        # updates.
+        #self._populatePatchSource()
 
         # Check to see if advisories exist for all required packages.
-        self._advisor.check(toAdvise)
+        #self._advisor.check(toAdvise)
 
         # Update sources.
-        for nvf, srcPkg in toUpdate:
-            self._updater.update(nvf, srcPkg)
+        #for nvf, srcPkg in toUpdate:
+        #    self._updater.update(nvf, srcPkg)
 
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
-        buildTroves = [ x[0] for x in toAdvise ]
-        trvMap = self._builder.build(buildTroves)
+        #buildTroves = set([ x[0] for x in toAdvise ])
+        #trvMap = self._builder.build(buildTroves)
 
+        import epdb; epdb.st()
         # Build group.
-        grpTrvMap = self._builder.build(self._cfg.topGroup)
+        grpTrvs = set()
+        for flavor in self._cfg.groupFlavors:
+            grpTrvs.add((self._cfg.topSourceGroup[0],
+                         self._cfg.topSourceGroup[1],
+                         flavor))
+        grpTrvMap = self._builder.build(grpTrvs)
 
+        import epdb; epdb.st()
         # Promote group.
-        # FIXME: should be able to get the new versions of packages from
-        #        promote.
-        helper = self._updater.getConaryHelper()
-        newTroves = helper.promote(grpTrvMap.values(), self._cfg.targetLabel)
+        # We expect that everything that was built will be published.
+        expected = [ x for x in y for y in trvMap.itervalues() ]
+        toPublish = [ x for x in y for y in grpTrvMap.itervalues() ]
+        newTroves = self._updater.publish(toPublish, expected,
+                                          self._cfg.targetLabel)
 
-        # FIXME: build a trvMap from source tove nvf to new binary trove nvf
-
+        import epdb; epdb.st()
         # Send advisories.
-        self._advisor.send(trvMap, toAdvise)
+        self._advisor.send(newTroves, toAdvise)
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'
