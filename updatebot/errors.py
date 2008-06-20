@@ -102,6 +102,26 @@ class NoManifestFoundError(UnhandledUpdateError):
     _params = ['pkgname', 'dir']
     _template = 'No manifest was found for %(pkgname)s in directory %(dir)s'
 
+class PromoteFailedError(UnhandledUpdateError):
+    """
+    PromoteFailedError, raised when the bot fails to promote the binary group
+    to the target release label.
+    """
+
+    _params = ['what']
+    _template = 'Failed to promote %(what)s'
+
+class PromoteMismatchError(PromoteFailedError):
+    """
+    PromoteMismatchError, raised when the promote to the production label
+    either tries to promote packages that are unexpected or does not
+    promote all expected pacakges.
+    """
+
+    _parms = ['expected', 'actual']
+    _template = ('Expected to promote %(expected)s, actually tried to promote'
+                 ' %(actual)s.')
+
 class AdvisoryError(UnhandledUpdateError):
     """
     Base error for other advisory errors to inherit from.
