@@ -19,8 +19,13 @@ Builder object implementation.
 import time
 import logging
 
+from conary import conarycfg, conaryclient
+
+from rmake import plugins
+from rmake.build import buildcfg
 from rmake.cmdline import helper, monitor, commit
 
+from updatebot import util
 from updatebot.errors import JobFailedError, CommitFailedError
 
 log = logging.getLogger('updateBot.build')
@@ -39,7 +44,25 @@ class Builder(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self._helper = helper.rMakeHelper(root=self._cfg.configPath)
+        self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
+        self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
+        self._ccfg.initializeFlavors()
+
+        self._client = conaryclient.ConaryClient(self._ccfg)
+
+        # Get default pluginDirs from the rmake cfg object, setup the plugin
+        # manager, then create a new rmake config object so that rmakeUser
+        # will be parsed correctly.
+        rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
+        pluginMgr = plugins.PluginManager(rmakeCfg.pluginDirs)
+        pluginMgr.loadPlugins()
+        pluginMgr.callClientHook('client_preInit', self, [])
+
+        self._rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
+        self._rmakeCfg.read(util.join(self._cfg.configPath, 'rmakerc'))
+        self._rmakeCfg.useConaryConfig(self._ccfg)
+
+        self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
 
     def build(self, troveSpecs):
         """
@@ -49,12 +72,29 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        jobId = self._startJob(troveSpecs)
+        # Build all troves in defined contexts.
+        troves = []
+        for name, version, flavor in troveSpecs:
+            for context in self._cfg.archContexts:
+                troves.append((name, version, flavor, context))
+
+        jobId = self._startJob(troves)
         self._monitorJob(jobId)
         self._sanityCheckJob(jobId)
         trvMap = self._commitJob(jobId)
 
-        return trvMap
+        # Format trvMap into something more usefull.
+        # {(name, version, None): set([(name, version, flavor), ...])}
+        ret = {}
+        for sn, sv, sf, c in trvMap.iterkeys():
+            n = sn.split(':')[0]
+            if (n, sv, None) not in ret:
+                ret[(n, sv, None)] = set()
+            for name, version, flavor in trvMap[(sn, sv, sf)]:
+                if name == n:
+                    ret[(n, v, None)].add((name, version, flavor))
+
+        return ret
 
     def _startJob(self, troveSpecs):
         """
@@ -114,10 +154,10 @@ class Builder(object):
         startTime = time.time()
         job = self._helper.getJob(jobId)
         log.info('Starting commit of job %d', jobId)
-        self._helper.client.startCommit(jobId)
-        succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
+        self._helper.client.startCommit([jobId, ])
+        succeeded, data = commit.commitJobs(self._client,
                                             [job, ],
-                                            self._helper.buildConfig.reposName,
+                                            self._rmakeCfg.reposName,
                                             self._cfg.commitMessage)
         if not succeeded:
             self._helper.client.commitFailed([jobId, ], data)
@@ -134,6 +174,9 @@ class Builder(object):
         self._helper.client.commitSucceeded(data)
 
         return troveMap
+
+    def _registerCommand(self, *args, **kwargs):
+        'Fake rMake hook'
 
 
 class _StatusOnlyDisplay(monitor.JobLogDisplay):
