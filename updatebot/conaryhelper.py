@@ -43,9 +43,6 @@ class ConaryHelper(object):
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
 
-        # Setup flavor objects
-        use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor, error=False)
-
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
 
@@ -199,6 +196,9 @@ class ConaryHelper(object):
         manifestfh.write('\n'.join(manifest))
         manifestfh.write('\n')
         manifestfh.close()
+
+        # Setup flavor objects
+        use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor, error=False)
 
         # Commit to repository.
         self._commit(recipeDir, commitMessage)
