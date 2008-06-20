@@ -90,7 +90,7 @@ class Builder(object):
             n = sn.split(':')[0]
             if (n, sv, None) not in ret:
                 ret[(n, sv, None)] = set()
-            for name, version, flavor in trvMap[(sn, sv, sf)]:
+            for name, version, flavor in trvMap[(sn, sv, sf, c)]:
                 if name == n:
                     ret[(n, v, None)].add((name, version, flavor))
 
