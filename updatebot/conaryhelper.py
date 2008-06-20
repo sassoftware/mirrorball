@@ -79,8 +79,8 @@ class ConaryHelper(object):
 
         return srcTrvs
 
-    @classmethod
-    def _findLatest(cls, trvlst):
+    @staticmethod
+    def _findLatest(trvlst):
         """
         Given a list of trove specs, find the most recent versions.
         @param trvlst: list of trove specs
@@ -130,8 +130,8 @@ class ConaryHelper(object):
 
         return srcTrvs
 
-    @classmethod
-    def _getTrove(cls, cs, name, version, flavor):
+    @staticmethod
+    def _getTrove(cs, name, version, flavor):
         """
         Get a trove object for a given name, version, flavor from a changeset.
         @param cs: conary changeset object

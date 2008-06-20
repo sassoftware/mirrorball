@@ -85,8 +85,8 @@ class Advisor(object):
                 return True
         return False
 
-    @classmethod
-    def _isSecurity(self, binPkg):
+    @staticmethod
+    def _isSecurity(binPkg):
         """
         Check the repository name. If this package didn't come from a updates
         repository it is probably not security related.
