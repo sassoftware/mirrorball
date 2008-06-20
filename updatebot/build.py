@@ -75,8 +75,14 @@ class Builder(object):
         # Build all troves in defined contexts.
         troves = []
         for name, version, flavor in troveSpecs:
-            for context in self._cfg.archContexts:
-                troves.append((name, version, flavor, context))
+            # Don't set context for groups, they will already have the
+            # correct flavors.
+            if name.startswith('group-'):
+                troves.append((name, version, flavor))
+            else:
+                # Build all packages as x86 and x86_64.
+                for context in self._cfg.archContexts:
+                    troves.append((name, version, flavor, context))
 
         jobId = self._startJob(troves)
         self._monitorJob(jobId)
@@ -92,7 +98,7 @@ class Builder(object):
                 ret[(n, sv, None)] = set()
             for name, version, flavor in trvMap[(sn, sv, sf, c)]:
                 if name == n:
-                    ret[(n, v, None)].add((name, version, flavor))
+                    ret[(n, sv, None)].add((name, version, flavor))
 
         return ret
 
