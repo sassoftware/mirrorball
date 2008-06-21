@@ -40,7 +40,6 @@ log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
 obj = bot.Bot(cfg)
-obj._populateRpmSource()
 
 #prof.disable()
 #prof.dump_stats('report.lsprof')
@@ -53,7 +52,9 @@ sources = sorted(pkgMap.keys())
 
 for src in sources:
     srcName = src[0].split(':')[0]
-    if srcName in cfg.excludePackages and srcName != 'kernel':
+    if srcName in cfg.excludePackages:
+        continue
+    if srcName.startswith('group-') or srcName.startswith('info-'):
         continue
     manifest = conaryhelper.getManifest(srcName)
 
@@ -68,7 +69,7 @@ for src in sources:
         rpmname = os.path.basename(rpm)
         d = dict.fromkeys(((util.normpath(x), arch) for x in h.paths()), rpmname)
         pathMap.update(d)
-    binaries = pkgMap[src]
+    binaries = sorted(pkgMap[src])
     flist = []
     for binary in binaries:
         name, version, flavor = binary
@@ -91,10 +92,9 @@ for src in sources:
                                           withFileContents=True,
                                           callback=cb)
         tcs = [x for x in cs.iterNewTroveList()][0]
-        for (pathId, path, fileId, version) in tcs.newFiles:
+        for (pathId, path, fileId, version) in sorted(tcs.newFiles):
             f = files.ThawFile(cs.getFileChange(None, fileId), pathId)
             if hasattr(f, 'contents') and f.contents:
-                cs.reset()
                 cont = cs.getFileContents(pathId, fileId)[1]
                 md5 = md5ToString(md5String(cont.get().read()))
                 try:
