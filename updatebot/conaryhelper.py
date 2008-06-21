@@ -66,7 +66,7 @@ class ConaryHelper(object):
         the top level group config option.
         @param group: group to query
         @type group: None or troveTuple (name, versionStr, flavorStr)
-        @return set of source trove specs
+        @return dict of source trove specs to list of binary trove specs
         """
 
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
@@ -124,7 +124,7 @@ class ConaryHelper(object):
         refrenced by that trove.
         @param troveSpec: trove to walk.
         @type troveSpec: (name, versionObj, flavorObj)
-        @return set([(trvSpec, trvSpec, ...])
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
         """
 
         # W0212 - Access to a protected member _TROVEINFO_TAG_SOURCENAME of a

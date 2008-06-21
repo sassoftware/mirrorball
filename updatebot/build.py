@@ -38,9 +38,6 @@ class Builder(object):
     @type cfg: config.UpdateBotConfig
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def __init__(self, cfg):
         self._cfg = cfg
 
@@ -73,6 +70,117 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
+        troves = self._formatInput(troveSpecs)
+        jobId = self._startJob(troves)
+        self._monitorJob(jobId)
+        self._sanityCheckJob(jobId)
+        trvMap = self._commitJob(jobId)
+        ret = self._formatOutput(trvMap)
+        return ret
+
+    def buildmany(self, troveSpecs):
+        """
+        Build all packages in troveSpecs, 10 at a time, one per job.
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @return troveMap: dictionary of troveSpecs to built troves
+        """
+
+        id = 0
+        jobs = {}
+        for i, trv in enumerate(troveSpecs):
+            if id not in jobs:
+                jobs[id] = []
+
+            jobs[id].append(trv)
+
+            if i % 10 == 0:
+                id += 1
+
+        failed = set()
+        results = {}
+        for job in jobs.itervalues():
+            res, fail = self._buildmany(job)
+            failed.update(fail)
+            results.update(res)
+
+        return results, failed
+
+    def _buildmany(self, troveSpecs):
+        """
+        Build a list of packages, one per job.
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @return troveMap: dictionary of troveSpecs to built troves
+        """
+
+        jobs = {}
+        for trv in troveSpecs:
+            jobs[trv] = self.start([trv, ])
+
+        for trv, jobId in jobs.iteritems():
+            job = self._helper.getJob(jobId)
+            if not job.isFinished() and not job.isFailed():
+                self.watch(jobId)
+
+        failed = set()
+        results = {}
+        for trv, jobId in jobs.iteritems():
+            job = self._helper.getJob(jobId)
+            if job.isFailed():
+                failed.add(trv)
+            elif job.isFinished():
+                try:
+                    res = self.commit(jobId)
+                    results.update(res)
+                except JobFailedError:
+                    failed.add(trv)
+
+        return results, failed
+
+    def start(self, troveSpecs):
+        """
+        Public version of start job that starts a job without monitoring.
+        @param troveSpecs: set of name, version, flavor tuples
+        @type troveSpecs: set([(name, version, flavor), ..])
+        @return jobId: integer
+        """
+
+        troves = self._formatInput(troveSpecs)
+        jobId = self._startJob(troves)
+        return jobId
+
+    def watch(self, jobId):
+        """
+        Watch a build.
+        @param jobId: rMake job ID
+        @type jobId: integer
+        """
+
+        self._monitorJob(jobId)
+
+    def commit(self, jobId):
+        """
+        Public commit from jobId with sanity checking.
+        @param jobId: id of the build job to commit
+        @type jobId: integer
+        @return dict((name, version, flavor)=
+                     set([(name, version, flavor), ...])
+        """
+
+        self._sanityCheckJob(jobId)
+        trvMap = self._commitJob(jobId)
+        ret = self._formatOutput(trvMap)
+        return ret
+
+    def _formatInput(self, troveSpecs):
+        """
+        Formats the list of troves provided into a job list for rMake.
+        @param troveSpecs: set of name, version, flavor tuples
+        @type troveSpecs: set([(name, version, flavor), ..])
+        @return list((name, version, flavor, context), ...)
+        """
+
         # Build all troves in defined contexts.
         troves = []
         for name, version, flavor in troveSpecs:
@@ -85,21 +193,7 @@ class Builder(object):
                 for context in self._cfg.archContexts:
                     troves.append((name, version, flavor, context))
 
-        jobId = self._startJob(troves)
-        self._monitorJob(jobId)
-        self._sanityCheckJob(jobId)
-        trvMap = self._commitJob(jobId)
-
-        # Format trvMap into something more usefull.
-        # {(name, version, None): set([(name, version, flavor), ...])}
-        ret = {}
-        for sn, sv, sf, c in trvMap.iterkeys():
-            n = sn.split(':')[0]
-            if (n, sv, None) not in ret:
-                ret[(n, sv, None)] = set()
-            ret[(n, sv, None)].update(set(trvMap[(sn, sv, sf, c)]))
-
-        return ret
+        return troves
 
     def _startJob(self, troveSpecs):
         """
@@ -139,13 +233,13 @@ class Builder(object):
         job = self._helper.getJob(jobId)
         if job.isFailed():
             log.error('Job %d failed', jobId)
-            raise JobFailedError(jobId=jobId, why='Job failed')
+            raise JobFailedError(jobId=jobId, why=job.status)
         elif not job.isFinished():
             log.error('Job %d is not done, yet watch returned early!', jobId)
-            raise JobFailedError(jobId=jobId, why='Job not done')
+            raise JobFailedError(jobId=jobId, why=job.status)
         elif not list(job.iterBuiltTroves()):
             log.error('Job %d has no built troves', jobId)
-            raise JobFailedError(jobId=jobId, why='Job built no troves')
+            raise JobFailedError(jobId=jobId, why='No troves found in job')
 
     def _commitJob(self, jobId):
         """
@@ -161,7 +255,7 @@ class Builder(object):
         log.info('Starting commit of job %d', jobId)
 
         self._helper.client.startCommit([jobId, ])
-        succeeded, data = commit.commitJobs(self._client,
+        succeeded, data = commit.commitJobs(self._helper.getConaryClient(),  #self._client,
                                             [job, ],
                                             self._rmakeCfg.reposName,
                                             self._cfg.commitMessage)
@@ -181,6 +275,28 @@ class Builder(object):
         self._helper.client.commitSucceeded(data)
 
         return troveMap
+
+    @staticmethod
+    def _formatOutput(trvMap):
+        """
+        Format the output from rMake into something keyd off of the original
+        input.
+        @param trvMap: dictionary mapping of source to binary
+        @type trvMap: dict((name, version, flavor, context)=
+                            set([(name, version, flavor), ...]))
+        @return dict((name, version, flavor)=
+                     set([(name, version, flavor), ...])
+        """
+
+        # {(name, version, None): set([(name, version, flavor), ...])}
+        ret = {}
+        for sn, sv, sf, c in trvMap.iterkeys():
+            n = sn.split(':')[0]
+            if (n, sv, None) not in ret:
+                ret[(n, sv, None)] = set()
+            ret[(n, sv, None)].update(set(trvMap[(sn, sv, sf, c)]))
+
+        return ret
 
     def _registerCommand(self, *args, **kwargs):
         'Fake rMake hook'
