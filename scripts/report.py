@@ -68,7 +68,7 @@ for src in sources:
         rpmname = os.path.basename(rpm)
         d = dict.fromkeys(((util.normpath(x), arch) for x in h.paths()), rpmname)
         pathMap.update(d)
-    binaries = sorted(pkgMap[src])
+    binaries = pkgMap[src]
     flist = []
     for binary in binaries:
         name, version, flavor = binary
@@ -77,12 +77,13 @@ for src in sources:
             continue
         if 'debuginfo' in name:
             continue
-        if 'is: x86_64(' in str(flavorStr):
+        if 'is: x86_64' in str(flavorStr):
             arch = 'x86_64'
         elif 'is: x86(' in str(flavorStr):
             arch = 'i586'
         else:
             arch = 'noarch'
+        print name, version, flavor
         cs = conaryclient.createChangeSet([(name,
                                             (None, None),
                                             (version, flavor), True)],
@@ -96,10 +97,15 @@ for src in sources:
                 cs.reset()
                 cont = cs.getFileContents(pathId, fileId)[1]
                 md5 = md5ToString(md5String(cont.get().read()))
-                rpm = pathMap[(path, arch)]
+                try:
+                    rpm = pathMap[(path, arch)]
+                except KeyError:
+                    # some file we added, like a tag handler
+                    continue
                 flist.append((binary[0], rpm, path, md5))
     # sort based on path
     flist.sort(key=operator.itemgetter(2))
     for info in flist:
         outfile.write('\t'.join(info))
         outfile.write('\n')
+    outfile.flush()
