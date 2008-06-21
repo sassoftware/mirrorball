@@ -84,17 +84,18 @@ class ConaryHelper(object):
         if len(latest) != 2:
             raise TooManyFlavorsFoundError(why=latest)
 
-        srcTrvs = {}
+        d = {}
         for trv in latest:
             log.info('querying %s for source troves' % (trv, ))
             srcTrvs = self._getSourceTroves(trv)
             for src, binLst in srcTrvs.iteritems():
-                if src in srcTrvs:
-                    srcTrvs[src].extend(binLst)
+                s = set(binLst)
+                if src in d:
+                    d[src].update(s)
                 else:
-                    srcTrvs[src] = binLst
+                    d[src] = s
 
-        return srcTrvs
+        return d
 
     @staticmethod
     def _findLatest(trvlst):
@@ -149,8 +150,8 @@ class ConaryHelper(object):
                                                             strongRefs=True)):
             src = (sources[i](), v.getSourceVersion(), None)
             if src not in srcTrvs:
-                srcTrvs[src] = []
-            srcTrvs[src].append((n, v, f))
+                srcTrvs[src] = set()
+            srcTrvs[src].add((n, v, f))
 
         return srcTrvs
 
