@@ -23,6 +23,7 @@ from rpath_common.xmllib import api1 as xmllib
 
 from repomd.primaryxml import PrimaryXml
 from repomd.patchesxml import PatchesXml
+from repomd.filelistsxml import FileListsXml
 from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
@@ -46,6 +47,9 @@ class _RepoMd(xmllib.BaseNode):
                 child.parseChildren = child._parser.parse
             elif child.type == 'primary':
                 child._parser = PrimaryXml(None, child.location)
+                child.parseChildren = child._parser.parse
+            elif child.type == 'filelists':
+                child._parser = FileListsXml(None, child.location)
                 child.parseChildren = child._parser.parse
             xmllib.BaseNode.addChild(self, child)
         else:
