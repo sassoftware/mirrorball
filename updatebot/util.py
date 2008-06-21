@@ -71,3 +71,14 @@ def packagevercmp(a, b):
         return relcmp
 
     return 0
+
+def packageCompare(a, b):
+    pkgvercmp = packagevercmp(a, b)
+    if pkgvercmp != 0:
+        return pkgvercmp
+
+    archcmp = cmp(a.arch, b.arch)
+    if archcmp != 0:
+        return archcmp
+
+    return 0

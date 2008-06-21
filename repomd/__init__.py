@@ -79,3 +79,11 @@ class Client(object):
 
         node = self._repomd.getRepoData('primary')
         return node.parseChildren().getPackages()
+
+    def getFileLists(self):
+        """
+        Get a list instances representing filelists in the repository.
+        @ return [repomd.filelistsxml._Package, ...]
+        """
+        node = self._repomd.getRepoData('filelists')
+        return node.parseChildren().getPackages()

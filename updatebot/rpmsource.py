@@ -20,6 +20,7 @@ Module for interacting with packages in multiple yum repositories.
 import logging
 
 import repomd
+from updatebot import util
 
 log = logging.getLogger('rpmimport.rpmsource')
 
@@ -167,3 +168,10 @@ class RpmSource(object):
                 self.binPkgMap[binPkg] = pkg
 
         log.warn('found %s source rpms without matching binary rpms' % count)
+
+    def loadFileLists(self, client, basePath):
+        for pkg in client.getFileLists():
+            for binPkg in self.binPkgMap.iterkeys():
+                if util.packageCompare(pkg, binPkg) == 0:
+                    binPkg.files = pkg.files
+                    break
