@@ -135,6 +135,10 @@ class RpmSource(object):
                 self._procBin(basePath, pkg)
 
     def finalize(self):
+        """
+        Make some final datastructures now that we are done populating object.
+        """
+
         # Now that we have processed all of the rpms, build some more data
         # structures.
         count = 0

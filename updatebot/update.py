@@ -83,7 +83,8 @@ class Updater(object):
             latestVer = util.srpmToConaryVersion(latestSrpm)
             curVer = str(version.trailingRevision().version)
             if rpmvercmp(latestVer, curVer) != 0:
-                log.info('found potential updatable trove: %s' % ((name, version, flavor), ))
+                log.info('found potential updatable trove: %s'
+                         % ((name, version, flavor), ))
                 log.debug('cny: %s, rpm: %s' % (curVer, latestVer))
                 # Add anything that has changed, version may have gone
                 # backwards if epoch changes.
@@ -146,12 +147,11 @@ class Updater(object):
                 pkgs = self._rpmSource.binNameMap[binPkg.name]
 
                 # get the correct arch
-                pkg = None
-                for pkg in self._getLatestOfAvailableArches(pkgs):
-                    if pkg.arch == binPkg.arch:
-                        break
+                pkg = [ x for x in self._getLatestOfAvailableArches(pkgs)
+                        if x.arch == binPkg.arch ][0]
 
-                # Raise an exception if the versions of the packages aren't equal.
+                # Raise an exception if the versions of the packages aren't
+                # equal.
                 if (rpmvercmp(pkg.epoch, srpm.epoch) != 0 or
                     rpmvercmp(pkg.version, srpm.version) != 0):
                     raise UpdateRemovesPackageError(why='all rpms in the '
@@ -163,7 +163,8 @@ class Updater(object):
 
         return needsUpdate
 
-    def _getLatestOfAvailableArches(self, pkgLst):
+    @staticmethod
+    def _getLatestOfAvailableArches(pkgLst):
         """
         Given a list of package objects, find the latest versions of each
         package for each name/arch.

@@ -174,7 +174,8 @@ class AdvisoryRecipientRefusedError(FailedToSendAdvisoryError):
     """
 
     _params = ['data', ]
-    _template = 'One or more recipients was refused by the smtp server: %(data)s'
+    _template = ('One or more recipients was refused by the smtp server: '
+                 '%(data)s')
 
 class NoPackagesFoundForAdvisory(AdvisoryError):
     """

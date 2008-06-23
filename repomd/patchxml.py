@@ -37,7 +37,6 @@ class _Patch(SlotNode):
         Parse children of patch element.
         """
 
-        # FIXME: There should be a better way to setup a parser.
         # R0912 - Too many branches
         # pylint: disable-msg=R0912
 

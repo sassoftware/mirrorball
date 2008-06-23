@@ -21,12 +21,14 @@ import os
 import logging
 import tempfile
 
-from conary.deps import deps
 from conary.build import use
 from conary import conaryclient, conarycfg, trove, checkin
 
 from updatebot import util
-from updatebot.errors import TooManyFlavorsFoundError, NoManifestFoundError
+from updatebot.errors import TooManyFlavorsFoundError
+from updatebot.errors import NoManifestFoundError
+from updatebot.errors import PromoteFailedError
+from updatebot.errors import PromoteMismatchError
 
 log = logging.getLogger('updatebot.conaryhelper')
 
@@ -62,6 +64,9 @@ class ConaryHelper(object):
         @type group: None or troveTuple (name, versionStr, flavorStr)
         @return set of source trove specs
         """
+
+        # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
+        # pylint: disable-msg=E1101
 
         trvlst = self._repos.findTrove(self._ccfg.buildLabel, group)
 
@@ -110,6 +115,10 @@ class ConaryHelper(object):
         @return set([(trvSpec, trvSpec, ...])
         """
 
+        # W0212 - Access to a protected member _TROVEINFO_TAG_SOURCENAME of a
+        #         client class
+        # pylint: disable-msg=W0212
+
         name, version, flavor = troveSpec
         cl = [ (name, (None, None), (version, flavor), True) ]
         cs = self._client.createChangeSet(cl, withFiles=False,
@@ -124,7 +133,7 @@ class ConaryHelper(object):
         sources = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME,
                     list(topTrove.iterTroveList(weakRefs=True,
                                                 strongRefs=True)))
-        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True,
+        for i, (_, v, _) in enumerate(topTrove.iterTroveList(weakRefs=True,
                                                             strongRefs=True)):
             srcTrvs.add((sources[i](), v.getSourceVersion(), None))
 
@@ -198,7 +207,8 @@ class ConaryHelper(object):
         manifestfh.close()
 
         # Setup flavor objects
-        use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor, error=False)
+        use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor,
+                                    error=False)
 
         # Commit to repository.
         self._commit(recipeDir, commitMessage)
@@ -268,6 +278,9 @@ class ConaryHelper(object):
         @type pkgname: string
         """
 
+        # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
+        # pylint: disable-msg=E1101
+
         label = self._ccfg.buildLabel
 
         trvMap = self._repos.getTroveLeavesByLabel({pkgname: {label: None }})
@@ -288,9 +301,10 @@ class ConaryHelper(object):
 
         # Assume that all troves are on the same label.
         fromLabel = trvLst[0][1].trailingLabel()
-        success, cs = client.createSiblingCloneChangeSet({fromLabel:targetLabel},
-                                                         trvLst,
-                                                         cloneSources=True)
+        success, cs = self._client.createSiblingCloneChangeSet(
+                            {fromLabel:targetLabel},
+                            trvLst,
+                            cloneSources=True)
         if not success:
             raise PromoteFailedError(what=trvLst)
 

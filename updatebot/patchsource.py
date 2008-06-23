@@ -25,6 +25,9 @@ class PatchSource(object):
     Store patch related mappings.
     """
 
+    # R0903 - Too few public methods
+    # pylint: disable-msg=R0903
+
     def __init__(self):
         # {binPkg: patchObj}
         self.pkgMap = dict()

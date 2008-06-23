@@ -55,7 +55,6 @@ class _Package(SlotNode):
         Parse children of package element.
         """
 
-        # FIXME: There should be a better way to setup a parser.
         # R0912 - Too many branches
         # pylint: disable-msg=R0912
 
@@ -124,7 +123,8 @@ class _Package(SlotNode):
             raise UnknownElementError(child)
 
     def __str__(self):
-        return '-'.join([self.name, self.epoch, self.version, self.release, self.arch])
+        return '-'.join([self.name, self.epoch, self.version, self.release,
+                         self.arch])
 
     def __repr__(self):
         return os.path.basename(self.location)
@@ -254,17 +254,6 @@ class PackageXmlMixIn(object):
         self._databinder.registerType(xmllib.StringNode, name='summary')
         self._databinder.registerType(xmllib.StringNode, name='description')
         self._databinder.registerType(xmllib.StringNode, name='url')
-        # FIXME: really shouldn't need to comment these out
-        # self._databinder.registerType(xmllib.StringNode, name='license',
-        #                               namespace='rpm')
-        # self._databinder.registerType(xmllib.StringNode, name='vendor',
-        #                               namespace='rpm')
-        # self._databinder.registerType(xmllib.StringNode, name='group',
-        #                               namespace='rpm')
-        # self._databinder.registerType(xmllib.StringNode, name='buildhost',
-        #                               namespace='rpm')
-        # self._databinder.registerType(xmllib.StringNode, name='sourcerpm',
-        #                               namespace='rpm')
         self._databinder.registerType(_RpmRequires, name='requires',
                                       namespace='rpm')
         self._databinder.registerType(_RpmRecommends, name='recommends',

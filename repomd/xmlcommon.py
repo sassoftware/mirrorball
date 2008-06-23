@@ -42,18 +42,15 @@ class XmlFileParser(object):
         Method stub for sub classes to implement.
         """
 
-    def parse(self, refresh=False):
+    def parse(self):
         """
         Parse an xml file.
-        @param refresh: refresh the cached parser results
-        @type refresh: bool
         @return sub class xmllib.BaseNode
         """
 
         # W0212 - Access to a protected member _parser of a client class
         # pylint: disable-msg=W0212
 
-        #if not self._data or refresh:
         fn = self._repository.get(self._path)
         data = self._databinder.parseFile(fn)
 
