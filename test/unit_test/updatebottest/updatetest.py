@@ -152,15 +152,31 @@ class UpdateTest(slehelp.Helper):
         oldBinPkg4 = mock.MockObject(stableReturnValues=True)
 
         oldBinPkg1._mock.set(name='foo')
+        oldBinPkg1._mock.set(epoch='0')
+        oldBinPkg1._mock.set(version='1')
+        oldBinPkg1._mock.set(arch='x86')
+
         oldBinPkg2._mock.set(name='foo-devel')
+        oldBinPkg2._mock.set(epoch='0')
+        oldBinPkg2._mock.set(version='1')
+        oldBinPkg2._mock.set(arch='x86')
+
         oldBinPkg3._mock.set(name='bar')
+        oldBinPkg3._mock.set(epoch='0')
         oldBinPkg3._mock.set(version='1')
+        oldBinPkg3._mock.set(arch='x86_64')
+
         oldBinPkg4._mock.set(name='bar')
+        oldBinPkg4._mock.set(epoch='0')
         oldBinPkg4._mock.set(version='0')
+        oldBinPkg4._mock.set(arch='x86_64')
 
         newSrcPkg = mock.MockObject()
         oldSrcPkg = mock.MockObject()
         oldSrcPkg2 = mock.MockObject()
+
+        newSrcPkg._mock.set(version='1')
+        newSrcPkg._mock.set(epoch='0')
 
         srcPkgMap = {newSrcPkg: [newBinPkg1,
                                  newBinPkg2],
@@ -178,7 +194,9 @@ class UpdateTest(slehelp.Helper):
                      oldBinPkg3: oldSrcPkg,
                      oldBinPkg4: oldSrcPkg2}
 
-        binNameMap = {'bar': [oldBinPkg3,
+        binNameMap = {'foo': [oldBinPkg1, ],
+                      'foo-devel': [oldBinPkg2, ],
+                      'bar': [oldBinPkg3,
                               oldBinPkg4]}
 
         mockRpmSource._mock.set(srcPkgMap=srcPkgMap)
@@ -186,9 +204,9 @@ class UpdateTest(slehelp.Helper):
         mockRpmSource._mock.set(binPkgMap=binPkgMap)
         mockRpmSource._mock.set(binNameMap=binNameMap)
 
-        mockRecipeMaker = mock.MockObject(stableReturnValues=True)
-        mockRecipeMaker.getManifest._mock.setReturn(['a', 'b'], 'foo')
-        self.mock(updater, '_recipeMaker', mockRecipeMaker)
+        mockConaryHelper = mock.MockObject(stableReturnValues=True)
+        mockConaryHelper.getManifest._mock.setReturn(['a', 'b'], 'foo')
+        self.mock(updater, '_conaryhelper', mockConaryHelper)
 
         mockPackageVerCmp = mock.MockObject(stableReturnValue=True)
         self.mock(util, 'packagevercmp', mockPackageVerCmp)
@@ -197,7 +215,7 @@ class UpdateTest(slehelp.Helper):
         mockPackageVerCmp._mock.setReturn(1, newSrcPkg, oldSrcPkg)
         result1 = updater._sanitizeTrove(trvSpec, newSrcPkg)
         self.failUnlessEqual(result1, True)
-        mockRecipeMaker.getManifest._mock.assertCalled('foo')
+        mockConaryHelper.getManifest._mock.assertCalled('foo')
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
 
@@ -205,7 +223,7 @@ class UpdateTest(slehelp.Helper):
         mockPackageVerCmp._mock.setReturn(0, newSrcPkg, oldSrcPkg)
         result1 = updater._sanitizeTrove(trvSpec, newSrcPkg)
         self.failUnlessEqual(result1, False)
-        mockRecipeMaker.getManifest._mock.assertCalled('foo')
+        mockConaryHelper.getManifest._mock.assertCalled('foo')
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
 
@@ -213,18 +231,18 @@ class UpdateTest(slehelp.Helper):
         mockPackageVerCmp._mock.setReturn(-1, newSrcPkg, oldSrcPkg)
         self.failUnlessRaises(errors.UpdateGoesBackwardsError,
             updater._sanitizeTrove, trvSpec, newSrcPkg)
-        mockRecipeMaker.getManifest._mock.assertCalled('foo')
+        mockConaryHelper.getManifest._mock.assertCalled('foo')
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
 
         # test remove package without exception
-        mockRecipeMaker.getManifest._mock.setReturn(['a', 'c'], 'foo')
+        mockConaryHelper.getManifest._mock.setReturn(['a', 'c'], 'foo')
         mockPackageVerCmp._mock.setReturn(0, newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.setReturn(1, oldBinPkg3, oldBinPkg4)
         mockPackageVerCmp._mock.setReturn(-1, oldBinPkg4, oldBinPkg3)
         result = updater._sanitizeTrove(trvSpec, newSrcPkg)
         self.failUnlessEqual(result, False)
-        mockRecipeMaker.getManifest._mock.assertCalled('foo')
+        mockConaryHelper.getManifest._mock.assertCalled('foo')
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         self.failUnless(oldBinPkg3 in srcPkgMap[newSrcPkg])
@@ -233,15 +251,73 @@ class UpdateTest(slehelp.Helper):
 
         # test remove package with exception
         oldBinPkg4._mock.set(version='2')
-        mockRecipeMaker.getManifest._mock.setReturn(['a', 'c'], 'foo')
+        mockConaryHelper.getManifest._mock.setReturn(['a', 'c'], 'foo')
         mockPackageVerCmp._mock.setReturn(0, newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.setReturn(-1, oldBinPkg3, oldBinPkg4)
         mockPackageVerCmp._mock.setReturn(1, oldBinPkg4, oldBinPkg3)
         self.failUnlessRaises(errors.UpdateRemovesPackageError,
             updater._sanitizeTrove, trvSpec, newSrcPkg)
-        mockRecipeMaker.getManifest._mock.assertCalled('foo')
+        mockConaryHelper.getManifest._mock.assertCalled('foo')
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
         mockPackageVerCmp._mock.assertCalled(newSrcPkg, oldSrcPkg)
 
+    def testUpdate(self):
+        nvf = ('foo', None, None)
+        manifest = ['a', 'b', ]
+        mockSourcePkg = mock.MockObject()
+        mockGetManifestFromRpmSource = mock.MockObject()
+        mockConaryHelper = mock.MockObject()
+
+        mockGetManifestFromRpmSource._mock.setReturn(manifest, mockSourcePkg)
+        mockConaryHelper.setManifest._mock.setReturn(None, nvf[0], manifest,
+            commitMessage=self.updateBotCfg.commitMessage)
+
+        updater = update.Updater(self.updateBotCfg, None)
+        self.mock(updater, '_getManifestFromRpmSource',
+            mockGetManifestFromRpmSource)
+        self.mock(updater, '_conaryhelper', mockConaryHelper)
+
+        result = updater.update(nvf, mockSourcePkg)
+        self.failUnlessEqual(result, None)
+        mockGetManifestFromRpmSource._mock.assertCalled(mockSourcePkg)
+        mockConaryHelper.setManifest._mock.assertCalled(nvf[0], manifest,
+            commitMessage=self.updateBotCfg.commitMessage)
+
+    def testGetManifestFromRpmSource(self):
+        mockSourcePkg = mock.MockObject()
+        mockRpmSource = mock.MockObject()
+        mockGetLatest = mock.MockObject()
+
+        mockPkg = mock.MockObject()
+        mockPkg._mock.set(location='a')
+
+        srcPkgMap = {mockSourcePkg: [mockPkg, ]}
+        mockRpmSource._mock.set(srcPkgMap=srcPkgMap)
+
+        mockGetLatest._mock.setReturn([mockPkg, ], [mockPkg, ])
+
+        updater = update.Updater(self.updateBotCfg, mockRpmSource)
+        self.mock(updater, '_getLatestOfAvailableArches', mockGetLatest)
+
+        expected = ['a', ]
+        result = updater._getManifestFromRpmSource(mockSourcePkg)
+        self.failUnlessEqual(result, expected)
+        mockGetLatest._mock.assertCalled([mockPkg, ])
+
+    def testPublish(self):
+        mockTrvLst = mock.MockObject()
+        mockExpected = mock.MockObject()
+        mockLabel = mock.MockObject()
+        mockConaryHelper = mock.MockObject()
+        mockReturn = mock.MockObject()
+
+        mockConaryHelper.promote._mock.setReturn(mockReturn, mockTrvLst,
+            mockExpected, mockLabel)
+
+        updater = update.Updater(self.updateBotCfg, None)
+        self.mock(updater, '_conaryhelper', mockConaryHelper)
+
+        result = updater.publish(mockTrvLst, mockExpected, mockLabel)
+        self.failUnlessEqual(result, mockReturn)
 
 testsetup.main()
