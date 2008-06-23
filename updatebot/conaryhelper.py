@@ -305,6 +305,7 @@ class ConaryHelper(object):
                             {fromLabel:targetLabel},
                             trvLst,
                             cloneSources=True)
+
         if not success:
             raise PromoteFailedError(what=trvLst)
 

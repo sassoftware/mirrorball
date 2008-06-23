@@ -265,7 +265,7 @@ class ConaryHelperTest(slehelp.Helper):
         result = helper.setManifest(trvName, manifestLst, commitMessage)
         self.failUnlessEqual(result, [])
         self.failUnless(os.path.exists('foo/manifest'))
-        self.failUnlessEqual(open('foo/manifest').read(), 'bar\nbaz')
+        self.failUnlessEqual(open('foo/manifest').read(), 'bar\nbaz\n')
         mockGetVersionsByName._mock.assertCalled('%s:source' % trvName)
         mockNewPkg._mock.assertCalled(trvName)
         mockCheckout._mock.assertNotCalled()
@@ -280,7 +280,7 @@ class ConaryHelperTest(slehelp.Helper):
         result = helper.setManifest(trvName, manifestLst, commitMessage)
         self.failUnlessEqual(result, ['bar', ])
         self.failUnless(os.path.exists('bar/manifest'))
-        self.failUnlessEqual(open('bar/manifest').read(), 'bar\nbaz')
+        self.failUnlessEqual(open('bar/manifest').read(), 'bar\nbaz\n')
         mockGetVersionsByName._mock.assertCalled('%s:source' % trvName)
         mockNewPkg._mock.assertNotCalled()
         mockCheckout._mock.assertCalled(trvName)
@@ -358,5 +358,49 @@ class ConaryHelperTest(slehelp.Helper):
         mockRepos.getTroveLeavesByLabel._mock.assertCalled(
             {pkgName: {mockLabel: None}})
 
+    def testPromote(self):
+        mockFromLabel = mock.MockObject()
+        mockToLabel = mock.MockObject()
+        mockVersion = mock.MockObject()
+        mockCs = mock.MockObject()
+        mockCsNewTrove = mock.MockObject()
+        mockRepos = mock.MockObject()
+
+        trvLst = [('foo', mockVersion, None), ]
+
+        mockVersion.trailingLabel._mock.setReturn(mockFromLabel)
+        mockCs.iterNewTroveList._mock.setReturn([mockCsNewTrove, ])
+        mockRepos.commitChangeSet._mock.setReturn(None, mockCs)
+
+        def getMockClient(returnValue):
+            mockClient = mock.MockObject()
+            mockClient.createSiblingCloneChangeSet._mock.setReturn(
+                returnValue, {mockFromLabel: mockToLabel}, trvLst,
+                cloneSources=True)
+            return mockClient
+
+        helper = conaryhelper.ConaryHelper(self.updateBotCfg)
+        helper._repos = mockRepos
+
+        # normal case
+        expected = ('foo', None, None)
+        helper._client = getMockClient((True, mockCs))
+        mockCsNewTrove.getNewNameVersionFlavor._mock.setReturn(expected)
+        result = helper.promote(trvLst, trvLst, mockToLabel)
+        self.failUnlessEqual(result, [expected, ])
+        mockVersion.trailingLabel._mock.assertCalled()
+        mockCs.iterNewTroveList._mock.assertCalled()
+        mockCsNewTrove.getNewNameVersionFlavor._mock.assertCalled()
+        mockRepos.commitChangeSet._mock.assertCalled(mockCs)
+
+        # test PromoteFailedError exception
+        helper._client = getMockClient((False, mockCs))
+        self.failUnlessRaises(errors.PromoteFailedError, helper.promote,
+                              trvLst, trvLst, mockToLabel)
+
+        # test PromoteMismatchError exception
+        helper._client = getMockClient((True, mockCs))
+        self.failUnlessRaises(errors.PromoteMismatchError, helper.promote,
+                              trvLst, [('bar', None, None), ], mockToLabel)
 
 testsetup.main()
