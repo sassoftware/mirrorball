@@ -30,6 +30,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # R0904 - to many public methods
     # pylint: disable-msg=R0904
 
+    # name of the product to use in advisories
+    productName         = CfgString
+
     # path to configuration files (conaryrc, rmakerc)
     configPath          = CfgString
 
@@ -65,3 +68,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # flavors to build the source group.
     groupFlavors        = (CfgList(CfgFlavor), [])
+
+    # email information for sending advisories
+    emailFrom           = CfgString
+    emailTo             = (CfgList(CfgString), [])
+    emailBcc            = (CfgList(CfgString), [])
+    smtpServer          = CfgString
