@@ -27,6 +27,7 @@ class Helper(rmakehelp.RmakeHelper):
         self.updateBotCfg.configPath = self.cfg.root
         self.cfg.user = ('test', 'test')
         self.writeFile(self.cfg.root + '/conaryrc', '')
+        self.writeFile(self.cfg.root + '/rmakerc', '')
         os.chdir(self.workDir)
 
     def initializeFlavor(self):
