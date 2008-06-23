@@ -118,7 +118,7 @@ class PromoteMismatchError(PromoteFailedError):
     promote all expected pacakges.
     """
 
-    _parms = ['expected', 'actual']
+    _params = ['expected', 'actual']
     _template = ('Expected to promote %(expected)s, actually tried to promote'
                  ' %(actual)s.')
 
@@ -134,3 +134,62 @@ class NoAdvisoryFoundError(AdvisoryError):
     NoAdvisoryFoundError, raised when the bot can not find an advisory for an
     updated package.
     """
+
+class ProductNameNotDefinedError(AdvisoryError):
+    """
+    ProductNameNotDefinedError, raised when the product name is not defined
+    in the config.
+    """
+
+    _template = 'Product name not defined'
+
+class NoSenderFoundError(AdvisoryError):
+    """
+    NoSenderFoundError, raised when no sender is defined in the config file.
+    """
+
+    _template = 'No sender defined for advisory emails: %(why)s'
+
+class NoRecipientsFoundError(AdvisoryError):
+    """
+    NoRecipientsFoundError, raised when no recipients are defined in the
+    config file.
+    """
+
+    _template = 'No recipients defined for advisory emails: %(why)s'
+
+class FailedToSendAdvisoryError(AdvisoryError):
+    """
+    FailedToSendAdvisoryError, raised when the smtp server fails to send the
+    advisory.
+    """
+
+    _params = ['error', ]
+    _template = 'Failed to send advisory: %(error)s'
+
+class AdvisoryRecipientRefusedError(FailedToSendAdvisoryError):
+    """
+    AdvisoryRecipientRefusedError, raised when the smtp server refuses one or
+    more recipients, but not all of them.
+    """
+
+    _params = ['data', ]
+    _template = 'One or more recipients was refused by the smtp server: %(data)s'
+
+class NoPackagesFoundForAdvisory(AdvisoryError):
+    """
+    NoPackagesFoundForAdvisory, raised when the bot can't find promoted
+    binary versions of a package.
+    """
+
+    _params = ['what', ]
+    _template = 'Could not find binary packages for %(what)s'
+
+class MultipleAdvisoriesFoundError(AdvisoryError):
+    """
+    MultipleAdvisoriesFoundError, raised when multiple advisories are found
+    for one source.
+    """
+
+    _params = ['what', 'advisories']
+    _template = 'Found multiple advisories for %(what)s: %(advisories)s'
