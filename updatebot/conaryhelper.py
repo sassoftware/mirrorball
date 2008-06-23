@@ -286,7 +286,8 @@ class ConaryHelper(object):
         @type targetLabel: conary Label object
         """
 
-        fromLabel = trvLst[0][1].getTrailingRevision().label
+        # Assume that all troves are on the same label.
+        fromLabel = trvLst[0][1].trailingLabel()
         success, cs = client.createSiblingCloneChangeSet({fromLabel:targetLabel},
                                                          trvLst,
                                                          cloneSources=True)
@@ -306,4 +307,3 @@ class ConaryHelper(object):
         self._repos.commitChangeSet(cs)
 
         return packageList
-
