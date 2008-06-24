@@ -28,7 +28,9 @@ class PatchSource(object):
     # R0903 - Too few public methods
     # pylint: disable-msg=R0903
 
-    def __init__(self):
+    def __init__(self, cfg):
+        self._cfg = cfg
+
         # {binPkg: patchObj}
         self.pkgMap = dict()
 
@@ -53,8 +55,26 @@ class PatchSource(object):
         @type path: string
         """
 
+        if self._filterPatch(patch):
+            return
+
         for package in patch.packages:
             package.location = path + '/' + package.location
             if package not in self.pkgMap:
                 self.pkgMap[package] = set()
             self.pkgMap[package].add(patch)
+
+    def _filterPatch(self, patch):
+        """
+        Filter out patches that match filters in config.
+        @param patch: repomd patch object
+        @type patch: repomd.patchxml._Patch
+        """
+
+        for _, filter in self._cfg.patchFilter:
+            if filter.match(patch.summary):
+                return True
+            if filter.match(patch.description):
+                return True
+
+        return False

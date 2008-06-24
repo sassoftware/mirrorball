@@ -28,7 +28,7 @@ class PatchSourceTest(slehelp.Helper):
         mockLoadOne = mock.MockObject(stableReturnValues=True)
         mockLoadOne._mock.setReturn(None, mockPatch, '/foo')
 
-        patchSource = patchsource.PatchSource()
+        patchSource = patchsource.PatchSource(self.updateBotCfg)
         self.mock(patchSource, '_loadOne', mockLoadOne)
 
         result = patchSource.loadFromClient(mockClient, '/foo')
@@ -43,13 +43,56 @@ class PatchSourceTest(slehelp.Helper):
         mockPatch = mock.MockObject(stableReturnValues=True)
         mockPatch._mock.set(packages=[mockPackage, ])
 
+        mockFilterPatch = mock.MockObject()
+        mockFilterPatch._mock.setReturn(False, mockPatch)
+
         expectedResult = {mockPackage: set([mockPatch, ])}
 
-        patchSource = patchsource.PatchSource()
+        patchSource = patchsource.PatchSource(self.updateBotCfg)
+        self.mock(patchSource, '_filterPatch', mockFilterPatch)
+
         result = patchSource._loadOne(mockPatch, 'baz')
         self.failUnlessEqual(result, None)
         self.failUnlessEqual(patchSource.pkgMap, expectedResult)
         self.failUnlessEqual(mockPackage.location, 'baz/foo/bar')
+        mockFilterPatch._mock.assertCalled(mockPatch)
+
+        mockFilterPatch._mock.setReturn(True, mockPatch)
+        result = patchSource._loadOne(mockPatch, 'baz')
+        self.failUnlessEqual(result, None)
+        self.failUnlessEqual(patchSource.pkgMap, expectedResult)
+        mockFilterPatch._mock.assertCalled(mockPatch)
+
+    def testFilterPatch(self):
+        mockConfig = mock.MockObject()
+        mockFilter = mock.MockObject()
+        mockPatch = mock.MockObject()
+
+        mockPatch._mock.set(summary='foo')
+        mockPatch._mock.set(description='bar')
+
+        mockConfig._mock.set(patchFilter=[(None, mockFilter), ])
+
+        patchSource = patchsource.PatchSource(mockConfig)
+
+        mockFilter.match._mock.setReturn(True, 'foo')
+        result = patchSource._filterPatch(mockPatch)
+        self.failUnlessEqual(result, True)
+        mockFilter.match._mock.assertCalled('foo')
+
+        mockFilter.match._mock.setReturn(False, 'foo')
+        mockFilter.match._mock.setReturn(True, 'bar')
+        result = patchSource._filterPatch(mockPatch)
+        self.failUnlessEqual(result, True)
+        mockFilter.match._mock.assertCalled('foo')
+        mockFilter.match._mock.assertCalled('bar')
+
+        mockFilter.match._mock.setReturn(False, 'foo')
+        mockFilter.match._mock.setReturn(False, 'bar')
+        result = patchSource._filterPatch(mockPatch)
+        self.failUnlessEqual(result, False)
+        mockFilter.match._mock.assertCalled('foo')
+        mockFilter.match._mock.assertCalled('bar')
 
 
 testsetup.main()
