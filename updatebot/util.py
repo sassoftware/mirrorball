@@ -30,6 +30,8 @@ def join(a, *b):
     """
 
     root = os.path.normpath(a)
+    if root == '/':
+        root = ''
     for path in b:
         root += os.sep + os.path.normpath(path)
     return root
