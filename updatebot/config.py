@@ -18,7 +18,7 @@ Configuration module for updatebot.
 
 from conary.lib import cfg
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp
 
 from rmake.build.buildcfg import CfgTroveSpec
 
@@ -62,6 +62,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # Packages for which there might not reasonably be advisories. Define a
     # default advisory message to send with these packages.
     advisoryException   = (CfgList(CfgList(CfgString)), [])
+
+    # Filter out patches with matching descriptions or summaries.
+    patchFilter         = (CfgList(CfgRegExp), [])
 
     # list of contexts that all packages are built in.
     archContexts        = CfgList(CfgString)
