@@ -141,6 +141,7 @@ class ProductNameNotDefinedError(AdvisoryError):
     in the config.
     """
 
+    _params = []
     _template = 'Product name not defined'
 
 class NoSenderFoundError(AdvisoryError):
