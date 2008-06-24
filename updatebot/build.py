@@ -96,9 +96,7 @@ class Builder(object):
             n = sn.split(':')[0]
             if (n, sv, None) not in ret:
                 ret[(n, sv, None)] = set()
-            for name, version, flavor in trvMap[(sn, sv, sf, c)]:
-                if name == n or name.startswith('group-'):
-                    ret[(n, sv, None)].add((name, version, flavor))
+            ret[(n, sv, None)].update(set(trvMap[(sn, sv, sf, c)]))
 
         return ret
 
