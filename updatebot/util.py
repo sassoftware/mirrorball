@@ -34,7 +34,7 @@ def join(a, *b):
         root = ''
     for path in b:
         root += os.sep + os.path.normpath(path)
-    return root
+    return os.path.abspath(root)
 
 def srpmToConaryVersion(srcPkg):
     """
