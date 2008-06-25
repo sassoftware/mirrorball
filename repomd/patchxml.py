@@ -71,16 +71,31 @@ class _Patch(SlotNode):
             raise UnknownElementError(child)
 
     def __cmp__(self, other):
-        if self.version > other.version:
-            return 1
-        elif self.version < other.version:
-            return -1
-        elif self.release > other.release:
-            return 1
-        elif self.release < other.release:
-            return -1
-        else:
-            return 0
+        vercmp = cmp(self.version, other.version)
+        if vercmp != 0:
+            return vercmp
+
+        relcmp = cmp(self.release, other.release)
+        if relcmp != 0:
+            return relcmp
+
+        sumcmp = cmp(self.summary, other.summary)
+        if sumcmp != 0:
+            return sumcmp
+
+        desccmp = cmp(self.description, other.description)
+        if desccmp != 0:
+            return desccmp
+
+        for pkg in other.packages:
+            if pkg not in self.packages:
+                self.packages.append(pkg)
+
+        return 0
+
+    def __hash__(self):
+        return hash((self.name, self.version, self.release, self.summary,
+                     self.description))
 
 
 class _Atoms(xmllib.BaseNode):
