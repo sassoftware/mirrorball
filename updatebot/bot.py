@@ -16,18 +16,16 @@
 Module for driving the update process.
 """
 
+import time
 import logging
 
 import repomd
-from rpmvercmp import rpmvercmp
 from rpmimport import rpmsource
 
-from updatebot import util
 from updatebot import build
 from updatebot import update
 from updatebot import advise
 from updatebot import patchsource
-from updatebot.errors import *
 
 log = logging.getLogger('updatebot.bot')
 
@@ -41,7 +39,7 @@ class Bot(object):
 
         self._clients = {}
         self._rpmSource = rpmsource.RpmSource()
-        self._patchSource = patchsource.PatchSource()
+        self._patchSource = patchsource.PatchSource(self._cfg)
         self._updater = update.Updater(self._cfg, self._rpmSource)
         self._advisor = advise.Advisor(self._cfg, self._rpmSource,
                                        self._patchSource)
@@ -70,11 +68,26 @@ class Bot(object):
                      % (self._cfg.repositoryUrl, path))
             self._patchSource.loadFromClient(client, path)
 
+    @staticmethod
+    def _flattenSetDict(setDict):
+        """
+        Convert a dictionary with values of sets to a list.
+        @param setList: dictionary of sets
+        @type setList: [set(), set(), ...]
+        @return list of items that were in the sets
+        """
+
+        lst = []
+        for trvSet in setDict.itervalues():
+            lst.extend(list(trvSet))
+        return lst
+
     def run(self):
         """
         Update the conary repository from the yum repositories.
         """
 
+        start = time.time()
         log.info('starting update')
 
         # Populate rpm source object from yum metadata.
@@ -83,23 +96,24 @@ class Bot(object):
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
 
+        # Update source
+        for nvf, srcPkg in toUpdate:
+            toAdvise.remove((nvf, srcPkg))
+            newVersion = self._updater.update(nvf, srcPkg)
+            toAdvise.append(((nvf[0], newVersion, nvf[2]), srcPkg))
+
         # Don't populate the patch source until we know that there are
         # updates.
-        #self._populatePatchSource()
+        self._populatePatchSource()
 
         # Check to see if advisories exist for all required packages.
-        #self._advisor.check(toAdvise)
-
-        # Update sources.
-        #for nvf, srcPkg in toUpdate:
-        #    self._updater.update(nvf, srcPkg)
+        self._advisor.check(toAdvise)
 
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
-        #buildTroves = set([ x[0] for x in toAdvise ])
-        #trvMap = self._builder.build(buildTroves)
+        buildTroves = set([ x[0] for x in toAdvise ])
+        trvMap = self._builder.build(buildTroves)
 
-        import epdb; epdb.st()
         # Build group.
         grpTrvs = set()
         for flavor in self._cfg.groupFlavors:
@@ -108,18 +122,18 @@ class Bot(object):
                          flavor))
         grpTrvMap = self._builder.build(grpTrvs)
 
-        import epdb; epdb.st()
         # Promote group.
         # We expect that everything that was built will be published.
-        expected = [ x for x in y for y in trvMap.itervalues() ]
-        toPublish = [ x for x in y for y in grpTrvMap.itervalues() ]
+        expected = self._flattenSetDict(trvMap)
+        toPublish = self._flattenSetDict(grpTrvMap)
         newTroves = self._updater.publish(toPublish, expected,
                                           self._cfg.targetLabel)
 
         import epdb; epdb.st()
         # Send advisories.
-        self._advisor.send(newTroves, toAdvise)
+        self._advisor.send(toAdvise, newTroves)
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'
                  % (len(toUpdate), len(toAdvise)))
+        log.info('elapsed time %s' % (time.time() - start, ))
