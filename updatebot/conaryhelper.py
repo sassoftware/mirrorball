@@ -18,6 +18,7 @@ some point.
 """
 
 import os
+import time
 import logging
 import tempfile
 
@@ -38,10 +39,8 @@ class ConaryHelper(object):
     """
 
     def __init__(self, cfg):
-        self._cfg = cfg
-
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
-        self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
+        self._ccfg.read(util.join(cfg.configPath, 'conaryrc'))
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
 
@@ -214,8 +213,10 @@ class ConaryHelper(object):
         self._commit(recipeDir, commitMessage)
         util.rmtree(recipeDir)
 
-        # Get new version of source trove.
-        return self._getVersionsByName('%s:source' % pkgname)
+        # Get new version of the source trove.
+        versions = self._getVersionsByName('%s:source' % pkgname)
+        assert len(versions) == 1
+        return versions[0]
 
     def _checkout(self, pkgname):
         """
@@ -288,23 +289,38 @@ class ConaryHelper(object):
         versions = verMap.keys()
         return versions
 
-    def promote(self, trvLst, expected, targetLabel):
+    def promote(self, trvLst, expected, sourceLabels, targetLabel):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
         @type trvLst: [(name, version, flavor), ... ]
         @param expected: list of troves that are expected to be published.
         @type expected: [(name, version, flavor), ...]
+        @param sourceLabels: list of labels that should be flattened onto the
+                             targetLabel.
+        @type sourceLabels: [labelObject, ... ]
         @param targetLabel: table to publish to
         @type targetLabel: conary Label object
         """
 
-        # Assume that all troves are on the same label.
+        start = time.time()
+        log.info('starting promote')
+        log.info('creating changeset')
+
+        # Get the label that the group is on.
         fromLabel = trvLst[0][1].trailingLabel()
+
+        # Build the label map.
+        labelMap = {fromLabel: targetLabel}
+        for label in sourceLabels:
+            labelMap[label] = targetLabel
+
         success, cs = self._client.createSiblingCloneChangeSet(
-                            {fromLabel:targetLabel},
+                            labelMap,
                             trvLst,
                             cloneSources=True)
+
+        log.info('changeset created in %s' % (time.time() - start, ))
 
         if not success:
             raise PromoteFailedError(what=trvLst)
@@ -315,10 +331,19 @@ class ConaryHelper(object):
         oldPkgs = set([ (x[0], x[2]) for x in expected ])
         newPkgs = set([ (x[0], x[2]) for x in packageList ])
 
-        difference = oldPkgs.difference(newPkgs)
+        # Make sure that all packages being promoted are in the set of packages
+        # that we think should be available to promote. Note that all packages
+        # in expected will not be promoted because not all packages are
+        # included in the groups.
+        difference = newPkgs.difference(oldPkgs)
         if difference != set():
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
+        log.info('committing changeset')
+
         self._repos.commitChangeSet(cs)
+
+        log.info('changeset committed')
+        log.info('promote complete, elapsed time %s' % (time.time() - start, ))
 
         return packageList

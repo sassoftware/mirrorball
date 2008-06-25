@@ -197,11 +197,13 @@ class Updater(object):
         @type nvf: tuple(name, versionObj, flavorObj)
         @param srcPkg: package object for source rpm
         @type srcPkg: repomd.packagexml._Package
+        @return version of the updated source trove
         """
 
         manifest = self._getManifestFromRpmSource(srcPkg)
-        self._conaryhelper.setManifest(nvf[0], manifest,
-            commitMessage=self._cfg.commitMessage)
+        newVersion = self._conaryhelper.setManifest(nvf[0], manifest,
+                        commitMessage=self._cfg.commitMessage)
+        return newVersion
 
     def _getManifestFromRpmSource(self, srcPkg):
         """
@@ -225,4 +227,5 @@ class Updater(object):
         @type targetLabel: conary Label object
         """
 
-        return self._conaryhelper.promote(trvLst, expected, targetLabel)
+        return self._conaryhelper.promote(trvLst, expected,
+                                          self._cfg.sourceLabel, targetLabel)

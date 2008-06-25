@@ -51,6 +51,10 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # The top level source group.
     topSourceGroup      = CfgTroveSpec
 
+    # Other labels that are referenced in the group that need to be flattend
+    # onto the targetLabel.
+    sourceLabel         = (CfgList(CfgLabel), [])
+
     # Label to promote to
     targetLabel         = CfgLabel
 
