@@ -71,10 +71,10 @@ class PatchSource(object):
         @type patch: repomd.patchxml._Patch
         """
 
-        for _, filter in self._cfg.patchFilter:
-            if filter.match(patch.summary):
+        for _, regex in self._cfg.patchFilter:
+            if regex.match(patch.summary):
                 return True
-            if filter.match(patch.description):
+            if regex.match(patch.description):
                 return True
 
         return False
