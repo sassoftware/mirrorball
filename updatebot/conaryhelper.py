@@ -328,15 +328,16 @@ class ConaryHelper(object):
         packageList = [ x.getNewNameVersionFlavor()
                         for x in cs.iterNewTroveList() ]
 
-        oldPkgs = set([ (x[0], x[2]) for x in expected ])
-        newPkgs = set([ (x[0], x[2]) for x in packageList ])
+        oldPkgs = set([ (x[0], x[2]) for x in expected if not x[0].endswith(':source') ])
+        newPkgs = set([ (x[0], x[2]) for x in packageList if not x[0].endswith(':source') ])
 
         # Make sure that all packages being promoted are in the set of packages
         # that we think should be available to promote. Note that all packages
         # in expected will not be promoted because not all packages are
         # included in the groups.
         difference = newPkgs.difference(oldPkgs)
-        if difference != set():
+        grpTrvs = set([ (x[0], x[2]) for x in trvLst if not x[0].endswith(':source') ])
+        if difference != grpTrvs:
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
         log.info('committing changeset')
