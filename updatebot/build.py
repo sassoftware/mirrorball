@@ -158,11 +158,13 @@ class Builder(object):
         startTime = time.time()
         job = self._helper.getJob(jobId)
         log.info('Starting commit of job %d', jobId)
+
         self._helper.client.startCommit([jobId, ])
         succeeded, data = commit.commitJobs(self._client,
                                             [job, ],
                                             self._rmakeCfg.reposName,
                                             self._cfg.commitMessage)
+
         if not succeeded:
             self._helper.client.commitFailed([jobId, ], data)
             raise CommitFailedError(jobId=job.jobId, why=data)
