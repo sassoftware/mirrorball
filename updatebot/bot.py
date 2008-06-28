@@ -96,18 +96,29 @@ class Bot(object):
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
 
-        # Update source
-        for nvf, srcPkg in toUpdate:
-            toAdvise.remove((nvf, srcPkg))
-            newVersion = self._updater.update(nvf, srcPkg)
-            toAdvise.append(((nvf[0], newVersion, nvf[2]), srcPkg))
-
         # Don't populate the patch source until we know that there are
         # updates.
         self._populatePatchSource()
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
+
+
+        # FIXME: this is a hack to work around some things.
+        for i in range(len(toAdvise)):
+            pkg = toAdvise[i]
+            version = self._updater._conaryhelper._getVersionsByName(pkg[0][0])[0]
+            toAdvise[i] = ((pkg[0][0], version, pkg[0][2]), pkg[1])
+            if pkg in toUpdate:
+                toUpdate.remove(pkg)
+                toUpdate.append(((pkg[0][0], version, pkg[0][2]), pkg[1]))
+        import epdb; epdb.st()
+
+        # Update source
+        for nvf, srcPkg in toUpdate:
+            toAdvise.remove((nvf, srcPkg))
+            newVersion = self._updater.update(nvf, srcPkg)
+            toAdvise.append(((nvf[0], newVersion, nvf[2]), srcPkg))
 
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
