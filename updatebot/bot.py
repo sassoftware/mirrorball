@@ -20,11 +20,11 @@ import time
 import logging
 
 import repomd
-from rpmimport import rpmsource
 
 from updatebot import build
 from updatebot import update
 from updatebot import advise
+from updatebot import rpmsource
 from updatebot import patchsource
 
 log = logging.getLogger('updatebot.bot')
@@ -96,23 +96,16 @@ class Bot(object):
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
 
+        if len(toAdvise) == 0:
+            log.info('no updates available')
+            return
+
         # Don't populate the patch source until we know that there are
         # updates.
         self._populatePatchSource()
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
-
-
-        # FIXME: this is a hack to work around some things.
-        for i in range(len(toAdvise)):
-            pkg = toAdvise[i]
-            version = self._updater._conaryhelper._getVersionsByName(pkg[0][0])[0]
-            toAdvise[i] = ((pkg[0][0], version, pkg[0][2]), pkg[1])
-            if pkg in toUpdate:
-                toUpdate.remove(pkg)
-                toUpdate.append(((pkg[0][0], version, pkg[0][2]), pkg[1]))
-        import epdb; epdb.st()
 
         # Update source
         for nvf, srcPkg in toUpdate:

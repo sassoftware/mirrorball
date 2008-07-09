@@ -45,6 +45,8 @@ class Updater(object):
                 to update
         """
 
+        log.info('searching for packages to update')
+
         toAdvise = []
         toUpdate = []
         for nvf, srpm in self._findUpdatableTroves(self._cfg.topGroup):
@@ -101,7 +103,7 @@ class Updater(object):
         @return src package object
         """
 
-        srpms = self._rpmSource.srcNameMap[name]
+        srpms = list(self._rpmSource.srcNameMap[name])
         srpms.sort(util.packagevercmp)
         return srpms[-1]
 
@@ -159,7 +161,7 @@ class Updater(object):
                             'to add %s' % (pkg, ))
 
                 log.warn('using old version of package %s' % (pkg, ))
-                self._rpmSource.srcPkgMap[srpm].append(pkg)
+                self._rpmSource.srcPkgMap[srpm].add(pkg)
 
         return needsUpdate
 
