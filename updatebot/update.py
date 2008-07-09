@@ -146,7 +146,7 @@ class Updater(object):
                 # Novell releases updates to only the binary rpms of a package
                 # that have chnaged. We have to use binaries from the old srpm.
                 # Get the last version of the pkg and add it to the srcPkgMap.
-                pkgs = self._rpmSource.binNameMap[binPkg.name]
+                pkgs = list(self._rpmSource.binNameMap[binPkg.name])
 
                 # get the correct arch
                 pkg = [ x for x in self._getLatestOfAvailableArches(pkgs)
@@ -214,7 +214,7 @@ class Updater(object):
         @type srcPkg: repomd.packagexml._Package
         """
 
-        manifestPkgs = self._rpmSource.srcPkgMap[srcPkg]
+        manifestPkgs = list(self._rpmSource.srcPkgMap[srcPkg])
         pkgs = self._getLatestOfAvailableArches(manifestPkgs)
         return [ x.location for x in pkgs ]
 
