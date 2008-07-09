@@ -18,7 +18,7 @@ Module for finding packages to update and updating them.
 
 import logging
 
-from rpmvercmp import rpmvercmp
+from rpmutils import rpmvercmp
 
 from updatebot import util
 from updatebot import conaryhelper
