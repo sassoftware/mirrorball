@@ -12,6 +12,10 @@
 # full details.
 #
 
+"""
+Module that provides common utility functions for interacting with rpms.
+"""
+
 __ALL__ = ('rpmvercmp', 'readHeader', )
 
 from rpmutils.vercmp import rpmvercmp
