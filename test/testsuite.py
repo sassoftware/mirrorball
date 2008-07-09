@@ -139,7 +139,7 @@ def isIndividual():
 
 def getCoverageDirs(handler, environ):
     basePath = os.environ['SLEESTACK_PATH']
-    coverageDirs = [ 'updatebot', 'rpmimport', 'repomd', ]
+    coverageDirs = [ 'updatebot', 'rpmutils', 'repomd', ]
 
     coveragePath = []
     for path in coverageDirs:
