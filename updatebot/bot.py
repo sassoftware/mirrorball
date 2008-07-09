@@ -100,8 +100,8 @@ class Bot(object):
             log.info('no updates available')
             return
 
-        # Don't populate the patch source until we know that there are
-        # updates.
+        # Populate patch source not that we know that there are updates
+        # available.
         self._populatePatchSource()
 
         # Check to see if advisories exist for all required packages.
@@ -133,7 +133,6 @@ class Bot(object):
         newTroves = self._updater.publish(toPublish, expected,
                                           self._cfg.targetLabel)
 
-        import epdb; epdb.st()
         # Send advisories.
         self._advisor.send(toAdvise, newTroves)
 
