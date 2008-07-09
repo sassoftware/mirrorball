@@ -152,8 +152,6 @@ class Advisor(object):
 
         newTroveMap = self._mkNewTroveMap(trvLst, newTroves)
 
-        import epdb; epdb.st()
-
         toSend = set()
         for patch, advisory in self._advisories.iteritems():
             binNames = [ x.name for x in patch.packages ]
@@ -171,8 +169,6 @@ class Advisor(object):
 
                 advisory.setUpdateTroves(newTroveMap[srpm])
                 toSend.add(advisory)
-
-        import epdb; epdb.st()
 
         for advisory in toSend:
             log.info('sending advisory: %s' % advisory)
@@ -252,7 +248,7 @@ Description:
         smtp = self._smtpConnect()
 
         try:
-            results = smtp.sendmail(self._from, self._to, message)
+            results = smtp.sendmail(self._from, self._to, message.as_string())
         except (SMTPRecipientsRefused, SMTPHeloError, SMTPSenderRefused,
                 SMTPDataError), e:
             raise FailedToSendAdvisoryError(error=e)
@@ -291,7 +287,11 @@ Description:
         """
 
         server = smtplib.SMTP(self._cfg.smtpServer)
-        server.connect()
+
+        rootLogger = logging.getLogger('')
+        if rootLogger.level == logging.DEBUG:
+            server.set_debuglevel(1)
+
         return server
 
     def setUpdateTroves(self, troves):
@@ -327,7 +327,10 @@ Description:
         # W0613 - Unused argument 'f'
         # pylint: disable-msg=W0613
 
-        return '%s=%s' % (n, v)
+        label = v.trailingLabel().asString()
+        revision = v.trailingRevision().asString()
+
+        return '%s=%s/%s' % (n, label, revision)
 
     def setSubject(self, subject):
         """
