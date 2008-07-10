@@ -37,6 +37,9 @@ class Bot(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
+        self._rpmSourcePopulated = False
+        self._patchSourcePopulated = False
+
         self._clients = {}
         self._rpmSource = rpmsource.RpmSource()
         self._patchSource = patchsource.PatchSource(self._cfg)
@@ -50,6 +53,9 @@ class Bot(object):
         Populate the rpm source data structures.
         """
 
+        if self._rpmSourcePopulated:
+            return
+
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s/%s'
                      % (self._cfg.repositoryUrl, repo))
@@ -58,15 +64,22 @@ class Bot(object):
             self._clients[repo] = client
         self._rpmSource.finalize()
 
+        self._rpmSourcePopulated = True
+
     def _populatePatchSource(self):
         """
         Populate the patch source data structures.
         """
 
+        if self._patchSourcePopulated:
+            return
+
         for path, client in self._clients.iteritems():
             log.info('loading patch information %s/%s'
                      % (self._cfg.repositoryUrl, path))
             self._patchSource.loadFromClient(client, path)
+
+        self._patchSourcePopulated = True
 
     @staticmethod
     def _flattenSetDict(setDict):
@@ -82,7 +95,12 @@ class Bot(object):
             lst.extend(list(trvSet))
         return lst
 
-    def run(self):
+    def create(self):
+        """
+        Do initial imports.
+        """
+
+    def update(self):
         """
         Update the conary repository from the yum repositories.
         """
