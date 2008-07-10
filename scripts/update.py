@@ -16,6 +16,6 @@ log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/updatebotrc')
 obj = bot.Bot(cfg)
-obj.run()
+obj.update()
 
 import epdb ; epdb.st()
