@@ -20,7 +20,7 @@ from updatebot import config
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
 
 builder = build.Builder(cfg)
 
