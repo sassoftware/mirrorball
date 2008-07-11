@@ -22,10 +22,12 @@ import time
 import logging
 import tempfile
 
+import conary
 from conary.build import use
 from conary import conaryclient, conarycfg, trove, checkin
 
 from updatebot import util
+from updatebot.errors import GroupNotFound
 from updatebot.errors import TooManyFlavorsFoundError
 from updatebot.errors import NoManifestFoundError
 from updatebot.errors import PromoteFailedError
@@ -47,6 +49,8 @@ class ConaryHelper(object):
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
 
+        self._newPkgFactory = cfg.newPackageFactory
+
     def getConaryConfig(self):
         """
         Get a conary config instance.
@@ -67,7 +71,10 @@ class ConaryHelper(object):
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
         # pylint: disable-msg=E1101
 
-        trvlst = self._repos.findTrove(self._ccfg.buildLabel, group)
+        try:
+            trvlst = self._repos.findTrove(self._ccfg.buildLabel, group)
+        except conary.errors.TroveNotFound:
+            raise GroupNotFound(group=group, label=self._ccfg.buildLabel)
 
         latest = self._findLatest(trvlst)
 
@@ -205,6 +212,9 @@ class ConaryHelper(object):
         manifestfh.write('\n')
         manifestfh.close()
 
+        # Make sure manifest file has been added.
+        self._addFile(recipeDir, 'manifest')
+
         # Setup flavor objects
         use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor,
                                     error=False)
@@ -266,11 +276,31 @@ class ConaryHelper(object):
         cwd = os.getcwd()
         try:
             os.chdir(recipeDir)
-            checkin.newTrove(self._repos, self._ccfg, pkgname)
+            checkin.newTrove(self._repos, self._ccfg, pkgname,
+                             factory=self._newPkgFactory)
         finally:
             os.chdir(cwd)
 
         return util.join(recipeDir, pkgname)
+
+    @staticmethod
+    def _addFile(pkgDir, fileName):
+        """
+        Add a file to a source component.
+        @param pkgDir: directory where package is checked out to.
+        @type pkgDir: string
+        @param fileName: file name to add.
+        @type fileName: string
+        """
+
+        log.info('adding file: %s' % fileName)
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(pkgDir)
+            checkin.addFiles([fileName, ], ignoreExisting=True, text=True)
+        finally:
+            os.chdir(cwd)
 
     def _getVersionsByName(self, pkgname):
         """

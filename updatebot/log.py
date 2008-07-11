@@ -30,7 +30,7 @@ def addRootLogger():
         '%(name)s %(message)s')
     handler.setFormatter(formatter)
     rootLog.addHandler(handler)
-    rootLog.setLevel(logging.DEBUG)
+    rootLog.setLevel(logging.INFO)
 
     # Delete conary's log handler since it puts things on stderr and without
     # any timestamps.

@@ -58,10 +58,19 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # Label to promote to
     targetLabel         = CfgLabel
 
+    # Packages to import
+    package             = (CfgList(CfgString), [])
+
+    # Factory to use for importing
+    newPackageFactory   = (CfgString, None)
+
     # Package to exclude from all updates, these are normally packages that
     # are not managed as part of this distro (ie. in sles we pull some
     # packages from rpl:1).
     excludePackages     = (CfgList(CfgString), [])
+
+    # Exclude these archs from the rpm source.
+    excludeArch         = (CfgList(CfgString), [])
 
     # Packages for which there might not reasonably be advisories. Define a
     # default advisory message to send with these packages.

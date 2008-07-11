@@ -28,7 +28,9 @@ class RpmSource(object):
     Class that builds maps of packages from multiple yum repositories.
     """
 
-    def __init__(self):
+    def __init__(self, cfg):
+        self._excludeArch = cfg.excludeArch
+
         # {srpm: {rpm: path}
         self._rpmMap = dict()
 
@@ -77,6 +79,10 @@ class RpmSource(object):
             # ignore the 32-bit compatibility libs - we will
             # simply use the 32-bit components from the repository
             if '32bit' in pkg.name:
+                continue
+
+            # Don't use all arches.
+            if pkg.arch in self._excludeArch:
                 continue
 
             assert '-' not in pkg.version

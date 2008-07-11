@@ -22,7 +22,9 @@ from rpmutils import rpmvercmp
 
 from updatebot import util
 from updatebot import conaryhelper
-from updatebot.errors import UpdateGoesBackwardsError, UpdateRemovesPackageError
+from updatebot.errors import GroupNotFound
+from updatebot.errors import UpdateGoesBackwardsError
+from updatebot.errors import UpdateRemovesPackageError
 
 log = logging.getLogger('updatebot.update')
 
@@ -191,6 +193,90 @@ class Updater(object):
         ret.sort()
 
         return ret
+
+    def create(self, pkgNames):
+        """
+        Import a new package into the repository.
+        @param pkgNames: list of packages to import
+        @type pkgNames: list
+        @return new source [(name, version, flavor), ... ]
+        """
+
+        log.info('getting existing packages')
+        pkgs = self._getExistingPackageNames()
+
+        toBuild = set()
+        fail = set()
+        for pkg in pkgNames:
+            if pkg not in self._rpmSource.binNameMap:
+                log.warn('no package named %s found in rpm source' % pkg)
+                continue
+
+            if pkg not in pkgs:
+                log.info('importing %s' % pkg)
+
+                try:
+                    srcPkg = self._getPackagesToImport(pkg)
+                    version = self.update((pkg, None, None), srcPkg)
+
+                    toBuild.add((pkg, version, None))
+                except Exception, e:
+                    log.error('failed to import %s: %s' % (pkg, e))
+                    fail.add((pkg, e))
+#                    raise
+
+        return toBuild, fail
+
+    def _getExistingPackageNames(self):
+        """
+        Returns a list of names of all sources included in the top level group.
+        """
+
+        # W0612 - Unused variable
+        # pylint: disable-msg=W0612
+
+        try:
+            return [ n.split(':')[0] for n, v, f in
+                     self._conaryhelper.getSourceTroves(self._cfg.topGroup) ]
+        except GroupNotFound:
+            return []
+
+    def _getPackagesToImport(self, name):
+        """
+        Add any missing packages to the srcPkgMap entry for this package.
+        @param name: name of the srpm to look for.
+        @type name: string
+        @return latest source package for the given name
+        """
+
+        latestRpm = self._getLatestBinary(name)
+        latestSrpm = self._rpmSource.binPkgMap[latestRpm]
+
+        pkgs = {}
+        for pkg in self._rpmSource.srcPkgMap[latestSrpm]:
+            pkgs[(pkg.name, pkg.arch)] = pkg
+
+        for srpm in self._rpmSource.srcNameMap[latestSrpm.name]:
+            if latestSrpm.epoch == srpm.epoch and \
+               latestSrpm.version == srpm.version:
+                for pkg in self._rpmSource.srcPkgMap[srpm]:
+                    if (pkg.name, pkg.arch) not in pkgs:
+                        pkgs[(pkg.name, pkg.arch)] = pkg
+
+        self._rpmSource.srcPkgMap[latestSrpm] = set(pkgs.values())
+
+        return latestSrpm
+
+    def _getLatestBinary(self, name):
+        """
+        Find the latest version of a given binary package.
+        @param name: name of the package to look for
+        @type name: string
+        """
+
+        rpms = list(self._rpmSource.binNameMap[name])
+        rpms.sort(util.packagevercmp)
+        return rpms[-1]
 
     def update(self, nvf, srcPkg):
         """

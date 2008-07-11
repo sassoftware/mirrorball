@@ -87,6 +87,15 @@ class UpdateRemovesPackageError(UnhandledUpdateError):
     the manifest.
     """
 
+class GroupNotFound(UnhandledUpdateError):
+    """
+    GroupNotFound, raised when the bot can't find the top level group as
+    configured.
+    """
+
+    _params = ['group', 'label']
+    _template = 'Could not find %(group)s on label %(label)s'
+
 class TooManyFlavorsFoundError(UnhandledUpdateError):
     """
     TooManFlavorsFoundError, raised when the bot finds more flavors of the top
