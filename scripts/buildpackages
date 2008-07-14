@@ -43,4 +43,4 @@ def displayTrove(nvf):
 for srcTrv in trvMap.iterkeys():
     print displayTrove(srcTrv)
     for binTrv in trvMap[srcTrv]:
-        print "\t", displayTrove(binTrv)
+        print " " * 4, displayTrove(binTrv)
