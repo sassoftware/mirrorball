@@ -43,6 +43,7 @@ class ConaryHelper(object):
     def __init__(self, cfg):
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
         self._ccfg.read(util.join(cfg.configPath, 'conaryrc'))
+        self._ccfg.dbPath = ':memory:'
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
 

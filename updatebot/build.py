@@ -46,6 +46,7 @@ class Builder(object):
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
         self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
+        self._ccfg.dbPath = ':memory:'
         self._ccfg.initializeFlavors()
 
         self._client = conaryclient.ConaryClient(self._ccfg)
