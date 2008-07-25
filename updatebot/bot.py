@@ -106,22 +106,29 @@ class Bot(object):
         # Populate rpm source object from yum metadata.
         self._populateRpmSource()
 
-        import epdb; epdb.st()
+#        import epdb; epdb.st()
 
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package)
 
-        import epdb; epdb.st()
+#        import epdb; epdb.st()
 
         # Build all newly imported packages.
+        #trvMap, failed = self._builder.buildmany(toBuild)
         trvMap = self._builder.build(toBuild)
+
+        import epdb; epdb.st()
 
         for trv in self._flattenSetDict(trvMap):
             log.info('built: %s' % trv)
 
+        import epdb; epdb.st()
+
         log.info('import completed successfully')
         log.info('imported %s source packages' % (len(toBuild), ))
         log.info('elapsed time %s' % (time.time() - start, ))
+
+        return trvMap
 
     def update(self):
         """
