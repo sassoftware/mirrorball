@@ -22,10 +22,11 @@ from updatebot import errors
 
 class AdviseTest(slehelp.Helper):
     def testCheck(self):
-        mockRpmSource = mock.MockObject(stableReturnValues=True)
-        mockPatchSource = mock.MockObject(stableReturnValues=True)
-        mockHasException = mock.MockObject(stableReturnValues=True)
-        mockIsSecurity = mock.MockObject(stableReturnValues=True)
+        mockRpmSource = mock.MockObject()
+        mockPatchSource = mock.MockObject()
+        mockHasException = mock.MockObject()
+        mockIsSecurity = mock.MockObject()
+        mockMkAdvisory = mock.MockObject()
 
         mockSrcPkg1 = mock.MockObject()
         mockSrcPkg2 = mock.MockObject()
@@ -54,14 +55,13 @@ class AdviseTest(slehelp.Helper):
                                  mockPatchSource)
         self.mock(advisor, '_hasException', mockHasException)
         self.mock(advisor, '_isSecurity', mockIsSecurity)
+        self.mock(advisor, '_mkAdvisory', mockMkAdvisory)
 
         mockHasException._mock.setReturn(True, mockBinPkg2)
         mockHasException._mock.setReturn(False, mockBinPkg3)
         mockIsSecurity._mock.setReturn(False, mockBinPkg3)
 
-        expected = {(None, mockSrcPkg1): set([mockPatch1, ]),
-                    (None, mockSrcPkg2): set(),
-                    (None, mockSrcPkg3): set()}
+        expected = {(None, mockSrcPkg1): set([mockPatch1, ]),}
 
         # test normal case
         result = advisor.check(input)
