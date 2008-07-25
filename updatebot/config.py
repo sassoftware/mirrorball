@@ -17,10 +17,27 @@ Configuration module for updatebot.
 """
 
 from conary.lib import cfg
+from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
+
+class CfgBranch(CfgLabel):
+    """
+    Class for representing conary branches.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config string.
+        """
+
+        try:
+            versions.Branch(val)
+        except versions.ParseError, e:
+            raise ParseError, e
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
@@ -53,7 +70,7 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # Other labels that are referenced in the group that need to be flattend
     # onto the targetLabel.
-    sourceLabel         = (CfgList(CfgLabel), [])
+    sourceLabel         = (CfgList(CfgBranch), [])
 
     # Label to promote to
     targetLabel         = CfgLabel
