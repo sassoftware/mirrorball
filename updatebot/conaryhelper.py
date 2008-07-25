@@ -84,10 +84,15 @@ class ConaryHelper(object):
         if len(latest) != 2:
             raise TooManyFlavorsFoundError(why=latest)
 
-        srcTrvs = set()
+        srcTrvs = {}
         for trv in latest:
             log.info('querying %s for source troves' % (trv, ))
-            srcTrvs.update(self._getSourceTroves(trv))
+            srcTrvs = self._getSourceTroves(trv)
+            for src, binLst in srcTrvs.iteritems():
+                if src in srcTrvs:
+                    srcTrvs[src].extend(binLst)
+                else:
+                    srcTrvs[src] = binLst
 
         return srcTrvs
 
@@ -136,13 +141,16 @@ class ConaryHelper(object):
 
         # Iterate over both strong and weak refs because msw said it was a
         # good idea.
-        srcTrvs = set()
+        srcTrvs = {}
         sources = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME,
                     list(topTrove.iterTroveList(weakRefs=True,
                                                 strongRefs=True)))
-        for i, (_, v, _) in enumerate(topTrove.iterTroveList(weakRefs=True,
+        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True,
                                                             strongRefs=True)):
-            srcTrvs.add((sources[i](), v.getSourceVersion(), None))
+            src = (sources[i](), v.getSourceVersion(), None)
+            if src not in srcTrvs:
+                srcTrvs[src] = []
+            srcTrvs[src].append((n, v, f))
 
         return srcTrvs
 

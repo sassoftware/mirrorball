@@ -74,7 +74,8 @@ class Updater(object):
 
         # ((name, version, flavor), srpm)
         troves = []
-        for name, version, flavor in self._conaryhelper.getSourceTroves(group):
+        for name, version, flavor in \
+          self._conaryhelper.getSourceTroves(group).iterkeys():
             name = name.split(':')[0]
 
             # skip special packages
@@ -205,25 +206,41 @@ class Updater(object):
         log.info('getting existing packages')
         pkgs = self._getExistingPackageNames()
 
-        toBuild = set()
-        fail = set()
+        # Find all of the source to update.
+        toUpdate = set()
         for pkg in pkgNames:
             if pkg not in self._rpmSource.binNameMap:
                 log.warn('no package named %s found in rpm source' % pkg)
                 continue
 
-            if pkg not in pkgs:
-                log.info('importing %s' % pkg)
+            srcPkg = self._getPackagesToImport(pkg)
 
-                try:
-                    srcPkg = self._getPackagesToImport(pkg)
-                    version = self.update((pkg, None, None), srcPkg)
+            if srcPkg.name not in pkgs:
+                toUpdate.add(srcPkg)
 
-                    toBuild.add((pkg, version, None))
-                except Exception, e:
-                    log.error('failed to import %s: %s' % (pkg, e))
-                    fail.add((pkg, e))
-#                    raise
+        # Update all of the unique sources.
+        fail = set()
+        toBuild = set()
+        for pkg in toUpdate:
+            log.info('importing %s' % pkg)
+
+            try:
+                # FIXME: Remove this once opensuse has groups.
+                # Only import packages that haven't been imported before
+                version = self._conaryhelper._getVersionsByName('%s:source' % pkg.name)
+                if not version:
+                    version = self.update((pkg.name, None, None), pkg)
+                else:
+                    version = version[0]
+
+#                if not self._conaryhelper._getVersionsByName(pkg.name):
+                toBuild.add((pkg.name, version, None))
+#                else:
+#                    log.info('not building %s' % pkg.name)
+            except Exception, e:
+                log.error('failed to import %s: %s' % (pkg, e))
+                fail.add((pkg, e))
+                raise
 
         return toBuild, fail
 
@@ -237,7 +254,7 @@ class Updater(object):
 
         try:
             return [ n.split(':')[0] for n, v, f in
-                     self._conaryhelper.getSourceTroves(self._cfg.topGroup) ]
+            self._conaryhelper.getSourceTroves(self._cfg.topGroup).iterkeys() ]
         except GroupNotFound:
             return []
 
