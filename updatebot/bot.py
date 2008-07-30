@@ -114,8 +114,8 @@ class Bot(object):
 #        import epdb; epdb.st()
 
         # Build all newly imported packages.
-        #trvMap, failed = self._builder.buildmany(toBuild)
-        trvMap = self._builder.build(toBuild)
+        trvMap, failed = self._builder.buildmany(toBuild)
+        #trvMap = self._builder.build(toBuild)
 
         import epdb; epdb.st()
 
