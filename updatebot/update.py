@@ -233,10 +233,10 @@ class Updater(object):
                 else:
                     version = version[0]
 
-#                if not self._conaryhelper._getVersionsByName(pkg.name):
-                toBuild.add((pkg.name, version, None))
-#                else:
-#                    log.info('not building %s' % pkg.name)
+                if not self._conaryhelper._getVersionsByName(pkg.name):
+                    toBuild.add((pkg.name, version, None))
+                else:
+                    log.info('not building %s' % pkg.name)
             except Exception, e:
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
