@@ -106,7 +106,7 @@ class Bot(object):
         # Populate rpm source object from yum metadata.
         self._populateRpmSource()
 
-#        import epdb; epdb.st()
+        #import epdb; epdb.st()
 
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package)
@@ -114,8 +114,31 @@ class Bot(object):
 #        import epdb; epdb.st()
 
         # Build all newly imported packages.
-        trvMap, failed = self._builder.buildmany(toBuild)
+        #trvMap, failed = self._builder.buildmany(toBuild)
         #trvMap = self._builder.build(toBuild)
+        trvs = self._builder._formatInput(toBuild)
+        jobs = {}
+        for trv in trvs:
+            key = 'other'
+            if len(trv) == 4:
+                key = trv[3]
+
+            if key not in jobs:
+                jobs[key] = []
+
+            jobs[key].append(trv)
+
+        ids = {}
+        for job in jobs:
+            if job == 'other':
+                continue
+
+            ids[job] = self._builder._startJob(jobs[job])
+
+        for job in ids:
+            self._builder._monitorJob(ids[job])
+
+        log.info('completed jobs %s' % (' '.join(ids.values()), ))
 
         import epdb; epdb.st()
 
@@ -180,6 +203,8 @@ class Bot(object):
         toPublish = self._flattenSetDict(grpTrvMap)
         newTroves = self._updater.publish(toPublish, expected,
                                           self._cfg.targetLabel)
+
+        import epdb; epdb.st()
 
         # Send advisories.
         self._advisor.send(toAdvise, newTroves)
