@@ -103,6 +103,7 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     groupFlavors        = (CfgList(CfgFlavor), [])
 
     # email information for sending advisories
+    emailFromName       = CfgString
     emailFrom           = CfgString
     emailTo             = (CfgList(CfgString), [])
     emailBcc            = (CfgList(CfgString), [])

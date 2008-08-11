@@ -217,6 +217,7 @@ Description:
     def __init__(self, cfg):
         self._cfg = cfg
 
+        self._fromName = self._cfg.emailFromName
         self._from = self._cfg.emailFrom
         self._to = self._cfg.emailTo
         self._bcc = self._cfg.emailBcc
@@ -226,8 +227,8 @@ Description:
         if not self._cfg.productName:
             raise ProductNameNotDefinedError
 
-        if not self._from:
-            raise NoSenderFoundError(why='cfg.emailFrom not defined')
+        if not self._from or not self._fromName:
+            raise NoSenderFoundError(why='cfg.emailFrom or cfg.emailFromName not defined')
 
         if not self._to:
             raise NoRecipientsFoundError(why='cfg.emailTo not defined')
@@ -268,7 +269,7 @@ Description:
         msgText = self.template % self._data
         email = MIMEText(msgText)
         email['Subject'] = self._subject
-        email['From'] = self._from
+        email['From'] = '%s <%s>' % (self._fromName, self._from)
         email['To'] = self._formatList(self._to)
         email['Bcc'] = self._formatList(self._bcc)
         return email
