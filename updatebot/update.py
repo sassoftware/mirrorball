@@ -186,8 +186,8 @@ class Updater(object):
                 pkgMap[key] = pkg
                 continue
 
-            # check if newer, last wins
-            if util.packagevercmp(pkg, pkgMap[key]) in (0, 1):
+            # check if newer, first wins
+            if util.packagevercmp(pkg, pkgMap[key]) in (1, ):
                 pkgMap[key] = pkg
 
         ret = pkgMap.values()
