@@ -34,7 +34,7 @@ class CfgBranch(CfgLabel):
         """
 
         try:
-            versions.Branch(val)
+            return versions.VersionFromString(val)
         except versions.ParseError, e:
             raise ParseError, e
 
@@ -73,7 +73,7 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     sourceLabel         = (CfgList(CfgBranch), [])
 
     # Label to promote to
-    targetLabel         = CfgLabel
+    targetLabel         = CfgBranch
 
     # Packages to import
     package             = (CfgList(CfgString), [])
