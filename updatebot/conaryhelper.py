@@ -329,7 +329,8 @@ class ConaryHelper(object):
         versions = verMap.keys()
         return versions
 
-    def promote(self, trvLst, expected, sourceLabels, targetLabel):
+    def promote(self, trvLst, expected, sourceLabels, targetLabel,
+                checkPackageList=True):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -341,6 +342,9 @@ class ConaryHelper(object):
         @type sourceLabels: [labelObject, ... ]
         @param targetLabel: table to publish to
         @type targetLabel: conary Label object
+        @param checkPackageList: verify the list of packages being promoted or
+                                 not.
+        @type checkPackageList: boolean
         """
 
         start = time.time()
@@ -353,8 +357,10 @@ class ConaryHelper(object):
         # Build the label map.
         labelMap = {fromLabel: targetLabel}
         for label in sourceLabels:
+            assert(label is not None)
             labelMap[label] = targetLabel
 
+        import epdb; epdb.st()
         success, cs = self._client.createSiblingCloneChangeSet(
                             labelMap,
                             trvLst,
@@ -375,9 +381,10 @@ class ConaryHelper(object):
         # that we think should be available to promote. Note that all packages
         # in expected will not be promoted because not all packages are
         # included in the groups.
+        import epdb; epdb.st()
         difference = newPkgs.difference(oldPkgs)
         grpTrvs = set([ (x[0], x[2]) for x in trvLst if not x[0].endswith(':source') ])
-        if difference != grpTrvs:
+        if checkPackageList and difference != grpTrvs:
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
         log.info('committing changeset')

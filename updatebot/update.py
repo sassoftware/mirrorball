@@ -321,7 +321,7 @@ class Updater(object):
         pkgs = self._getLatestOfAvailableArches(manifestPkgs)
         return [ x.location for x in pkgs ]
 
-    def publish(self, trvLst, expected, targetLabel):
+    def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """
         Publish a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -330,7 +330,10 @@ class Updater(object):
         @type expected: [(name, version, flavor), ...]
         @param targetLabel: table to publish to
         @type targetLabel: conary Label object
+        @param checkPackageList: verify list of packages being promoted or not.
+        @type checkPackageList: boolean
         """
 
         return self._conaryhelper.promote(trvLst, expected,
-                                          self._cfg.sourceLabel, targetLabel)
+                                          self._cfg.sourceLabel, targetLabel,
+                                          checkPackageList=checkPackageList)
