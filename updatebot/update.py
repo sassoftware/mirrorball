@@ -305,12 +305,12 @@ class Updater(object):
         @return version of the updated source trove
         """
 
-        manifest = self._getManifestFromRpmSource(srcPkg)
+        manifest = self._getManifestFromPkgSource(srcPkg)
         newVersion = self._conaryhelper.setManifest(nvf[0], manifest,
                         commitMessage=self._cfg.commitMessage)
         return newVersion
 
-    def _getManifestFromRpmSource(self, srcPkg):
+    def _getManifestFromPkgSource(self, srcPkg):
         """
         Get the contents of the a manifest file from the pkgSource object.
         @param srcPkg: source rpm package object

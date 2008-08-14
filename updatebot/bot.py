@@ -48,7 +48,7 @@ class Bot(object):
                                        self._patchSource)
         self._builder = build.Builder(self._cfg)
 
-    def _populateRpmSource(self):
+    def _populatePkgSource(self):
         """
         Populate the rpm source data structures.
         """
@@ -104,7 +104,7 @@ class Bot(object):
         log.info('starting import')
 
         # Populate rpm source object from yum metadata.
-        self._populateRpmSource()
+        self._populatePkgSource()
 
         #import epdb; epdb.st()
 
@@ -162,7 +162,7 @@ class Bot(object):
         log.info('starting update')
 
         # Populate rpm source object from yum metadata.
-        self._populateRpmSource()
+        self._populatePkgSource()
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
