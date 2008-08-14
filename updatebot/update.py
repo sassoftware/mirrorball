@@ -317,9 +317,14 @@ class Updater(object):
         @type srcPkg: repomd.packagexml._Package
         """
 
+        manifest = []
         manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
-        pkgs = self._getLatestOfAvailableArches(manifestPkgs)
-        return [ x.location for x in pkgs ]
+        for pkg in self._getLatestOfAvailableArches(manifestPkgs):
+            if hasattr(pkg, 'location'):
+                manifest.append(pkg.location)
+            elif hasattr(pkg, 'files'):
+                manifest.extend(pkg.files)
+        return manifest
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """
