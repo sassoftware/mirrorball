@@ -17,9 +17,6 @@ from aptmd.common import BaseContainer, BaseParser
 class _Package(BaseContainer):
     __slots__ = ('source', 'location', 'summary', 'description')
 
-    def __repr__(self):
-        return '<Package(%s)>' % self.location
-
 
 class PackagesParser(BaseParser):
 

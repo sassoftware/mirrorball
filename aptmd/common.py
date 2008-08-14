@@ -18,6 +18,11 @@ from aptmd.container import Container
 class BaseContainer(Container):
     __slots__ = ('name', 'arch', 'version', 'release')
 
+    def __repr__(self):
+        klass = self.__class__.__name__.strip('_')
+        return '<%s(%s, %s, %s, %s)>' % (klass, self.name, self.version,
+                                         self.release, self.arch)
+
     def __hash__(self):
         return hash((self.name, self.arch, self.version, self.release))
 
@@ -46,6 +51,7 @@ class BaseParser(Parser):
 
     @staticmethod
     def _getState(key):
+        key = key.strip()
         if key.endswith(':'):
             key = key[:-1]
         return key.lower()
