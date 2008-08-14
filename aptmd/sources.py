@@ -21,14 +21,11 @@ class _SourcePackage(BaseContainer):
 
 
 class SourcesParser(BaseParser):
-
     def __init__(self):
         BaseParser.__init__(self)
 
         self._containerClass = _SourcePackage
-        self._inFiles = False
         self._states.update({
-            'architecture'          : self._architecture,
             'binary'                : self._binary,
             'build-depends'         : self._keyval,
             'standards-version'     : self._keyval,
@@ -37,17 +34,8 @@ class SourcesParser(BaseParser):
             'files'                 : self._files,
             'homepage'              : self._keyval,
             'uploaders'             : self._keyval,
+            ''                      : self._file,
         })
-
-    def _parseLine(self, line):
-        BaseParser._parseLine(self, line)
-
-        state = self._getState(self._line[0])
-        if state != 'files' and state in self._states:
-            self._inFiles = False
-
-        if self._inFiles:
-            self._file()
 
     def _architecture(self):
         self._curObj.arch = 'src'
@@ -60,11 +48,12 @@ class SourcesParser(BaseParser):
         self._curObj.directory = self._getLine()
 
     def _files(self):
-        self._inFiles = True
+        self._curObj.files = []
 
     def _file(self):
-        if self._curObj.files is None:
-            self._curObj.files = []
+        if len(self._line) != 4:
+            return
 
-        path = os.path.join(self._curObj.directory, self._line[2])
+        fileName = self._line[3].strip()
+        path = os.path.join(self._curObj.directory, fileName)
         self._curObj.files.append(path)
