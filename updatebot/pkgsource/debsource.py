@@ -67,7 +67,7 @@ class DebSource(object):
             self.srcPkgMap[srcPkg] = set()
             for binPkgName in srcPkg.binaries:
                 for binPkg in self.binNameMap[binPkgName]:
-                    if binPkg.version == srcPkg.version and binPkg.release = srcPkg.release:
+                    if binPkg.version == srcPkg.version and binPkg.release == srcPkg.release:
                         self.srcPkgMap[srcPkg].add(binPkg)
             self.srcPkgMap[srcPkg].add(srcPkg)
 
