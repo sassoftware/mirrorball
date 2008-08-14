@@ -53,6 +53,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # path to configuration files (conaryrc, rmakerc)
     configPath          = CfgString
 
+    # type of upstream repostory to pull packages from, supported are apt and yum.
+    repositoryFormat    = (CfgString, 'yum')
+
     # Default commit message to use when committing to the repository.
     commitMessage       = (CfgString, 'Automated commit by updateBot')
 
