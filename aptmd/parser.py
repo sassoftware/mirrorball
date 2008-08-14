@@ -25,6 +25,9 @@ class _QuotedLineTokenizer(object):
                        }
 
     def tokenize(self, line):
+        self._singleQuotedString = False
+        self._doubleQuotedString = False
+
         self._list = ['']
         for char in line:
             self._cur = char
