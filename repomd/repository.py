@@ -29,9 +29,6 @@ class Repository(object):
     Access files from the repository.
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def __init__(self, repoUrl):
         self._repoUrl = repoUrl
 

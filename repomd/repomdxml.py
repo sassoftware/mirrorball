@@ -111,9 +111,6 @@ class RepoMdXml(XmlFileParser):
     Handle registering all types for parsing repomd.xml file.
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def _registerTypes(self):
         """
         Setup databinder to parse xml.

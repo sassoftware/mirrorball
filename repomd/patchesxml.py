@@ -85,9 +85,6 @@ class PatchesXml(XmlFileParser):
     Handle registering all types for parsing patches.xml.
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def _registerTypes(self):
         """
         Setup databinder to parse xml.

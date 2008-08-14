@@ -25,9 +25,6 @@ class XmlFileParser(object):
     Base class for handling databinder setup.
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def __init__(self, repository, path):
         self._repository = repository
         self._path = path

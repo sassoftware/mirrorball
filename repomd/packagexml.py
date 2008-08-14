@@ -244,9 +244,6 @@ class PackageXmlMixIn(object):
     Handle registering all types for parsing package elements.
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def _registerTypes(self):
         """
         Setup databinder to parse xml.

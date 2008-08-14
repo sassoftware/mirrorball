@@ -44,9 +44,6 @@ class PrimaryXml(XmlFileParser, PackageXmlMixIn):
     Handle registering all types for parsing primary.xml.gz.
     """
 
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
-
     def _registerTypes(self):
         """
         Setup databinder to parse xml.
