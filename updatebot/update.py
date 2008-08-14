@@ -33,9 +33,9 @@ class Updater(object):
     Class for finding and updating packages.
     """
 
-    def __init__(self, cfg, rpmSource):
+    def __init__(self, cfg, pkgSource):
         self._cfg = cfg
-        self._rpmSource = rpmSource
+        self._pkgSource = pkgSource
 
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
@@ -106,7 +106,7 @@ class Updater(object):
         @return src package object
         """
 
-        srpms = list(self._rpmSource.srcNameMap[name])
+        srpms = list(self._pkgSource.srcNameMap[name])
         srpms.sort(util.packagevercmp)
         return srpms[-1]
 
@@ -130,11 +130,11 @@ class Updater(object):
         """
 
         needsUpdate = False
-        newNames = [ (x.name, x.arch) for x in self._rpmSource.srcPkgMap[srpm] ]
+        newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
         manifest = self._conaryhelper.getManifest(nvf[0])
         for line in manifest:
-            binPkg = self._rpmSource.locationMap[line]
-            srcPkg = self._rpmSource.binPkgMap[binPkg]
+            binPkg = self._pkgSource.locationMap[line]
+            srcPkg = self._pkgSource.binPkgMap[binPkg]
 
             # set needsUpdate if version changes
             if util.packagevercmp(srpm, srcPkg) == 1:
@@ -149,7 +149,7 @@ class Updater(object):
                 # Novell releases updates to only the binary rpms of a package
                 # that have chnaged. We have to use binaries from the old srpm.
                 # Get the last version of the pkg and add it to the srcPkgMap.
-                pkgs = list(self._rpmSource.binNameMap[binPkg.name])
+                pkgs = list(self._pkgSource.binNameMap[binPkg.name])
 
                 # get the correct arch
                 pkg = [ x for x in self._getLatestOfAvailableArches(pkgs)
@@ -164,7 +164,7 @@ class Updater(object):
                             'to add %s' % (pkg, ))
 
                 log.warn('using old version of package %s' % (pkg, ))
-                self._rpmSource.srcPkgMap[srpm].add(pkg)
+                self._pkgSource.srcPkgMap[srpm].add(pkg)
 
         return needsUpdate
 
@@ -209,7 +209,7 @@ class Updater(object):
         # Find all of the source to update.
         toUpdate = set()
         for pkg in pkgNames:
-            if pkg not in self._rpmSource.binNameMap:
+            if pkg not in self._pkgSource.binNameMap:
                 log.warn('no package named %s found in rpm source' % pkg)
                 continue
 
@@ -267,20 +267,20 @@ class Updater(object):
         """
 
         latestRpm = self._getLatestBinary(name)
-        latestSrpm = self._rpmSource.binPkgMap[latestRpm]
+        latestSrpm = self._pkgSource.binPkgMap[latestRpm]
 
         pkgs = {}
-        for pkg in self._rpmSource.srcPkgMap[latestSrpm]:
+        for pkg in self._pkgSource.srcPkgMap[latestSrpm]:
             pkgs[(pkg.name, pkg.arch)] = pkg
 
-        for srpm in self._rpmSource.srcNameMap[latestSrpm.name]:
+        for srpm in self._pkgSource.srcNameMap[latestSrpm.name]:
             if latestSrpm.epoch == srpm.epoch and \
                latestSrpm.version == srpm.version:
-                for pkg in self._rpmSource.srcPkgMap[srpm]:
+                for pkg in self._pkgSource.srcPkgMap[srpm]:
                     if (pkg.name, pkg.arch) not in pkgs:
                         pkgs[(pkg.name, pkg.arch)] = pkg
 
-        self._rpmSource.srcPkgMap[latestSrpm] = set(pkgs.values())
+        self._pkgSource.srcPkgMap[latestSrpm] = set(pkgs.values())
 
         return latestSrpm
 
@@ -291,7 +291,7 @@ class Updater(object):
         @type name: string
         """
 
-        rpms = list(self._rpmSource.binNameMap[name])
+        rpms = list(self._pkgSource.binNameMap[name])
         rpms.sort(util.packagevercmp)
         return rpms[-1]
 
@@ -312,12 +312,12 @@ class Updater(object):
 
     def _getManifestFromRpmSource(self, srcPkg):
         """
-        Get the contents of the a manifest file from the rpmSource object.
+        Get the contents of the a manifest file from the pkgSource object.
         @param srcPkg: source rpm package object
         @type srcPkg: repomd.packagexml._Package
         """
 
-        manifestPkgs = list(self._rpmSource.srcPkgMap[srcPkg])
+        manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
         pkgs = self._getLatestOfAvailableArches(manifestPkgs)
         return [ x.location for x in pkgs ]
 

@@ -39,9 +39,9 @@ class Advisor(object):
     Class for managing, manipulating, and distributing advisories.
     """
 
-    def __init__(self, cfg, rpmSource, patchSource):
+    def __init__(self, cfg, pkgSource, patchSource):
         self._cfg = cfg
-        self._rpmSource = rpmSource
+        self._pkgSource = pkgSource
         self._patchSource = patchSource
 
         # { patchObj: set([srcPkg, ...] }
@@ -62,11 +62,11 @@ class Advisor(object):
 
         for nvf, srcPkg in trvLst:
             patches = set()
-            for binPkg in self._rpmSource.srcPkgMap[srcPkg]:
+            for binPkg in self._pkgSource.srcPkgMap[srcPkg]:
                 if binPkg in self._patchSource.pkgMap:
                     patches.update(self._patchSource.pkgMap[binPkg])
 
-            for binPkg in self._rpmSource.srcPkgMap[srcPkg]:
+            for binPkg in self._pkgSource.srcPkgMap[srcPkg]:
                 # Don't check srpms.
                 if binPkg is srcPkg or binPkg in self._patchSource.pkgMap:
                     continue
@@ -187,7 +187,7 @@ class Advisor(object):
         res = dict()
         for nvf, srcPkg in trvLst:
             res[srcPkg] = []
-            binNames = [ x.name for x in self._rpmSource.srcPkgMap[srcPkg] ]
+            binNames = [ x.name for x in self._pkgSource.srcPkgMap[srcPkg] ]
             for n, v, f in newTroves:
                 if n in binNames:
                     res[srcPkg].append((n, v, f))

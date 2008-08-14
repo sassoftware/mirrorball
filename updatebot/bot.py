@@ -24,7 +24,7 @@ import repomd
 from updatebot import build
 from updatebot import update
 from updatebot import advise
-from updatebot import rpmsource
+from updatebot import pkgsource
 from updatebot import patchsource
 
 log = logging.getLogger('updatebot.bot')
@@ -37,14 +37,14 @@ class Bot(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self._rpmSourcePopulated = False
+        self._pkgSourcePopulated = False
         self._patchSourcePopulated = False
 
         self._clients = {}
-        self._rpmSource = rpmsource.RpmSource(self._cfg)
+        self._pkgSource = pkgsource.PackageSource(self._cfg)
         self._patchSource = patchsource.PatchSource(self._cfg)
-        self._updater = update.Updater(self._cfg, self._rpmSource)
-        self._advisor = advise.Advisor(self._cfg, self._rpmSource,
+        self._updater = update.Updater(self._cfg, self._pkgSource)
+        self._advisor = advise.Advisor(self._cfg, self._pkgSource,
                                        self._patchSource)
         self._builder = build.Builder(self._cfg)
 
@@ -53,18 +53,18 @@ class Bot(object):
         Populate the rpm source data structures.
         """
 
-        if self._rpmSourcePopulated:
+        if self._pkgSourcePopulated:
             return
 
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s/%s'
                      % (self._cfg.repositoryUrl, repo))
             client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-            self._rpmSource.loadFromClient(client, repo)
+            self._pkgSource.loadFromClient(client, repo)
             self._clients[repo] = client
-        self._rpmSource.finalize()
+        self._pkgSource.finalize()
 
-        self._rpmSourcePopulated = True
+        self._pkgSourcePopulated = True
 
     def _populatePatchSource(self):
         """
