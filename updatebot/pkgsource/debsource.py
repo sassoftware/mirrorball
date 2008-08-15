@@ -17,6 +17,8 @@ import logging
 import aptmd
 from updatebot import util
 
+log = logging.getLogger('updatebot.pkgsource')
+
 class DebSource(object):
     def __init__(self, cfg):
         self._excludeArch = cfg.excludeArch
@@ -31,7 +33,7 @@ class DebSource(object):
         self.locationMap = dict()
 
     def loadFromClient(self, client, path):
-        for pkg in self.client.parse(path):
+        for pkg in client.parse(path):
             if pkg.arch in self._excludeArch:
                 continue
 
@@ -66,8 +68,14 @@ class DebSource(object):
 
             self.srcPkgMap[srcPkg] = set()
             for binPkgName in srcPkg.binaries:
+                if binPkgName not in self.binNameMap:
+                    # This means that we don't have a binary package that was
+                    # built with srcPkg, but that is ok.
+                    continue
+
                 for binPkg in self.binNameMap[binPkgName]:
-                    if binPkg.version == srcPkg.version and binPkg.release == srcPkg.release:
+                    if (binPkg.version == srcPkg.version and
+                        binPkg.release == srcPkg.release):
                         self.srcPkgMap[srcPkg].add(binPkg)
             self.srcPkgMap[srcPkg].add(srcPkg)
 
