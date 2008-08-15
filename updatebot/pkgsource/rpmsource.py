@@ -22,7 +22,7 @@ import logging
 import repomd
 from updatebot import util
 
-log = logging.getLogger('rpmimport.rpmsource')
+log = logging.getLogger('updatebot.pkgsource')
 
 class RpmSource(object):
     """
