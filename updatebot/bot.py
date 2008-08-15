@@ -118,10 +118,13 @@ class Bot(object):
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package)
 
-        import epdb; epdb.st()
+#        import epdb; epdb.st()
 
         # Build all newly imported packages.
-        #trvMap, failed = self._builder.buildmany(toBuild)
+        trvMap, failed = self._builder.buildmany(toBuild)
+
+        import epdb; epdb.st()
+
         #trvMap = self._builder.build(toBuild)
         trvs = self._builder._formatInput(toBuild)
         jobs = {}
