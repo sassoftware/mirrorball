@@ -19,6 +19,7 @@ Module for driving the update process.
 import time
 import logging
 
+import aptmd
 import repomd
 
 from updatebot import build
@@ -56,14 +57,20 @@ class Bot(object):
         if self._pkgSourcePopulated:
             return
 
+        if self._cfg.repositoryFormat == 'apt':
+            client = aptmd.Client(self._cfg.repositoryUrl)
+
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s/%s'
                      % (self._cfg.repositoryUrl, repo))
-            client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
+
+            if self._cfg.repositoryFormat == 'yum':
+                client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
+
             self._pkgSource.loadFromClient(client, repo)
             self._clients[repo] = client
-        self._pkgSource.finalize()
 
+        self._pkgSource.finalize()
         self._pkgSourcePopulated = True
 
     def _populatePatchSource(self):
@@ -111,7 +118,7 @@ class Bot(object):
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package)
 
-#        import epdb; epdb.st()
+        import epdb; epdb.st()
 
         # Build all newly imported packages.
         #trvMap, failed = self._builder.buildmany(toBuild)
