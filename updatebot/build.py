@@ -94,7 +94,7 @@ class Builder(object):
 
             jobs[id].append(trv)
 
-            if i % 10 == 0:
+            if i % 20 == 0:
                 id += 1
 
         failed = set()
