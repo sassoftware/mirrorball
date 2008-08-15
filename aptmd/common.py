@@ -66,7 +66,7 @@ class BaseParser(Parser):
 
     def _architecture(self):
         arch = self._getLine()
-        assert arch in ('all', 'i386', 'x86_64')
+        assert arch in ('all', 'i386', 'amd64')
         self._curObj.arch = arch
 
     def _version(self):
