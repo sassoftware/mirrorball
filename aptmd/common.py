@@ -12,19 +12,26 @@
 # full details.
 #
 
+from updatebot import util
+
 from aptmd.parser import Parser
 from aptmd.container import Container
 
 class BaseContainer(Container):
-    __slots__ = ('name', 'arch', 'version', 'release')
+    __slots__ = ('name', 'arch', 'epoch', 'version', 'release')
 
     def __repr__(self):
         klass = self.__class__.__name__.strip('_')
-        return '<%s(%s, %s, %s, %s)>' % (klass, self.name, self.version,
-                                         self.release, self.arch)
+        return '<%s(%s, %s, %s, %s, %s)>' % (klass, self.name, self.epoch,
+                                             self.version, self.release,
+                                             self.arch)
 
     def __hash__(self):
-        return hash((self.name, self.arch, self.version, self.release))
+        return hash((self.name, self.epoch, self.version, self.release,
+                     self.arch))
+
+    def __cmp__(self, other):
+        return util.packageCompare(self, other)
 
 
 class BaseParser(Parser):
@@ -71,12 +78,21 @@ class BaseParser(Parser):
 
     def _version(self):
         debVer = self._getLine()
+
+        epoch = '0'
+        if ':' in debVer:
+            epoch = debVer.split(':')[0]
+            debVer = ':'.join(debVer.split(':')[1:])
+
+
         if '-' in debVer:
             sdebVer = debVer.split('-')
             version = sdebVer[0]
             release = '-'.join(sdebVer[1:])
         else:
             version = debVer
-            release = ''
+            release = '0'
+
+        self._curObj.epoch = epoch
         self._curObj.version = version
         self._curObj.release = release
