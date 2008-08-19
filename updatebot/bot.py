@@ -214,8 +214,6 @@ class Bot(object):
         newTroves = self._updater.publish(toPublish, expected,
                                           self._cfg.targetLabel)
 
-        import epdb; epdb.st()
-
         # Send advisories.
         self._advisor.send(toAdvise, newTroves)
 
