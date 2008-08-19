@@ -323,3 +323,13 @@ class _StatusOnlyDisplay(monitor.JobLogDisplay):
         """
         Don't care about resolving/installing chroot
         """
+
+    def _tailBuildLog(self, jobId, troveTuple):
+        """
+        Don't care about the build log
+        """
+
+    def _stopTailing(self, jobId, troveTuple):
+        """
+        Don't care about the build log
+        """
