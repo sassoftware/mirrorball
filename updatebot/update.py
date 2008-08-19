@@ -195,11 +195,13 @@ class Updater(object):
 
         return ret
 
-    def create(self, pkgNames):
+    def create(self, pkgNames, buildAll=False):
         """
         Import a new package into the repository.
         @param pkgNames: list of packages to import
         @type pkgNames: list
+        @param buildAll: return a list of all troves found rather than just the new ones.
+        @type buildAll: boolean
         @return new source [(name, version, flavor), ... ]
         """
 
@@ -233,7 +235,7 @@ class Updater(object):
                 else:
                     version = version[0]
 
-                if not self._conaryhelper._getVersionsByName(pkg.name):
+                if not self._conaryhelper._getVersionsByName(pkg.name) or buildAll:
                     toBuild.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
