@@ -210,7 +210,7 @@ class ConaryHelper(object):
         log.info('setting manifest for %s' % pkgname)
 
         # Figure out if we should create or update.
-        if not self._getVersionsByName('%s:source' % pkgname):
+        if not self.getLatestSourceVersion(pkgname):
             recipeDir = self._newpkg(pkgname)
         else:
             recipeDir = self._checkout(pkgname)
@@ -234,9 +234,9 @@ class ConaryHelper(object):
         util.rmtree(recipeDir)
 
         # Get new version of the source trove.
-        versions = self._getVersionsByName('%s:source' % pkgname)
-        assert len(versions) == 1
-        return versions[0]
+        version = self.getLatestSourceVersion(pkgname)
+        assert version is not None
+        return version
 
     def _checkout(self, pkgname):
         """
@@ -329,6 +329,21 @@ class ConaryHelper(object):
         versions = verMap.keys()
         return versions
 
+    def getLatestSourceVersion(self, pkgname):
+        """
+        Finds the latest version of pkgname:source.
+        @param pkgname: name of package to look for
+        @type pkgname: string
+        """
+
+        versions = self._getVersionsByName('%s:source' % pkgname)
+        assert len(versions) in (0, 1)
+
+        if len(versions) == 1:
+            return versions[0]
+
+        return None
+
     def promote(self, trvLst, expected, sourceLabels, targetLabel,
                 checkPackageList=True):
         """
@@ -360,7 +375,6 @@ class ConaryHelper(object):
             assert(label is not None)
             labelMap[label] = targetLabel
 
-        import epdb; epdb.st()
         success, cs = self._client.createSiblingCloneChangeSet(
                             labelMap,
                             trvLst,
@@ -381,7 +395,6 @@ class ConaryHelper(object):
         # that we think should be available to promote. Note that all packages
         # in expected will not be promoted because not all packages are
         # included in the groups.
-        import epdb; epdb.st()
         difference = newPkgs.difference(oldPkgs)
         grpTrvs = set([ (x[0], x[2]) for x in trvLst if not x[0].endswith(':source') ])
         if checkPackageList and difference != grpTrvs:
