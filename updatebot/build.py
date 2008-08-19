@@ -52,7 +52,9 @@ class Builder(object):
         # manager, then create a new rmake config object so that rmakeUser
         # will be parsed correctly.
         rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
-        pluginMgr = plugins.PluginManager(rmakeCfg.pluginDirs)
+        disabledPlugins = [ x[0] for x in rmakeCfg.usePlugin.items() if not x[1] ]
+        disabledPlugins.append('monitor')
+        pluginMgr = plugins.PluginManager(rmakeCfg.pluginDirs, disabledPlugins)
         pluginMgr.loadPlugins()
         pluginMgr.callClientHook('client_preInit', self, [])
 
@@ -255,7 +257,7 @@ class Builder(object):
         log.info('Starting commit of job %d', jobId)
 
         self._helper.client.startCommit([jobId, ])
-        succeeded, data = commit.commitJobs(self._helper.getConaryClient(),  #self._client,
+        succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
                                             [job, ],
                                             self._rmakeCfg.reposName,
                                             self._cfg.commitMessage)
