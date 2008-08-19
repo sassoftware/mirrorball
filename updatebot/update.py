@@ -55,10 +55,17 @@ class Updater(object):
             # Will raise exception if any errors are found, halting execution.
             if self._sanitizeTrove(nvf, srpm):
                 toUpdate.append((nvf, srpm))
+                toAdvise.append((nvf, srpm))
 
-            # Make sure to send advisories for any packages that didn't get
-            # sent out last time.
-            toAdvise.append((nvf, srpm))
+
+            # Update versions for things that are already in the repository.
+            # The binary version from the group will not be the latest.
+            else:
+                # Make sure to send advisories for any packages that didn't get
+                # sent out last time.
+                version = self._conaryhelper.getLatestSourceVersion(nvf[0])
+                toAdvise.append(((nvf[0], version, nvf[2]), srpm))
+
 
         log.info('found %s troves to update, and %s troves to send advisories'
                  % (len(toUpdate), len(toAdvise)))
