@@ -14,6 +14,9 @@ sys.path.insert(0, os.environ['HOME'] + '/hg/rpath-xmllib')
 sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
 sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
 
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
 from updatebot import log
 from updatebot import build
 from updatebot import config
@@ -23,7 +26,6 @@ cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
 
 builder = build.Builder(cfg)
-
 
 trvs = set()
 label = cfg.topSourceGroup[1]

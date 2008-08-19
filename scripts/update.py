@@ -17,5 +17,3 @@ cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
 obj = bot.Bot(cfg)
 obj.update()
-
-import epdb ; epdb.st()
