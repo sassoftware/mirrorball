@@ -113,12 +113,8 @@ class Bot(object):
         # Populate rpm source object from yum metadata.
         self._populatePkgSource()
 
-        #import epdb; epdb.st()
-
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package)
-
-#        import epdb; epdb.st()
+        toBuild, fail = self._updater.create(self._cfg.package, buildAll=True)
 
         # Build all newly imported packages.
         trvMap, failed = self._builder.buildmany(toBuild)
