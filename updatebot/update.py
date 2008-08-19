@@ -219,7 +219,7 @@ class Updater(object):
         toUpdate = set()
         for pkg in pkgNames:
             if pkg not in self._pkgSource.binNameMap:
-                log.warn('no package named %s found in rpm source' % pkg)
+                log.warn('no package named %s found in package source' % pkg)
                 continue
 
             srcPkg = self._getPackagesToImport(pkg)
@@ -231,16 +231,13 @@ class Updater(object):
         fail = set()
         toBuild = set()
         for pkg in toUpdate:
-            log.info('importing %s' % pkg)
+            log.info('attempting to import %s' % pkg)
 
             try:
-                # FIXME: Remove this once opensuse has groups.
                 # Only import packages that haven't been imported before
-                version = self._conaryhelper._getVersionsByName('%s:source' % pkg.name)
+                version = self._conaryhelper.getLatestSourceVersion(pkg.name)
                 if not version:
                     version = self.update((pkg.name, None, None), pkg)
-                else:
-                    version = version[0]
 
                 if not self._conaryhelper._getVersionsByName(pkg.name) or buildAll:
                     toBuild.add((pkg.name, version, None))
@@ -249,7 +246,6 @@ class Updater(object):
             except Exception, e:
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
-                raise
 
         return toBuild, fail
 
