@@ -58,6 +58,14 @@ class Recipe(object):
 
                 n = r.name
 
+            # collapse foo1[a-z]* when foo is the base package
+            elif (n.startswith(r.name)
+                  and len(n) > len(r.name)
+                  and n[len(r.name):len(r.name)+1].isdigit()
+                  and n[len(r.name)+1:].isalpha()):
+
+                n = r.name
+
             # collapse foo1 -> foo if foo exists
             elif n[-1].isdigit():
                 # find all package names with suffixes trimmed
@@ -194,3 +202,8 @@ if __name__ == '__main__':
          'lib32bz2-dev', 'libbz2-dev', 'libbz2-1.0', 'bzip2', 'lib64bz2-1.0',
          'lib64bz2-dev'],
         set(['bzip2', 'libbz2', 'lib32bz2', 'lib64bz2']))
+
+    test('zlib',
+         ['zlib1g-dev', 'lib32z1-dev', 'lib32z1', 'zlib1g-dbg', 'zlib1g',
+          'lib64z1-dev', 'zlib1g-dbg', 'zlib1g', 'zlib1g-dev', 'lib64z1'],
+         set(['zlib', 'lib32z1', 'lib64z1']))
