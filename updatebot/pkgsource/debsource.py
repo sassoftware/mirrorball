@@ -74,11 +74,22 @@ class DebSource(object):
                     continue
 
                 for binPkg in self.binNameMap[binPkgName]:
-                    if (binPkg.version == srcPkg.version and
-                        binPkg.release == srcPkg.release):
+                    if ((binPkg.version == srcPkg.version and
+                         binPkg.release == srcPkg.release) or
+                        (binPkg.source == srcPkg.name and
+                         binPkg.sourceVersion == srcPkg.version)):
                         self.srcPkgMap[srcPkg].add(binPkg)
 
             self.srcPkgMap[srcPkg].add(srcPkg)
 
             for pkg in self.srcPkgMap[srcPkg]:
                 self.binPkgMap[pkg] = srcPkg
+
+
+        # It seems that some packages have versions that don't match up with
+        # the source that they were built from. We need to handle that case.
+        for binPkgs in self.binNameMap.itervalues():
+            for binPkg in binPkgs:
+                if binPkg not in self.binPkgMap:
+                    pass
+                    #log.warn('no source found for %s' % binPkg)
