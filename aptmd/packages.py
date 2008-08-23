@@ -15,7 +15,8 @@
 from aptmd.common import BaseContainer, BaseParser
 
 class _Package(BaseContainer):
-    __slots__ = ('source', 'location', 'summary', 'description')
+    __slots__ = ('source', 'sourceVersion', 'location', 'summary',
+                 'description')
 
 
 class PackagesParser(BaseParser):
@@ -45,6 +46,17 @@ class PackagesParser(BaseParser):
     def _source(self):
         source = self._getLine()
         assert source != ''
+
+        # source in the form "Source: srcName (srcVer)"
+        if len(self._line) == 3:
+            source = self._line[1]
+
+            srcVer = self._line[2].strip()
+            srcVer = srcVer.strip('(')
+            srcVer = srcVer.strip(')')
+
+            self._curObj.sourceVersion = srcVer
+
         self._curObj.source = source
 
     def _filename(self):
