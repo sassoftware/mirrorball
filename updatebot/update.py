@@ -275,13 +275,24 @@ class Updater(object):
         latestSrpm = self._pkgSource.binPkgMap[latestRpm]
 
         pkgs = {}
+        pkgNames = set()
         for pkg in self._pkgSource.srcPkgMap[latestSrpm]:
+            pkgNames.add(pkg.name)
             pkgs[(pkg.name, pkg.arch)] = pkg
 
         for srpm in self._pkgSource.srcNameMap[latestSrpm.name]:
             if latestSrpm.epoch == srpm.epoch and \
                latestSrpm.version == srpm.version:
                 for pkg in self._pkgSource.srcPkgMap[srpm]:
+                    # Add special handling for packages that have versions in
+                    # the names.
+                    # FIXME: This is specific to non rpm based platforms right
+                    #        now. It needs to be tested on rpm platforms to
+                    #        make nothing breaks.
+                    if (self._cfg.repositoryFormat != 'rpm'
+                        and pkg.name not in pkgNames
+                        and pkg.version in pkg.name):
+                        continue
                     if (pkg.name, pkg.arch) not in pkgs:
                         pkgs[(pkg.name, pkg.arch)] = pkg
 
