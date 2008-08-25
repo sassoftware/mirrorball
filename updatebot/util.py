@@ -82,3 +82,10 @@ def packageCompare(a, b):
         return archcmp
 
     return 0
+
+def packageCompareByName(a, b):
+    nameCmp = cmp(a.name, b.name)
+    if nameCmp != 0:
+        return nameCmp
+
+    return packagevercmp(a, b)
