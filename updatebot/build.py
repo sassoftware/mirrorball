@@ -88,6 +88,11 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
+        troveSpecs = list(troveSpecs)
+        def trvSort(a, b):
+            return cmp(a[0], b[0])
+        troveSpecs.sort(trvSort)
+
         id = 0
         jobs = {}
         for i, trv in enumerate(troveSpecs):
