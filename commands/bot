@@ -1,0 +1,9 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2008 rPath, Inc.
+#
+
+if __name__ == '__main__':
+    import sys
+    from updatebot.cmdline import main
+    sys.exit(main.main(sys.argv))
