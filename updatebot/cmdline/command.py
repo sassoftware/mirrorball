@@ -56,4 +56,5 @@ class BotCommand(options.AbstractCommand):
         d["verbose"] = NO_PARAM
         argDef[self.defaultGroup] = d
 
-    
+    def processConfigOptions(self, cfg, cfgMap, argSet):
+        pass
