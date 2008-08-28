@@ -114,14 +114,15 @@ class Bot(object):
         self._populatePkgSource()
 
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
+        toBuild, fail = self._updater.create(self._cfg.package, buildAll=True)
 
         # Build all newly imported packages.
-        trvMap, failed = self._builder.buildmany(toBuild)
+#        trvMap, failed = self._builder.buildmany(toBuild)
 
-        import epdb; epdb.st()
+#        import epdb; epdb.st()
 
-        #trvMap = self._builder.build(toBuild)
+#        trvMap = self._builder.build(toBuild)
+#        import epdb; epdb.st()
         trvs = self._builder._formatInput(toBuild)
         jobs = {}
         for trv in trvs:
