@@ -61,6 +61,7 @@ class Builder(object):
         self._rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
         self._rmakeCfg.read(util.join(self._cfg.configPath, 'rmakerc'))
         self._rmakeCfg.useConaryConfig(self._ccfg)
+        self._rmakeCfg.copyInConfig = False
 
         self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
 
