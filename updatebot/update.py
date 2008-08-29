@@ -247,6 +247,12 @@ class Updater(object):
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
 
+        if buildAll and pkgs:
+            toBuild.update(
+                [ (x, self._conaryhelper.getLatestSourceVersion(x), None)
+                  for x in pkgs if not x.startswith('info-') ]
+            )
+
         return toBuild, fail
 
     def _getExistingPackageNames(self):
