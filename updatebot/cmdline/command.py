@@ -23,6 +23,7 @@ from conary.lib.options import VERBOSE_HELP
 
 _commands = []
 def register(cmd):
+    global _commands
     _commands.append(cmd)
 
 
