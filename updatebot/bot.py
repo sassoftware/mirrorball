@@ -121,38 +121,39 @@ class Bot(object):
 
 #        import epdb; epdb.st()
 
-#        trvMap = self._builder.build(toBuild)
-#        import epdb; epdb.st()
-        trvs = self._builder._formatInput(toBuild)
-        jobs = {}
-        for trv in trvs:
-            key = 'other'
-            if len(trv) == 4:
-                key = trv[3]
+        trvMap = self._builder.build(toBuild)
+        #import epdb; epdb.st()
 
-            if key not in jobs:
-                jobs[key] = []
+        #trvs = self._builder._formatInput(toBuild)
+        #jobs = {}
+        #for trv in trvs:
+        #    key = 'other'
+        #    if len(trv) == 4:
+        #        key = trv[3]
 
-            jobs[key].append(trv)
+        #    if key not in jobs:
+        #        jobs[key] = []
 
-        ids = {}
-        for job in jobs:
-            if job == 'other':
-                continue
+        #    jobs[key].append(trv)
 
-            ids[job] = self._builder._startJob(jobs[job])
+        #ids = {}
+        #for job in jobs:
+        #    if job == 'other':
+        #        continue
 
-        for job in ids:
-            self._builder._monitorJob(ids[job])
+        #    ids[job] = self._builder._startJob(jobs[job])
 
-        log.info('completed jobs %s' % (' '.join(ids.values()), ))
+        #for job in ids:
+        #    self._builder._monitorJob(ids[job])
 
-        import epdb; epdb.st()
+        #log.info('completed jobs %s' % (' '.join(ids.values()), ))
 
-        for trv in self._flattenSetDict(trvMap):
-            log.info('built: %s' % trv)
+        #import epdb; epdb.st()
 
-        import epdb; epdb.st()
+        #for trv in self._flattenSetDict(trvMap):
+        #    log.info('built: %s' % trv)
+
+        #import epdb; epdb.st()
 
         log.info('import completed successfully')
         log.info('imported %s source packages' % (len(toBuild), ))
