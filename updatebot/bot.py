@@ -114,7 +114,7 @@ class Bot(object):
         self._populatePkgSource()
 
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
+        toBuild, fail = self._updater.create(self._cfg.package, buildAll=True)
 
         # Build all newly imported packages.
 #        trvMap, failed = self._builder.buildmany(toBuild)
