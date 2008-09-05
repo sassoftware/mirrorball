@@ -250,7 +250,8 @@ class Updater(object):
         if buildAll and pkgs:
             toBuild.update(
                 [ (x, self._conaryhelper.getLatestSourceVersion(x), None)
-                  for x in pkgs if not x.startswith('info-') ]
+                  for x in pkgs if not x.startswith('info-')
+                            and x not in self._cfg.excludePackages ]
             )
 
         return toBuild, fail
