@@ -15,20 +15,27 @@ import updatebot.log
 updatebot.log.addRootLogger()
 log = logging.getLogger('test')
 
-from aptmd import Client
+import aptmd
+import repomd
 from updatebot import config
 from updatebot import pkgsource
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
 
-client = Client('http://i.rdu.rpath.com/ubuntu')
 pkgSource = pkgsource.PackageSource(cfg)
 
-for path in cfg.repositoryPaths:
-    log.info('loading %s' % path)
-    pkgSource.loadFromClient(client, path)
-
+if cfg.repositoryFormat == 'apt':
+    client = aptmd.Client(cfg.repositoryUrl)
+    for path in cfg.repositoryPaths:
+        log.info('loading %s' % path)
+        pkgSource.loadFromClient(client, path)
+else:
+    for path in cfg.repositoryPaths:
+        client = repomd.Client(cfg.repositoryUrl + '/' + path)
+        log.info('loading %s' % path)
+        pkgSource.loadFromClient(client, path)
+        
 pkgSource.finalize()
 
 import epdb; epdb.st()
