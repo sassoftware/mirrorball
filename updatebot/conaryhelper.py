@@ -312,6 +312,25 @@ class ConaryHelper(object):
         finally:
             os.chdir(cwd)
 
+    @staticmethod
+    def _removeFile(pkgDir, fileName):
+        """
+        Remove a file from a source component.
+        @param pkgDir: directory where package is checked out to.
+        @type pkgDir: string
+        @param fileName: file name to add.
+        @type fileName: string
+        """
+
+        log.info('removing file: %s' % fileName)
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(pkgDir)
+            checkin.removeFile(fileName)
+        finally:
+            os.chdir(cwd)
+
     def _getVersionsByName(self, pkgname):
         """
         Figure out if a trove exists in the repository.
