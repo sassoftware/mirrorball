@@ -22,6 +22,7 @@ sys.path.insert(0, os.environ['HOME'] + '/hg/rpath-xmllib')
 sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
 sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
 
+from conary.build import use
 from conary.conaryclient.cmdline import askYn
 
 from rpath_common.xmllib import api1 as xmllib
@@ -475,12 +476,16 @@ class BuildLog(object):
         pkgName = self._getPkgName()
         log.info('writing control file for %s' % pkgName)
 
-        recipeDir = self.helper._checkout(pkgName)
+        recipeDir = self._helper._checkout(pkgName)
         fd = open(os.path.join(recipeDir, 'control'), 'w')
         fd.write(self.getControl())
         fd.close()
-        self.helper._addFile(recipeDir, 'control')
-        self.helper._commit(recipeDir, 'add/update control file')
+        self._helper._addFile(recipeDir, 'control')
+
+        use.setBuildFlagsFromFlavor(pkgName, self._helper._ccfg.buildFlavor,
+                                    error=False)
+
+        self._helper._commit(recipeDir, 'add/update control file')
 
     def __repr__(self):
         return self._name
