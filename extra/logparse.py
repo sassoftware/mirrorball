@@ -479,7 +479,7 @@ class BuildLog(object):
         recipeDir = self._helper._checkout(pkgName)
         control = self.getControl()
         if not control and os.path.exists(os.path.join(recipeDir, 'control')):
-            self._helper.removeFile('control')
+            self._helper._removeFile('control')
         if control:
             fd = open(os.path.join(recipeDir, 'control'), 'w')
             fd.write(control)
