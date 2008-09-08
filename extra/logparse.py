@@ -477,10 +477,14 @@ class BuildLog(object):
         log.info('writing control file for %s' % pkgName)
 
         recipeDir = self._helper._checkout(pkgName)
-        fd = open(os.path.join(recipeDir, 'control'), 'w')
-        fd.write(self.getControl())
-        fd.close()
-        self._helper._addFile(recipeDir, 'control')
+        control = self.getControl()
+        if not control and os.path.exists(os.path.join(recipeDir, 'control')):
+            self._helper.removeFile('control')
+        if control:
+            fd = open(os.path.join(recipeDir, 'control'), 'w')
+            fd.write(control)
+            fd.close()
+            self._helper._addFile(recipeDir, 'control')
 
         use.setBuildFlagsFromFlavor(pkgName, self._helper._ccfg.buildFlavor,
                                     error=False)
