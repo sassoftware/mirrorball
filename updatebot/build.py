@@ -102,7 +102,7 @@ class Builder(object):
 
             jobs[id].append(trv)
 
-            if i % 20 == 0:
+            if i % 40 == 0:
                 id += 1
 
         failed = set()
@@ -123,13 +123,18 @@ class Builder(object):
         """
 
         jobs = {}
+        jobkeys = []
         for trv in troveSpecs:
+            jobkeys.append(trv)
             jobs[trv] = self.start([trv, ])
 
-        for trv, jobId in jobs.iteritems():
+        for trv in jobkeys:
+            jobId = jobs[trv]
             job = self._helper.getJob(jobId)
-            if not job.isFinished() and not job.isFailed():
-                self.watch(jobId)
+            while not job.isFinished() and not job.isFailed():
+                log.info('waiting for %s' % jobId)
+                time.sleep(1)
+                job = self._helper.getJob(jobId)
 
         failed = set()
         results = {}
