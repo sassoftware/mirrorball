@@ -579,10 +579,10 @@ if __name__ == '__main__':
     obj.makeBuckets()
 #    obj.findPathConflicts()
 
-    for logObj in obj._logFiles:
-        print 80 * '='
-        print 'Package:', logObj
-        print logObj.getControl()
-        logObj.writeControl()
+    #for logObj in obj._logFiles:
+    #    print 80 * '='
+    #    print 'Package:', logObj
+    #    print logObj.getControl()
+    #    logObj.writeControl()
 
     import epdb; epdb.st()
