@@ -141,13 +141,13 @@ class Builder(object):
         for trv, jobId in jobs.iteritems():
             job = self._helper.getJob(jobId)
             if job.isFailed():
-                failed.add(trv)
+                failed.add((trv, jobId))
             elif job.isFinished():
                 try:
                     res = self.commit(jobId)
                     results.update(res)
                 except JobFailedError:
-                    failed.add(trv)
+                    failed.add((trv, jobId))
 
         return results, failed
 
