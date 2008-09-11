@@ -356,6 +356,13 @@ class ConaryHelper(object):
         """
 
         versions = self._getVersionsByName('%s:source' % pkgname)
+
+        # FIXME: This is a hack to work around the fact that ubuntu has some
+        #        shadows and packages that overlap on the label,
+        #        _getVersionsByName needs to be smarter.
+        if len(versions) > 1:
+            versions = [ x for x in versions if not x.isShadow() ]
+
         assert len(versions) in (0, 1)
 
         if len(versions) == 1:
