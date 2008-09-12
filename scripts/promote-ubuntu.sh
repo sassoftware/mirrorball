@@ -25,11 +25,11 @@ time cvc promote $cfg \
     group-os=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
     ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel--ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
 
-#time cvc promote $cfg \
-#    group-appliance:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-#    platform-defintion:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-#    group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-#    /ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
-#    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.org@rpath:ubuntu-hardy \
-#    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy
-#    /conary.rpath.com@rpl:devel//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy
+time cvc promote $cfg \
+    group-appliance:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+    platform-defintion:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+    group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+    /ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
+    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.org@rpath:ubuntu-hardy \
+    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
+    /conary.rpath.com@rpl:devel//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy
