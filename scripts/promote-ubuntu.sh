@@ -15,19 +15,19 @@
 
 cfg="--config-file $HOME/hg/mirrorball/config/ubuntu/conaryrc -m promote"
 
-time cvc promote $cfg \
-{{auto,build,c,}package,deb-import,factory-deb}:source=ubuntu.rb.rpath.com@rpath:ubuntu-devel \
-    /ubuntu.rb.rpath.com@rpath:ubuntu-devel--/ubuntu.rpath.org@rpath:ubuntu-devel
+#time cvc promote $cfg \
+#{{auto,build,c,}package,deb-import,factory-deb}:source=ubuntu.rb.rpath.com@rpath:ubuntu-devel \
+#    /ubuntu.rb.rpath.com@rpath:ubuntu-devel--/ubuntu.rpath.org@rpath:ubuntu-devel
 
-time cvc promote $cfg \
-    group-appliance:source=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
-    platform-definition:source=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
-    group-os=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
-    ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel--ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+#time cvc promote $cfg \
+#    group-appliance:source=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
+#    platform-definition:source=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
+#    group-os=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
+#    ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel--ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
 
 time cvc promote $cfg \
     group-appliance:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-    platform-defintion:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+    platform-definition:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
     group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
     /ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
     /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.org@rpath:ubuntu-hardy \
