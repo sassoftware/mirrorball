@@ -41,6 +41,8 @@ class ConaryHelper(object):
     """
 
     def __init__(self, cfg):
+        self._groupFlavorCount = len(cfg.groupFlavors)
+
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
         self._ccfg.read(util.join(cfg.configPath, 'conaryrc'))
         self._ccfg.dbPath = ':memory:'
@@ -81,7 +83,7 @@ class ConaryHelper(object):
 
         # Magic number should probably be a config option.
         # 2 here is the number of flavors expected.
-        if len(latest) != 2:
+        if len(latest) != self._groupFlavorCount:
             raise TooManyFlavorsFoundError(why=latest)
 
         d = {}
