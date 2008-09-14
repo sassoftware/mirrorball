@@ -30,6 +30,7 @@ time cvc promote $cfg \
     platform-definition:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
     group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
     /ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
+    /ubuntu.rpath.org@rpath:ubuntu-devel//ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-devel//ubuntu-hardy \
     /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.org@rpath:ubuntu-hardy \
     /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
     /conary.rpath.com@rpl:devel//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy
