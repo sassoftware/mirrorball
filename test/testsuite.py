@@ -54,20 +54,21 @@ def setup():
         sys.path.insert(0, thisPath)
         return thisPath
 
-    conaryDir = setPathFromEnv('CONARY_PATH', 'conary')
-    conaryTestPath = setPathFromEnv('CONARY_TEST_PATH', 'conary-test')
+    testutilsPath = setPathFromEnv('TESTUTILS_PATH', '../testutils')
+    conaryDir = setPathFromEnv('CONARY_PATH', '../conary')
+    conaryTestPath = setPathFromEnv('CONARY_TEST_PATH', '../conary-test')
     setPathFromEnv('CONARY_POLICY_PATH', '/usr/lib/conary/policy')
     mirrorballPath = setPathFromEnv('SLEESTACK_PATH', '')
 
-    rmakePath = setPathFromEnv('RMAKE_PATH', 'rmake')
-    rmakeTestPath = setPathFromEnv('RMAKE_TEST_PATH', 'rmake-private/test')
-    xmllibPath = setPathFromEnv('XMLLIB_PATH', 'rpath-xmllib')
+    rmakePath = setPathFromEnv('RMAKE_PATH', '../rmake')
+    rmakeTestPath = setPathFromEnv('RMAKE_TEST_PATH', '../rmake-private')
+    xmllibPath = setPathFromEnv('XMLLIB_PATH', '../rpath-xmllib')
     pluginPath = os.path.realpath(rmakeTestPath + '/rmake_plugins')
 
     # Insert the following paths into the python path and sys path in
     # listed order.
     paths = (mirrorballPath, rmakePath, conaryDir, conaryTestPath,
-             rmakeTestPath, xmllibPath)
+             rmakeTestPath, xmllibPath, testutilsPath)
     pythonPath = os.environ.get('PYTHONPATH', "")
     for p in reversed(paths):
         if p in sys.path:

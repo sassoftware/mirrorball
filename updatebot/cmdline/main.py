@@ -15,8 +15,10 @@
 import sys
 import logging
 
+from conary.lib import util
 from conary.lib import options
 
+from updatebot import errors
 from updatebot import config
 from updatebot import constants
 from updatebot import log as logger
@@ -27,7 +29,7 @@ class BotMain(options.MainHandler):
     version = constants.version
 
     abstractCommand = command.BotCommand
-    configClass = config.UpdateBotConfiguration
+    configClass = config.UpdateBotConfig
 
     useConaryOptions = False
 
@@ -49,13 +51,12 @@ def main(argv):
     try:
         argv = list(argv)
         debugAll = '--debug-all' in argv
+        debuggerException = errors.UpdateBotError
         if debugAll:
             debuggerException = Exception
             argv.remove('--debug-all')
-        else:
-            debuggerException = errors.UpdateBotError
-        sys.excepthook = errors.genExcepthook(debug=debugAll,
-                                              debugCtrlC=debugAll)
+        sys.excepthook = util.genExcepthook(debug=debugAll,
+                                            debugCtrlC=debugAll)
         return BotMain().main(argv, debuggerException=debuggerException)
     except debuggerException, err:
         raise
