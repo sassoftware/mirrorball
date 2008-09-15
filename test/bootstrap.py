@@ -1,7 +1,7 @@
 import os
 import sys
 
-testUtilDir = os.environ.get('TESTUTILS_PATH', '../testutils')
+testUtilDir = os.environ.get('TESTUTILS_PATH', '../../testutils')
 if os.path.exists(testUtilDir):
     sys.path.insert(0, testUtilDir)
 

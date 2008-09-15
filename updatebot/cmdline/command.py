@@ -29,7 +29,6 @@ def register(cmd):
 
 class BotCommand(options.AbstractCommand):
     defaultGroup = 'Common Options'
-    commandGroup = CG_MISC
 
     docs = {'config'             : (VERBOSE_HELP,
                                     "Set config KEY to VALUE", "'KEY VALUE'"),
