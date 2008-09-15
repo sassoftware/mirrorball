@@ -1,0 +1,17 @@
+Package: ascii
+Version: 3.8-2
+Section: utils
+Priority: optional
+Architecture: i386
+Depends: libc6 (>= 2.3.4-1)
+Installed-Size: 72
+Maintainer: Florian Ernst <florian@debian.org>
+Description: interactive ASCII name and synonym chart
+ The ascii utility provides easy conversion between various byte representations
+ and the American Standard Code for Information Interchange (ASCII) character
+ table.  It knows about a wide variety of hex, binary, octal, Teletype mnemonic,
+ ISO/ECMA code point, slang names, XML entity names, and other representations.
+ Given any one on the command line, it will try to display all others.  Called
+ with no arguments it displays a handy small ASCII chart.
+ .
+ Homepage: http://www.catb.org/~esr/ascii/
