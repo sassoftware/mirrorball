@@ -14,8 +14,8 @@
 #
 
 import testsetup
+from testutils import mock
 
-import mock
 import slehelp
 
 from rmake.cmdline import monitor, commit

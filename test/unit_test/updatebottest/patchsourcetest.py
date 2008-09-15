@@ -13,8 +13,8 @@
 #
 
 import testsetup
+from testutils import mock
 
-import mock
 import slehelp
 
 from updatebot import patchsource

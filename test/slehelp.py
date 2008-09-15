@@ -16,7 +16,7 @@ import testsuite
 testsuite.setup()
 
 import os
-import rmakehelp
+from rmake_test import rmakehelp
 
 from updatebot import config
 

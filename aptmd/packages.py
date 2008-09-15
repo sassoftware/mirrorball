@@ -43,6 +43,13 @@ class PackagesParser(BaseParser):
             'task'                  : self._keyval,
         })
 
+    def parse(self, fn):
+        BaseParser.parse(self, fn)
+        # If there is any text left, collect it in the description
+        if self._text:
+            self._curObj.description = self._text
+            self._text = ''
+
     def _source(self):
         source = self._getLine()
         assert source != ''
@@ -67,4 +74,5 @@ class PackagesParser(BaseParser):
 
     def _bugs(self):
         self._curObj.description = self._text
+        self._text = ''
         self._keyval()
