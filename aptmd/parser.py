@@ -28,7 +28,7 @@ class _QuotedLineTokenizer(object):
         self._singleQuotedString = False
         self._doubleQuotedString = False
 
-        self._list = ['']
+        self._list = [[]]
         for char in line:
             self._cur = char
             if char in self._states:
@@ -36,14 +36,14 @@ class _QuotedLineTokenizer(object):
             else:
                 self._states['other']()
 
-        if self._list[-1] == '':
-            self._list = self._list[:-1]
+        if not self._list[-1]:
+            del self._list[-1]
 
-        return self._list
+        return [ ''.join(x) for x in self._list ]
 
     def _space(self):
         if not self._singleQuotedString and not self._doubleQuotedString:
-            self._list.append('')
+            self._list.append([])
 
     def _singleQuote(self):
         self._add()
@@ -54,7 +54,7 @@ class _QuotedLineTokenizer(object):
         self._doubleQuotedString = not self._doubleQuotedString
 
     def _add(self):
-        self._list[-1] += self._cur
+        self._list[-1].append(self._cur)
 
 
 class Parser(object):

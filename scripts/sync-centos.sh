@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (c) 2008 rPath, Inc.
 #
@@ -12,16 +13,9 @@
 # full details.
 #
 
-import testsetup
+SOURCE=rsync://mirrors.us.kernel.org/CentOS-nodvd
+DEST=/l/CentOS/
 
-import slehelp
+rsync -arv --progress --exclude 2* --exclude 3* --exclude 4* $SOURCE $DEST
 
-from updatebot import errors
-
-class ErrorTest(slehelp.Helper):
-    def testRepr(self):
-        error = errors.UpdateBotError()
-        self.failUnlessEqual(repr(error), 'updatebot.errors.UpdateBotError()')
-
-
-testsetup.main()
+./hardlink.py $DEST

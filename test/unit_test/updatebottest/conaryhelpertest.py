@@ -14,9 +14,9 @@
 #
 
 import testsetup
+from testutils import mock
 
 import os
-import mock
 import slehelp
 
 from conary import trove

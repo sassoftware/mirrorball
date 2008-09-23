@@ -3,6 +3,8 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+# W0603: using the global statement
+#pylint: disable-msg=W0603
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
 # source file in a file called LICENSE. If it is not present, the license
@@ -17,18 +19,17 @@
 import sys
 import os
 import pwd
+import bootstrap
 
 archivePath = None
 testPath = None
 pluginPath = None
-nodePath = None
 
 conaryDir = None
 _setupPath = None
 _individual = False
 
 def isIndividual():
-    global _individual
     return _individual
 
 def setup():
@@ -37,49 +38,37 @@ def setup():
         return _setupPath
     global testPath
     global archivePath
+    global conaryDir
     global pluginPath
-    global nodePath
-    global rmakePath
-
-    # set default SLEESTACK_PATH, if it was not set.
-    parDir = '/'.join(os.path.realpath(__file__).split('/')[:-1])
-    parDir = os.path.dirname(parDir)
-    mirrorballPath = os.getenv('SLEESTACK_PATH', parDir)
-    os.environ['SLEESTACK_PATH'] = mirrorballPath
 
     def setPathFromEnv(variable, directory):
-        parDir = '/'.join(os.path.realpath(__file__).split('/')[:-2])
-        parDir = os.path.dirname(parDir) + '/' + directory
+        parDir = os.path.dirname(os.path.realpath(__file__))
+        if not directory.startswith('/'):
+            parDir = os.path.dirname(parDir) + '/' + directory
+        else:
+            parDir = directory
         thisPath = os.getenv(variable, parDir)
         os.environ[variable] = thisPath
-        if thisPath not in sys.path:
-            sys.path.insert(0, thisPath)
+        if thisPath in sys.path:
+            sys.path.remove(thisPath)
+        sys.path.insert(0, thisPath)
         return thisPath
 
-    # set default COVERAGE_PATH, if it was not set.
-    coveragePath = setPathFromEnv('COVERAGE_PATH', 'utils')
+    testutilsPath = setPathFromEnv('TESTUTILS_PATH', '../testutils')
+    conaryDir = setPathFromEnv('CONARY_PATH', '../conary')
+    conaryTestPath = setPathFromEnv('CONARY_TEST_PATH', '../conary-test')
+    setPathFromEnv('CONARY_POLICY_PATH', '/usr/lib/conary/policy')
+    mirrorballPath = setPathFromEnv('SLEESTACK_PATH', '')
 
-    # set default CONARY_PATH, if it was not set.
-    conaryPath = setPathFromEnv('CONARY_PATH', 'conary')
-
-    # set default CONARY_TEST_PATH, if it was not set.
-    conaryTestPath = setPathFromEnv('CONARY_TEST_PATH', 'conary-test')
-
-    # set default RMAKE_PATH, if it was not set.
-    rmakePath = setPathFromEnv('RMAKE_PATH', 'rmake')
-
-    # set default RMAKE_TEST_PATH, if it was not set.
-    rmakeTestPath = setPathFromEnv('RMAKE_TEST_PATH', 'rmake-private/test')
-
-    # set default XMLLIB_PATH, if it was not set.
-    xmllibPath = setPathFromEnv('XMLLIB_PATH', 'rpath-xmllib')
-
-    testDir = os.path.dirname(os.path.realpath(__file__))
+    rmakePath = setPathFromEnv('RMAKE_PATH', '../rmake')
+    rmakeTestPath = setPathFromEnv('RMAKE_TEST_PATH', '../rmake-private')
+    xmllibPath = setPathFromEnv('XMLLIB_PATH', '../rpath-xmllib')
+    pluginPath = os.path.realpath(rmakeTestPath + '/rmake_plugins')
 
     # Insert the following paths into the python path and sys path in
     # listed order.
-    paths = (mirrorballPath, rmakePath, testDir, conaryPath, conaryTestPath,
-             rmakeTestPath, xmllibPath)
+    paths = (mirrorballPath, rmakePath, conaryDir, conaryTestPath,
+             rmakeTestPath, xmllibPath, testutilsPath)
     pythonPath = os.environ.get('PYTHONPATH', "")
     for p in reversed(paths):
         if p in sys.path:
@@ -92,77 +81,58 @@ def setup():
 
     if isIndividual():
         serverDir = '/tmp/conary-server'
+        #pylint: disable-msg=E1103
         if os.path.exists(serverDir) and not os.path.access(serverDir, os.W_OK):
             serverDir = serverDir + '-' + pwd.getpwuid(os.getuid())[0]
         os.environ['SERVER_FILE_PATH'] = serverDir
 
-    invokedAs = sys.argv[0]
-    if invokedAs.find("/") != -1:
-        if invokedAs[0] != "/":
-            invokedAs = os.getcwd() + "/" + invokedAs
-        path = os.path.dirname(invokedAs)
-    else:
-        path = os.getcwd()
-
-    import testhelp
-    from conary_test import resources
+    from testrunner import resources, testhelp
     testPath = testhelp.getTestPath()
-    archivePath = testPath + '/' + "archive"
+    archivePath = testPath + '/archive'
     resources.archivePath = archivePath
 
-    pluginPath = os.path.realpath(testPath + '/../../rmake-private/rmake_plugins')
-    nodePath = os.path.realpath(pluginPath + '/..')
-    if nodePath not in sys.path:
-        sys.path.insert(0, nodePath)
+    resources.pluginPath = pluginPath
+    resources.rmakePath = rmakePath
 
-    global conaryDir
-    conaryDir = os.environ['CONARY_PATH']
-
+    # W0621 - redefining name util, W0404 - reimporting util
+    #pylint: disable-msg=W0621,W0404
     from conary.lib import util
     sys.excepthook = util.genExcepthook(True)
 
     # import tools normally expected in testsuite.
-    from testhelp import context, TestCase, findPorts, SkipTestException
-    sys.modules[__name__].context = context
-    sys.modules[__name__].TestCase = TestCase
-    sys.modules[__name__].findPorts = findPorts
-    sys.modules[__name__].SkipTestException = SkipTestException
+    sys.modules[__name__].context = testhelp.context
+    sys.modules[__name__].TestCase = testhelp.TestCase
+    sys.modules[__name__].findPorts = testhelp.findPorts
+    sys.modules[__name__].SkipTestException = testhelp.SkipTestException
 
     _setupPath = testPath
     return testPath
 
+
 _individual = False
 
-def isIndividual():
-    global _individual
-    return _individual
 
-def getCoverageDirs(handler, environ):
-    basePath = os.environ['SLEESTACK_PATH']
-    coverageDirs = [ 'updatebot', 'rpmutils', 'repomd', ]
+def getCoverageDirs(*_):
+    codePath = os.environ['SLEESTACK_PATH'].rstrip('/')
+    coverageDirs = [ 'aptmd', 'repomd', 'rpmutils', 'updatebot' ]
+    return [ os.path.join(codePath, x) for x in coverageDirs ]
 
-    coveragePath = []
-    for path in coverageDirs:
-        coveragePath.append(os.path.normpath(os.path.join(basePath, path)))
-
-    return coveragePath
-
-def getCoverageExclusions(self, environ):
+def getCoverageExclusions(*_):
     return ['test/.*']
 
 def sortTests(tests):
-    order = {'smoketest': 0, 
-             'unit_test' :1,
-             'functionaltest':2}
+    order = {'rbuild_test.smoketest': 0, 
+             'rbuild_test.unit_test': 1,
+             'rbuild_test.functionaltest': 2}
     maxNum = len(order)
-    tests = [ (test,test.index('test')) for test in tests]
+    tests = [ (test, test.index('test')) for test in tests]
     tests = sorted((order.get(test[:index+4], maxNum), test)
                    for (test, index) in tests)
     tests = [ x[1] for x in tests ]
     return tests
 
 def main(argv=None, individual=True):
-    import testhelp
+    from testrunner import testhelp
     handlerClass = testhelp.getHandlerClass(testhelp.ConaryTestSuite,
                                             getCoverageDirs,
                                             getCoverageExclusions,
@@ -185,6 +155,9 @@ def main(argv=None, individual=True):
 
 if __name__ == '__main__':
     setup()
+    # unused import coveragehook
+    # redefining util from outer scope
+    #pylint: disable-msg=W0611,W0621
     from conary.lib import util
     from conary.lib import coveragehook
     sys.excepthook = util.genExcepthook(True)
