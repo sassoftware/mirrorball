@@ -21,7 +21,7 @@ from updatebot import config
 from updatebot import pkgsource
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/centos/updatebotrc')
 
 pkgSource = pkgsource.PackageSource(cfg)
 
