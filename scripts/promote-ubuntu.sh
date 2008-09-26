@@ -13,24 +13,28 @@
 # full details.
 #
 
-cfg="--config-file $HOME/hg/mirrorball/config/ubuntu/conaryrc -m promote"
+cfg="--config-file $HOME/hg/mirrorball/config/ubuntu/conaryrc -m promote --interactive"
 
-#time cvc promote $cfg \
-#{{auto,build,c,}package,deb-import,factory-deb}:source=ubuntu.rb.rpath.com@rpath:ubuntu-devel \
-#    /ubuntu.rb.rpath.com@rpath:ubuntu-devel--/ubuntu.rpath.org@rpath:ubuntu-devel
+date
+time cvc promote $cfg \
+{{auto,build,c,}package,deb-import,factory-deb}:source=ubuntu.rpath.org@rpath:ubuntu-devel \
+    /ubuntu.rpath.org@rpath:ubuntu-devel--/ubuntu.rpath.com@rpath:ubuntu-devel
 
-#time cvc promote $cfg \
-#    group-appliance:source=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
-#    platform-definition:source=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
-#    group-os=ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel \
-#    ubuntu.rb.rpath.com@rpath:ubuntu-hardy-devel--ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-
+date
 time cvc promote $cfg \
     group-appliance:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
     platform-definition:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
     group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-    /ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
-    /ubuntu.rpath.org@rpath:ubuntu-devel//ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-devel//ubuntu-hardy \
-    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.org@rpath:ubuntu-hardy \
-    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy \
-    /conary.rpath.com@rpl:devel//ubuntu.rpath.org@rpath:ubuntu-hardy-devel--/ubuntu.rpath.org@rpath:ubuntu-hardy
+    ubuntu.rpath.org@rpath:ubuntu-hardy-devel--ubuntu.rpath.com@rpath:ubuntu-hardy-devel \
+
+date
+time cvc promote $cfg \
+    group-appliance:source=ubuntu.rpath.com@rpath:ubuntu-hardy-devel \
+    platform-definition:source=ubuntu.rpath.com@rpath:ubuntu-hardy-devel \
+    group-os=ubuntu.rpath.com@rpath:ubuntu-hardy-devel \
+    /ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy \
+    /ubuntu.rpath.com@rpath:ubuntu-devel//ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-devel//ubuntu-hardy \
+    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.com@rpath:ubuntu-hardy \
+    /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2//ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy \
+    /conary.rpath.com@rpl:devel//ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy \
+    /ubuntu.rpath.org@rpath:ubuntu-devel//ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy
