@@ -111,3 +111,6 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     emailTo             = (CfgList(CfgString), [])
     emailBcc            = (CfgList(CfgString), [])
     smtpServer          = CfgString
+
+    def __init__(self, *args, **kwargs):
+        cfg.SectionedConfigFile.__init__(self)
