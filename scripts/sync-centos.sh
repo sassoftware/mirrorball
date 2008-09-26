@@ -16,6 +16,6 @@
 SOURCE=rsync://mirrors.us.kernel.org/CentOS-nodvd
 DEST=/l/CentOS/
 
-rsync -arv --progress --exclude 2* --exclude 3* --exclude 4* $SOURCE $DEST
+rsync -arv --progress --bwlimit=1024 --exclude 2* --exclude 3* --exclude 4* $SOURCE $DEST
 
 ./hardlink.py $DEST
