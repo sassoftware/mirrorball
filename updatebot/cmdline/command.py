@@ -27,7 +27,7 @@ def register(cmd):
     _commands.append(cmd)
 
 
-class BotCommand(options.AbstractCommand):
+class _BotCommand(options.AbstractCommand):
     defaultGroup = 'Common Options'
 
     docs = {'config'             : (VERBOSE_HELP,
@@ -57,4 +57,16 @@ class BotCommand(options.AbstractCommand):
         argDef[self.defaultGroup] = d
 
     def processConfigOptions(self, cfg, cfgMap, argSet):
+        pass
+
+
+class BuildPackageCommand(_BotCommand):
+    """
+    Build a list of packages.
+    """
+
+    commands = [ 'buildpackages', ]
+    help = 'build packages'
+
+    def runCommand(self, client, cfg, argSet, args):
         pass
