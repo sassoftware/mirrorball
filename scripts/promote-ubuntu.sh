@@ -15,17 +15,17 @@
 
 cfg="--config-file $HOME/hg/mirrorball/config/ubuntu/conaryrc -m promote --interactive"
 
-date
-time cvc promote $cfg \
-{{auto,build,c,}package,deb-import,factory-deb}:source=ubuntu.rpath.org@rpath:ubuntu-devel \
-    /ubuntu.rpath.org@rpath:ubuntu-devel--/ubuntu.rpath.com@rpath:ubuntu-devel
+#date
+#time cvc promote $cfg \
+#{{auto,build,c,}package,deb-import,factory-deb}:source=ubuntu.rpath.org@rpath:ubuntu-devel \
+#    /ubuntu.rpath.org@rpath:ubuntu-devel--/ubuntu.rpath.com@rpath:ubuntu-devel
 
-date
-time cvc promote $cfg \
-    group-appliance:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-    platform-definition:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-    group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
-    ubuntu.rpath.org@rpath:ubuntu-hardy-devel--ubuntu.rpath.com@rpath:ubuntu-hardy-devel \
+#date
+#time cvc promote $cfg \
+#    group-appliance:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+#    platform-definition:source=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+#    group-os=ubuntu.rpath.org@rpath:ubuntu-hardy-devel \
+#    ubuntu.rpath.org@rpath:ubuntu-hardy-devel--ubuntu.rpath.com@rpath:ubuntu-hardy-devel \
 
 date
 time cvc promote $cfg \
@@ -37,4 +37,3 @@ time cvc promote $cfg \
     /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2--/ubuntu.rpath.com@rpath:ubuntu-hardy \
     /conary.rpath.com@rpl:devel//conary.rpath.com@rpl:2//ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy \
     /conary.rpath.com@rpl:devel//ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy \
-    /ubuntu.rpath.org@rpath:ubuntu-devel//ubuntu.rpath.com@rpath:ubuntu-hardy-devel--/ubuntu.rpath.com@rpath:ubuntu-hardy
