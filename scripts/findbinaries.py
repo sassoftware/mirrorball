@@ -40,7 +40,7 @@ bot._populatePkgSource()
 updater = bot._updater
 helper = updater._conaryhelper
 
-sources, failed = updater.create(cfg.package, buildAll=True)
+sources, failed = updater.create(cfg.package, buildAll=False)
 
 pkgs = helper._repos.getTroveLeavesByLabel({None: {helper._ccfg.buildLabel: None}})
 pkgSet = set([ x.split(':')[0] for x in pkgs ])
