@@ -64,7 +64,6 @@ class Parser(object):
         self._curObj = None
         self._lineTokenizer = _QuotedLineTokenizer()
 
-        self._containerClass = None
         self._states = {}
 
     def parse(self, fn):
@@ -105,3 +104,36 @@ class Parser(object):
         key = self._getState(self._line[0])
         value = ' '.join(self._line[1:]).strip()
         self._curObj.set(key, value)
+
+
+class ContainerizedParser(Parser):
+    def __init__(self):
+        Parser.__init__(self)
+
+        self._objects = []
+        self._containerClass = None
+        self._stateFilters = {
+        }
+
+    def _filter(self, filter, state):
+        self._stateFilters[re.compile(filter)] = state
+
+    def _getState(key):
+        key = key.strip()
+        key = key.lower()
+        if key.endswith(':'):
+            key = key[:-1]
+
+        if key in self._states:
+            return key
+
+        for filter, state in self._stateFilters.iteritems():
+            if filter.match(key):
+                return state
+
+        return key
+
+    def parse(self, fileObj):
+        self._objects = []
+        Parser.parse(self, fileObj)
+        return self._objects

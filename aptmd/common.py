@@ -14,8 +14,8 @@
 
 from updatebot import util
 
-from aptmd.parser import Parser
 from aptmd.container import Container
+from aptmd.parser import ContainerizedParser as Parser
 
 class BaseContainer(Container):
     __slots__ = ('name', 'arch', 'epoch', 'version', 'release')
@@ -39,7 +39,6 @@ class BaseParser(Parser):
         Parser.__init__(self)
 
         self._containerClass = BaseContainer
-        self._objects = []
 
         self._states.update({
             'package'               : self._package,
@@ -50,18 +49,6 @@ class BaseParser(Parser):
             'maintainer'            : self._keyval,
             'original-maintainer'   : self._keyval,
         })
-
-    def parse(self, fileObj):
-        self._objects = []
-        Parser.parse(self, fileObj)
-        return self._objects
-
-    @staticmethod
-    def _getState(key):
-        key = key.strip()
-        if key.endswith(':'):
-            key = key[:-1]
-        return key.lower()
 
     def _package(self):
         if self._curObj is not None:
