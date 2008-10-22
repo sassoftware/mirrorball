@@ -16,6 +16,8 @@
 Configuration module for updatebot.
 """
 
+import os
+
 from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
@@ -50,8 +52,8 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # name of the product to use in advisories
     productName         = CfgString
 
-    # path to configuration files (conaryrc, rmakerc)
-    configPath          = CfgString
+    # path to configuration files relative to updatebotrc (conaryrc, rmakerc)
+    configPath          = (CfgString, './')
 
     # type of upstream repostory to pull packages from, supported are apt and yum.
     repositoryFormat    = (CfgString, 'yum')
@@ -114,3 +116,11 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     def __init__(self, *args, **kwargs):
         cfg.SectionedConfigFile.__init__(self)
+
+    def read(self, *args, **kwargs):
+        ret = cfg.SectionedConfigFile.read(self, *args, **kwargs)
+        if not self.configPath.startswith(os.sep):
+            # configPath is relative
+            dirname = os.path.dirname(args[0])
+            self.configPath = os.path.normpath(os.path.join(dirname, self.configPath))
+        return ret
