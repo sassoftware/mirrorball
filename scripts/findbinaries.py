@@ -32,7 +32,7 @@ log.addRootLogger()
 slog = logging.getLogger('findbinaries')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/centos/updatebotrc')
 
 bot = bot.Bot(cfg)
 bot._populatePkgSource()
@@ -40,7 +40,7 @@ bot._populatePkgSource()
 updater = bot._updater
 helper = updater._conaryhelper
 
-sources, failed = updater.create(cfg.package, buildAll=False)
+sources, failed = updater.create(cfg.package, buildAll=True)
 
 pkgs = helper._repos.getTroveLeavesByLabel({None: {helper._ccfg.buildLabel: None}})
 pkgSet = set([ x.split(':')[0] for x in pkgs ])
@@ -63,7 +63,7 @@ for pkg in pkgSet:
     for src, binSet in helper._getSourceTroves((pkg, version, flavor)).iteritems():
         src = (src[0].split(':')[0], src[1], src[2])
         if src not in sources:
-            slog.warn('skipping %s, it not in souces' % src[0])
+            slog.warn('skipping %s, it not in sources' % src[0])
             continue
 
         if src not in srcDict:
@@ -91,4 +91,4 @@ binLst = list(bins)
 binLst.sort()
 
 for item in binLst:
-    print ' ' * 12, '\'%s\',' % item
+    print ' ' * 11, '\'%s\',' % item
