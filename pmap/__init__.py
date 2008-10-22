@@ -17,3 +17,29 @@ PMAP - PiperMail Archive Parser
 
 Parse advisories from pipermail archives.
 """
+
+from imputil import imp
+
+__all__ = ('InvalidBackendError', 'parse')
+__supported_backends = ('ubuntu', 'centos')
+
+class InvalidBackendError(Exception):
+    pass
+
+def __getBackend(backend):
+    if backend not in __supported_backends:
+        raise InvalidBackendError('%s is not a supported backend, please '
+            'choose from %s' % (backend, ','.join(__supported_backends)))
+
+    try:
+        path = [imp.find_module('pmap')[1], ]
+        mod = imp.find_module(backend, path)
+        loaded = imp.load_module(backend, mod[0], mod[1], mod[2])
+        return loaded
+    except ImportError, e:
+        raise InvalidBackendError('Could not load %s backend: %s' % (backend, e))
+
+def parse(url, backend='ubuntu'):
+    backend = __getBackend(backend)
+    parser = backend.Parser()
+    return parser.parse(url)
