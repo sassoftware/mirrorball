@@ -121,13 +121,13 @@ _MIMENAMES = [
 
 for _name in _LOWERNAMES:
     importer = LazyImporter(_name.lower())
-    sys.modules['email.' + _name] = importer
-    setattr(sys.modules['email'], _name, importer)
+    sys.modules['vendor.email.' + _name] = importer
+    setattr(sys.modules['vendor.email'], _name, importer)
 
 
-import email.mime
+import vendor.email.mime
 for _name in _MIMENAMES:
     importer = LazyImporter('mime.' + _name.lower())
-    sys.modules['email.MIME' + _name] = importer
-    setattr(sys.modules['email'], 'MIME' + _name, importer)
-    setattr(sys.modules['email.mime'], _name, importer)
+    sys.modules['vendor.email.MIME' + _name] = importer
+    setattr(sys.modules['vendor.email'], 'MIME' + _name, importer)
+    setattr(sys.modules['vendor.email.mime'], _name, importer)
