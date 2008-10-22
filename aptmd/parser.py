@@ -133,6 +133,13 @@ class ContainerizedParser(Parser):
 
         return key
 
+    def _newContainer(self):
+        if self._curObj is not None:
+            if hasattr(self._curObj, 'finalize'):
+                self._curObj.finalize()
+            self._objects.append(self._curObj)
+        self._curObj = self._containerClass()
+
     def parse(self, fileObj):
         self._objects = []
         Parser.parse(self, fileObj)
