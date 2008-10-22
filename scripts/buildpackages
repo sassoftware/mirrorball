@@ -21,15 +21,19 @@ from updatebot import log
 from updatebot import build
 from updatebot import config
 
+if len(sys.argv) < 3 or sys.argv[1] not in os.listdir(os.environ['HOME'] + '/hg/mirrorball/config'):
+    print 'usage: buildpackages <platform> [pkg1, pkg2, ...]'
+    sys.exit(1)
+
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
 
 builder = build.Builder(cfg)
 
 trvs = set()
 label = cfg.topSourceGroup[1]
-for pkg in sys.argv[1:]:
+for pkg in sys.argv[2:]:
     trvs.add((pkg, label, None))
 trvMap = builder.build(trvs)
 
