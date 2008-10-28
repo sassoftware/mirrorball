@@ -677,6 +677,7 @@ class _mboxMMDF(_singlefileMailbox):
 
     def get_message(self, key):
         """Return a Message representation or raise a KeyError."""
+        import epdb; epdb.st()
         start, stop = self._lookup(key)
         self._file.seek(start)
         from_line = self._file.readline().replace(os.linesep, '')
