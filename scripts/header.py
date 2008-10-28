@@ -32,7 +32,7 @@ if len(sys.argv) < 2 or sys.argv[1] not in os.listdir(os.environ['HOME'] + '/hg/
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
 
 builder = build.Builder(cfg)
 
