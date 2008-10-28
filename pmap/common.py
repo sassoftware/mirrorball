@@ -14,7 +14,7 @@
 
 import tempfile
 
-from upstream import mailbox
+from vendor import mailbox
 
 from aptmd.container import Container
 from aptmd.parser import ContainerizedParser as Parser
@@ -48,4 +48,4 @@ class BaseParser(Parser):
 
     def _parseMsg(self, msg):
         self._newContainer()
-
+        
