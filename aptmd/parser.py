@@ -118,7 +118,7 @@ class ContainerizedParser(Parser):
     def _filter(self, filter, state):
         self._stateFilters[re.compile(filter)] = state
 
-    def _getState(key):
+    def _getState(self, key):
         key = key.strip()
         key = key.lower()
         if key.endswith(':'):
