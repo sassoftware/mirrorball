@@ -7,29 +7,10 @@
 Script for cooking groups defined in the updatebot config.
 """
 
-import os
-import sys
+from header import *
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/rpath-xmllib')
-sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
-
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
-
-from updatebot import log
-from updatebot import build
-from updatebot import config
-
-if len(sys.argv) < 3 or sys.argv[1] not in os.listdir(os.environ['HOME'] + '/hg/mirrorball/config'):
-    print 'usage: buildpackages <platform> [pkg1, pkg2, ...]'
-    sys.exit(1)
-
-log.addRootLogger()
-cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
-
-builder = build.Builder(cfg)
+if len(sys.argv) < 3:
+    usage()
 
 trvs = set()
 label = cfg.topSourceGroup[1]
@@ -39,14 +20,4 @@ trvMap = builder.build(trvs)
 
 print "built:\n"
 
-def displayTrove(nvf):
-    flavor = ''
-    if nvf[2] is not None:
-        flavor = '[%s]' % nvf[2]
-
-    return '%s=%s%s' % (nvf[0], nvf[1], flavor)
-
-for srcTrv in trvMap.iterkeys():
-    print displayTrove(srcTrv)
-    for binTrv in trvMap[srcTrv]:
-        print " " * 4, displayTrove(binTrv)
+display(trvMap)
