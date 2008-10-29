@@ -16,4 +16,4 @@ grpTrvMap = builder.build(grpTrvs)
 
 print "built:\n"
 
-display(grpTrvMap)
+def displayTrove(nvf):
