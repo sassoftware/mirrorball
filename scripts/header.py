@@ -24,7 +24,7 @@ from updatebot import build
 from updatebot import config
 
 def usage():
-    print 'usage: buildpackages <platform> [pkg1, pkg2, ...]'
+    print 'usage: %s <platform> [pkg1, pkg2, ...]' % sys.argv[0]
     sys.exit(1)
 
 if len(sys.argv) < 2 or sys.argv[1] not in os.listdir(os.environ['HOME'] + '/hg/mirrorball/config'):
