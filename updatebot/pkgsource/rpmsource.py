@@ -32,7 +32,10 @@ class RpmSource(object):
     def __init__(self, cfg):
         self._excludeArch = cfg.excludeArch
 
-        # {srpm: {rpm: path}
+        # {srcTup: srpm}
+        self._srcMap = dict()
+
+        # {srcTup: {rpm: path}
         self._rpmMap = dict()
 
         # set of all src pkg objects
@@ -110,6 +113,7 @@ class RpmSource(object):
         self.locationMap[package.location] = package
 
         self._srcPkgs.add(package)
+        self._srcMap[(package.name, package.epoch, package.version, package.release, package.arch)] = package
 
     def _procBin(self, package):
         """
@@ -163,11 +167,33 @@ class RpmSource(object):
 
             self.srcPkgMap[pkg] = self._rpmMap[key]
             self.srcPkgMap[pkg].add(pkg)
+            del self._rpmMap[key]
 
             for binPkg in self.srcPkgMap[pkg]:
                 self.binPkgMap[binPkg] = pkg
 
-        log.warn('found %s source rpms without matching binary rpms' % count)
+        if count > 0:
+            log.warn('found %s source rpms without matching binary rpms' % count)
+
+        # Attempt to match up remaining binaries with srpms.
+        for srcTup in self._rpmMap.keys():
+            srcKey = list(srcTup)
+            epoch = int(srcKey[1])
+            while epoch >= 0:
+                srcKey[1] = str(epoch)
+                key = tuple(srcKey)
+                if key in self._srcMap:
+                    srcPkg = self._srcMap[key]
+                    for binPkg in self._rpmMap[srcTup]:
+                        self.srcPkgMap[srcPkg].add(binPkg)
+                        self.binPkgMap[binPkg] = srcPkg
+                    del self._rpmMap[srcTup]
+                    break
+                epoch -= 1
+
+        if self._rpmMap:
+            count = sum([ len(x) for x in self._rpmMap.itervalues() ])
+            log.warn('found %s binary rpms without matching srpms' % count)
 
     def loadFileLists(self, client, basePath):
         for pkg in client.getFileLists():
