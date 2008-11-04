@@ -20,6 +20,7 @@ time cvc promote $cfg \
     group-appliance:source=centos.rpath.com@rpath:centos-5-devel \
     platform-definition:source=centos.rpath.com@rpath:centos-5-devel \
     kernel=centos.rpath.com@rpath:centos-5-devel \
+    anaconda-templates=centos.rpath.com@rpath:centos-5-devel \
     group-os=centos.rpath.com@rpath:centos-5-devel \
     /centos.rpath.com@rpath:centos-5-devel--/centos.rpath.com@rpath:centos-5 \
     /centos.rpath.com@rpath:centos-devel//centos-5-devel--/centos.rpath.com@rpath:centos-devel//centos-5 \
