@@ -56,7 +56,7 @@ def setup():
 
     testutilsPath = setPathFromEnv('TESTUTILS_PATH', '../testutils')
     conaryDir = setPathFromEnv('CONARY_PATH', '../conary')
-    conaryTestPath = setPathFromEnv('CONARY_TEST_PATH', '../conary-test')
+    conaryTestPath = setPathFromEnv('CONARY_TEST_PATH', '../conary-test-2.0')
     setPathFromEnv('CONARY_POLICY_PATH', '/usr/lib/conary/policy')
     mirrorballPath = setPathFromEnv('SLEESTACK_PATH', '')
 
