@@ -13,6 +13,7 @@
 # full details.
 #
 
+import os
 from updatebot import bot, config
 
 def validatePlatform(platform, configDir):
