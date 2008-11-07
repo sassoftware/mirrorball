@@ -18,6 +18,12 @@ PMAP - PiperMail Archive Parser
 Parse advisories from pipermail archives.
 """
 
+import os
+import gzip
+import shutil
+import urllib2
+import tempfile
+
 from imputil import imp
 
 __all__ = ('InvalidBackendError', 'parse')
@@ -25,6 +31,22 @@ __supported_backends = ('ubuntu', 'centos')
 
 class InvalidBackendError(Exception):
     pass
+
+def __getFileObjFromUrl(url):
+    fn = tempfile.mktemp(prefix='pmap')
+
+    # download file
+    inf = urllib2.urlopen(url)
+    outf = open(fn, 'w')
+    shutil.copyfileobj(inf, outf)
+
+    if url.endswith('.gz'):
+        fh = gzip.open(fn)
+    else:
+        fh = open(fn)
+
+    os.unlink(fn)
+    return fh
 
 def __getBackend(backend):
     if backend not in __supported_backends:
@@ -39,7 +61,8 @@ def __getBackend(backend):
     except ImportError, e:
         raise InvalidBackendError('Could not load %s backend: %s' % (backend, e))
 
-def parse(url, backend='ubuntu'):
+def parse(url, backend='centos'):
+    fh = __getFileObjFromUrl(url)
     backend = __getBackend(backend)
     parser = backend.Parser()
-    return parser.parse(url)
+    return parser.parse(fh)
