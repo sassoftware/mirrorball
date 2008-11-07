@@ -12,6 +12,8 @@
 # full details.
 #
 
+import re
+
 class _QuotedLineTokenizer(object):
     def __init__(self):
         self._cur = None
@@ -95,6 +97,9 @@ class Parser(object):
 
     def _getLine(self):
         return ' '.join(self._line[1:]).strip()
+
+    def _getFullLine(self):
+        return ' '.join(self._line).strip()
 
     def _checkLength(self, length, gt=False):
         if gt: assert(len(self._line) > length)
