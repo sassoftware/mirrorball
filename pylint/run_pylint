@@ -35,7 +35,7 @@ while ! test -z "$1" ; do
 done
 
 if [ -z "$files" ] ; then
-    files="updatebot repomd rpmutils aptmd"
+    files="updatebot repomd rpmutils aptmd pmap"
 fi
 
 pylint --init-hook='import sys; sys.path.append("."); import init_pylint' --rcfile='../pylintrc' $pylintArgs $files
