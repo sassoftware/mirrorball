@@ -12,20 +12,22 @@
 # full details.
 #
 
+import email
+import shutil
+import mailbox
 import tempfile
-
-from vendor import mailbox
 
 from aptmd.container import Container
 from aptmd.parser import ContainerizedParser as Parser
 
 class BaseContainer(Container):
-    __slots__ = ('fromAddr', 'fromName', 'timestamp')
+    __slots__ = ('fromAddr', 'fromName', 'timestamp', 'subject', 'msg')
 
 class BaseParser(Parser):
     def __init__(self):
         Parser.__init__(self)
 
+        self._curMsg = None
         self._containerClass = BaseContainer
         self._states.update({
         })
@@ -40,7 +42,7 @@ class BaseParser(Parser):
     def _getMbox(self, fileObj):
         tmpfn = tempfile.mktemp()
         tmpfh = open(tmpfn, 'w')
-        tmpfh.write(fileObj.read())
+        shutil.copyfileobj(fileObj, tmpfh)
         tmpfh.close()
 
         mbox = mailbox.mbox(tmpfn)
@@ -48,4 +50,17 @@ class BaseParser(Parser):
 
     def _parseMsg(self, msg):
         self._newContainer()
-        
+        assert msg.get_content_type() == 'text/plain'
+
+        self._curMsg = msg
+        self._curObj.msg = msg
+
+        # Extract info from message
+        fromLine = msg['From']
+        self._curObj.fromAddr = fromLine[:fromLine.find('(')].replace(' at ', '@')
+        self._curObj.fromName = fromLine[fromLine.find('('):].strip('()')
+        self._curObj.timestamp = ' '.join(msg.get_from().split()[4:])
+        self._curObj.subject = msg['Subject']
+
+        for line in msg.get_payload().split('\n'):
+            self._parseLine(line)
