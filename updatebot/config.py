@@ -40,6 +40,22 @@ class CfgBranch(CfgLabel):
         except versions.ParseError, e:
             raise ParseError, e
 
+class CfgContextFlavor(CfgFlavor):
+    """
+    Class for representing both a flavor context name and a build flavor.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config string.
+        """
+
+        try:
+            context, flavorStr = val.split()
+            flavor = CfgFlavor.parseString(self, flavorStr)
+            return context, flavor
+        except versions.ParseError, e:
+            raise ParseError, e
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
@@ -106,6 +122,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # flavors to build the source group.
     groupFlavors        = (CfgList(CfgFlavor), [])
+
+    # flavors to build kernels.
+    kernelFlavors       = (CfgList(CfgContextFlavor), [])
 
     # email information for sending advisories
     emailFromName       = CfgString
