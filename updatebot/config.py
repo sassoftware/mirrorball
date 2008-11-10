@@ -96,6 +96,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # Label to promote to
     targetLabel         = CfgBranch
 
+    # Packages other than the topGroup that need to be promoted.
+    extraPromoteTroves  = (CfgList(CfgTroveSpec), [])
+
     # Packages to import
     package             = (CfgList(CfgString), [])
 

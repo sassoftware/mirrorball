@@ -364,4 +364,5 @@ class Updater(object):
 
         return self._conaryhelper.promote(trvLst, expected,
                                           self._cfg.sourceLabel, targetLabel,
-                                          checkPackageList=checkPackageList)
+                                          checkPackageList=checkPackageList,
+                                          extraPromoteTroves=self._cfg.extraPromoteTroves)
