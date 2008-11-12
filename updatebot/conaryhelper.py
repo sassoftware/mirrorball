@@ -438,7 +438,7 @@ class ConaryHelper(object):
         grpTrvs = set([ (x[0], x[2]) for x in trvLst if not x[0].endswith(':source') ])
         grpDiff = set([ x[0] for x in trvDiff.difference(grpTrvs) ])
         extraTroves = set([ x[0] for x in extraPromoteTroves ])
-        if checkPackageList and not grpDiff.difference(extraTroves):
+        if checkPackageList and grpDiff.difference(extraTroves):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
         log.info('committing changeset')
