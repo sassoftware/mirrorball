@@ -61,8 +61,7 @@ class Bot(object):
             client = aptmd.Client(self._cfg.repositoryUrl)
 
         for repo in self._cfg.repositoryPaths:
-            log.info('loading repository data %s/%s'
-                     % (self._cfg.repositoryUrl, repo))
+            log.info('loading repository data %s' % repo)
 
             if self._cfg.repositoryFormat == 'yum':
                 client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
@@ -82,8 +81,7 @@ class Bot(object):
             return
 
         for path, client in self._clients.iteritems():
-            log.info('loading patch information %s/%s'
-                     % (self._cfg.repositoryUrl, path))
+            log.info('loading patch information %s' % path)
             self._patchSource.loadFromClient(client, path)
 
         self._patchSourcePopulated = True
