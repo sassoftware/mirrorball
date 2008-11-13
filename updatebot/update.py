@@ -88,6 +88,7 @@ class Updater(object):
             # skip special packages
             if (name.startswith('info-') or
                 name.startswith('group-') or
+                name.startswith('factory-') or
                 name in self._cfg.excludePackages):
                 continue
 
