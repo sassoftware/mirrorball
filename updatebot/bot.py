@@ -24,9 +24,8 @@ import repomd
 
 from updatebot import build
 from updatebot import update
-from updatebot import advise
 from updatebot import pkgsource
-from updatebot import patchsource
+from updatebot import advisories
 
 log = logging.getLogger('updatebot.bot')
 
@@ -42,25 +41,10 @@ class Bot(object):
 
         self._clients = {}
         self._pkgSource = pkgsource.PackageSource(self._cfg)
-        self._patchSource = patchsource.PatchSource(self._cfg)
         self._updater = update.Updater(self._cfg, self._pkgSource)
-        self._advisor = advise.Advisor(self._cfg, self._pkgSource,
-                                       self._patchSource)
+        self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
+                                           backend=self._cfg.platformName)
         self._builder = build.Builder(self._cfg)
-
-    def _populatePatchSource(self):
-        """
-        Populate the patch source data structures.
-        """
-
-        if self._patchSourcePopulated:
-            return
-
-        for path, client in self._clients.iteritems():
-            log.info('loading patch information %s' % path)
-            self._patchSource.loadFromClient(client, path)
-
-        self._patchSourcePopulated = True
 
     @staticmethod
     def _flattenSetDict(setDict):
@@ -155,7 +139,7 @@ class Bot(object):
 
         # Populate patch source not that we know that there are updates
         # available.
-        self._populatePatchSource()
+        self._advisor.load()
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
