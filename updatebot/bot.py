@@ -69,7 +69,7 @@ class Bot(object):
         log.info('starting import')
 
         # Populate rpm source object from yum metadata.
-        self.pkgSource.load()
+        self._pkgSource.load()
 
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
@@ -128,7 +128,7 @@ class Bot(object):
         log.info('starting update')
 
         # Populate rpm source object from yum metadata.
-        self.pkgSource.load()
+        self._pkgSource.load()
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
@@ -143,8 +143,6 @@ class Bot(object):
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
-
-        import epdb; epdb.st()
 
         # Update source
         for nvf, srcPkg in toUpdate:
