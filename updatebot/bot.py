@@ -43,7 +43,7 @@ class Bot(object):
         self._pkgSource = pkgsource.PackageSource(self._cfg)
         self._updater = update.Updater(self._cfg, self._pkgSource)
         self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
-                                           backend=self._cfg.platformName)
+                                           self._cfg.platformName)
         self._builder = build.Builder(self._cfg)
 
     @staticmethod
