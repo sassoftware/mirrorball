@@ -34,7 +34,7 @@ def __getBackend(backend):
         raise InvalidBackendError('Could not load %s backend: %s'
                                   % (backend, e))
 
-def Advisor(cfg, pkgSource, backend='centos'):
+def Advisor(cfg, pkgSource, backend):
     klass = __getBackend(backend)
     obj = klass(cfg, pkgSource)
     return obj.load()
