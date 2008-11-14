@@ -42,6 +42,6 @@ def __getBackend(backend):
                                   % (backend, e))
 
 def Advisor(cfg, pkgSource, backend):
-    klass = __getBackend(backend)
-    obj = klass.Advisor(cfg, pkgSource)
-    return obj.load()
+    module = __getBackend(backend)
+    obj = module.Advisor(cfg, pkgSource)
+    return obj
