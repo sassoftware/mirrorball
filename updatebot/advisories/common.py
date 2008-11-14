@@ -12,6 +12,10 @@
 # full details.
 #
 
+"""
+Base modules for dealing
+"""
+
 import time
 import smtplib
 import logging

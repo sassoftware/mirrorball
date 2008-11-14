@@ -12,6 +12,10 @@
 # full details.
 #
 
+"""
+Top level advisories module.
+"""
+
 import logging
 from imputil import imp
 
