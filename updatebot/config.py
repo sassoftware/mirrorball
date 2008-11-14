@@ -52,6 +52,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # name of the product to use in advisories
     productName         = CfgString
 
+    # platform short name
+    platformName        = CfgString
+
     # path to configuration files relative to updatebotrc (conaryrc, rmakerc)
     configPath          = (CfgString, './')
 
