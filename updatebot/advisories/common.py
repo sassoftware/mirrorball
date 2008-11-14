@@ -34,6 +34,159 @@ from updatebot.errors import NoRecipientsFoundError
 from updatebot.errors import NoSenderFoundError
 from updatebot.errors import ProductNameNotDefinedError
 
+class BaseAdvisory(object):
+    """
+    Module for representing an advisory message.
+    """
+
+    template = """\
+Published: %(date)s
+Products:
+    %(product)s
+
+Updated Versions:
+%(updateTroves)s
+
+Description:
+%(description)s
+"""
+
+    def __init__(self, cfg):
+        self._cfg = cfg
+
+        self._fromName = self._cfg.emailFromName
+        self._from = self._cfg.emailFrom
+        self._to = self._cfg.emailTo
+        self._bcc = self._cfg.emailBcc
+
+        self._subject = None
+
+        if not self._cfg.productName:
+            raise ProductNameNotDefinedError
+
+        if not self._from or not self._fromName:
+            raise NoSenderFoundError(why='Configuration error, emailFrom or '
+                'emailFromName not defined')
+
+        if not self._to:
+            raise NoRecipientsFoundError(why='Configuration error, emailTo not '
+                'defined')
+
+        self._data = {'product': self._cfg.productName,
+                      'date': time.strftime('%Y-%m-%d', time.localtime()),
+                      'updateTroves': ''}
+
+    def __str__(self):
+        return self._subject
+
+    def send(self):
+        """
+        Send an advisory email.
+        """
+
+        message = self._getMessage()
+        smtp = self._smtpConnect()
+
+        try:
+            results = smtp.sendmail(self._from, self._to, message.as_string())
+        except (SMTPRecipientsRefused, SMTPHeloError, SMTPSenderRefused,
+                SMTPDataError), e:
+            raise FailedToSendAdvisoryError(error=e)
+
+        smtp.quit()
+
+        if results is not None and results != {}:
+            raise AdvisoryRecipientRefusedError(data=results)
+
+        return results
+
+    def _getMessage(self):
+        """
+        Get the message to send.
+        """
+
+        msgText = self.template % self._data
+        email = MIMEText(msgText)
+        email['Subject'] = self._subject
+        email['From'] = '%s <%s>' % (self._fromName, self._from)
+        email['To'] = self._formatList(self._to)
+        email['Bcc'] = self._formatList(self._bcc)
+        return email
+
+    @staticmethod
+    def _formatList(lst):
+        """
+        Format a list to be comma separated.
+        """
+
+        return ', '.join(lst)
+
+    def _smtpConnect(self):
+        """
+        Get a smtp connection object.
+        """
+
+        server = smtplib.SMTP(self._cfg.smtpServer)
+
+        rootLogger = logging.getLogger('')
+        if rootLogger.level == logging.DEBUG:
+            server.set_debuglevel(1)
+
+        return server
+
+    def setUpdateTroves(self, troves):
+        """
+        Set the list of updated troves to add to the advisory.
+        @param troves: list of troves
+        @type troves: [(name, version, flavor), ... ]
+        """
+
+        trvs = set()
+        for n, v, f in troves:
+            trvs.add(self._formatTrove(n, v, f))
+
+        self._data['updateTroves'] += self._indentFormatList(trvs)
+
+    @staticmethod
+    def _indentFormatList(lst, indent=1):
+        """
+        Format a list into a string with tab indention.
+        """
+
+        tab = '    ' * indent
+        joinString = '\n' + tab
+        result = tab + joinString.join(lst)
+        return result
+
+    @staticmethod
+    def _formatTrove(n, v, f):
+        """
+        Format a trove spec into a string.
+        """
+
+        # W0613 - Unused argument 'f'
+        # pylint: disable-msg=W0613
+
+        label = v.trailingLabel().asString()
+        revision = v.trailingRevision().asString()
+
+        return '%s=%s/%s' % (n, label, revision)
+
+    def setSubject(self, subject):
+        """
+        Set the subject of the advisory email.
+        """
+
+        self._subject = subject
+
+    def setDescription(self, desc):
+        """
+        Set the description of the advisory.
+        """
+
+        self._data['description'] = desc
+
+
 class BaseAdvisor(object):
     """
     Class for managing, manipulating, and distributing advisories.
@@ -222,156 +375,3 @@ class BaseAdvisor(object):
                 raise NoPackagesFoundForAdvisory(what=(nvf, srcPkg))
 
         return res
-
-
-class BaseAdvisory(object):
-    """
-    Module for representing an advisory message.
-    """
-
-    template = """\
-Published: %(date)s
-Products:
-    %(product)s
-
-Updated Versions:
-%(updateTroves)s
-
-Description:
-%(description)s
-"""
-
-    def __init__(self, cfg):
-        self._cfg = cfg
-
-        self._fromName = self._cfg.emailFromName
-        self._from = self._cfg.emailFrom
-        self._to = self._cfg.emailTo
-        self._bcc = self._cfg.emailBcc
-
-        self._subject = None
-
-        if not self._cfg.productName:
-            raise ProductNameNotDefinedError
-
-        if not self._from or not self._fromName:
-            raise NoSenderFoundError(why='Configuration error, emailFrom or '
-                'emailFromName not defined')
-
-        if not self._to:
-            raise NoRecipientsFoundError(why='Configuration error, emailTo not '
-                'defined')
-
-        self._data = {'product': self._cfg.productName,
-                      'date': time.strftime('%Y-%m-%d', time.localtime()),
-                      'updateTroves': ''}
-
-    def __str__(self):
-        return self._subject
-
-    def send(self):
-        """
-        Send an advisory email.
-        """
-
-        message = self._getMessage()
-        smtp = self._smtpConnect()
-
-        try:
-            results = smtp.sendmail(self._from, self._to, message.as_string())
-        except (SMTPRecipientsRefused, SMTPHeloError, SMTPSenderRefused,
-                SMTPDataError), e:
-            raise FailedToSendAdvisoryError(error=e)
-
-        smtp.quit()
-
-        if results is not None and results != {}:
-            raise AdvisoryRecipientRefusedError(data=results)
-
-        return results
-
-    def _getMessage(self):
-        """
-        Get the message to send.
-        """
-
-        msgText = self.template % self._data
-        email = MIMEText(msgText)
-        email['Subject'] = self._subject
-        email['From'] = '%s <%s>' % (self._fromName, self._from)
-        email['To'] = self._formatList(self._to)
-        email['Bcc'] = self._formatList(self._bcc)
-        return email
-
-    @staticmethod
-    def _formatList(lst):
-        """
-        Format a list to be comma separated.
-        """
-
-        return ', '.join(lst)
-
-    def _smtpConnect(self):
-        """
-        Get a smtp connection object.
-        """
-
-        server = smtplib.SMTP(self._cfg.smtpServer)
-
-        rootLogger = logging.getLogger('')
-        if rootLogger.level == logging.DEBUG:
-            server.set_debuglevel(1)
-
-        return server
-
-    def setUpdateTroves(self, troves):
-        """
-        Set the list of updated troves to add to the advisory.
-        @param troves: list of troves
-        @type troves: [(name, version, flavor), ... ]
-        """
-
-        trvs = set()
-        for n, v, f in troves:
-            trvs.add(self._formatTrove(n, v, f))
-
-        self._data['updateTroves'] += self._indentFormatList(trvs)
-
-    @staticmethod
-    def _indentFormatList(lst, indent=1):
-        """
-        Format a list into a string with tab indention.
-        """
-
-        tab = '    ' * indent
-        joinString = '\n' + tab
-        result = tab + joinString.join(lst)
-        return result
-
-    @staticmethod
-    def _formatTrove(n, v, f):
-        """
-        Format a trove spec into a string.
-        """
-
-        # W0613 - Unused argument 'f'
-        # pylint: disable-msg=W0613
-
-        label = v.trailingLabel().asString()
-        revision = v.trailingRevision().asString()
-
-        return '%s=%s/%s' % (n, label, revision)
-
-    def setSubject(self, subject):
-        """
-        Set the subject of the advisory email.
-        """
-
-        self._subject = subject
-
-    def setDescription(self, desc):
-        """
-        Set the description of the advisory.
-        """
-
-        self._data['description'] = desc

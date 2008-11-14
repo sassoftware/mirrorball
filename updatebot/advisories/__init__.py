@@ -24,14 +24,17 @@ log = logging.getLogger('updatebot.advisories')
 class InvalidBackendError(Exception):
     pass
 
+__supported_backends = ('sles', )
+
 def __getBackend(backend):
     if backend not in __supported_backends:
         raise InvalidBackendError('%s is not a supported backend, please '
             'choose from %s' % (backend, ','.join(__supported_backends)))
 
     try:
-        path = [imp.find_module('updatebot.advisories')[1], ]
-        mod = imp.find_module(backend, path)
+        updatebotPath = [imp.find_module('updatebot')[1], ]
+        advisoriesPath = [imp.find_module('advisories', updatebotPath)[1], ]
+        mod = imp.find_module(backend, advisoriesPath)
         loaded = imp.load_module(backend, mod[0], mod[1], mod[2])
         return loaded
     except ImportError, e:
@@ -40,5 +43,5 @@ def __getBackend(backend):
 
 def Advisor(cfg, pkgSource, backend):
     klass = __getBackend(backend)
-    obj = klass(cfg, pkgSource)
+    obj = klass.Advisor(cfg, pkgSource)
     return obj.load()
