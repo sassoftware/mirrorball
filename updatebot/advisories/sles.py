@@ -24,7 +24,7 @@ class Advisor(BaseAdvisor):
         for path, client in self._pkgSource.getClients().iteritems():
             log.info('loading patch information %s' % path)
             for patch in client.getPatchDetail():
-                self._lineOne(patch, path)
+                self._loadOne(patch, path)
 
     def _loadOne(self, patch, path):
         """
@@ -40,9 +40,9 @@ class Advisor(BaseAdvisor):
 
         for package in patch.packages:
             package.location = path + '/' + package.location
-            if package not in self.pkgMap:
-                self.pkgMap[package] = set()
-            self.pkgMap[package].add(patch)
+            if package not in self._pkgMap:
+                self._pkgMap[package] = set()
+            self._pkgMap[package].add(patch)
 
     def _filterPatch(self, patch):
         """
