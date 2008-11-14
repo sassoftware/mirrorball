@@ -38,7 +38,6 @@ class Bot(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self._pkgSourcePopulated = False
         self._patchSourcePopulated = False
 
         self._clients = {}
@@ -48,29 +47,6 @@ class Bot(object):
         self._advisor = advise.Advisor(self._cfg, self._pkgSource,
                                        self._patchSource)
         self._builder = build.Builder(self._cfg)
-
-    def _populatePkgSource(self):
-        """
-        Populate the rpm source data structures.
-        """
-
-        if self._pkgSourcePopulated:
-            return
-
-        if self._cfg.repositoryFormat == 'apt':
-            client = aptmd.Client(self._cfg.repositoryUrl)
-
-        for repo in self._cfg.repositoryPaths:
-            log.info('loading repository data %s' % repo)
-
-            if self._cfg.repositoryFormat == 'yum':
-                client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-
-            self._pkgSource.loadFromClient(client, repo)
-            self._clients[repo] = client
-
-        self._pkgSource.finalize()
-        self._pkgSourcePopulated = True
 
     def _populatePatchSource(self):
         """
@@ -109,7 +85,7 @@ class Bot(object):
         log.info('starting import')
 
         # Populate rpm source object from yum metadata.
-        self._populatePkgSource()
+        self.pkgSource.load()
 
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
@@ -168,7 +144,7 @@ class Bot(object):
         log.info('starting update')
 
         # Populate rpm source object from yum metadata.
-        self._populatePkgSource()
+        self.pkgSource.load()
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
@@ -183,6 +159,8 @@ class Bot(object):
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
+
+        import epdb; epdb.st()
 
         # Update source
         for nvf, srcPkg in toUpdate:
