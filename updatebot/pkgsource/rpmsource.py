@@ -30,7 +30,8 @@ class RpmSource(object):
     """
 
     def __init__(self, cfg):
-        self._excludeArch = cfg.excludeArch
+        self._cfg = cfg
+        self._excludeArch = self._cfg.excludeArch
 
         # {srcTup: srpm}
         self._srcMap = dict()
@@ -77,7 +78,7 @@ class RpmSource(object):
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-            self._pkgSource.loadFromClient(client, repo)
+            self.loadFromClient(client, repo)
             self._clients[repo] = client
 
         self.finalize()
