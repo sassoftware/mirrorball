@@ -198,7 +198,7 @@ class BaseAdvisor(object):
         self._cfg = cfg
         self._pkgSource = pkgSource
 
-        # { binPkg: patchObj }
+        # { binPkg: set([patchObj, ...]) }
         self._pkgMap = dict()
 
         # { patchObj: set([srcPkg, ...] }
