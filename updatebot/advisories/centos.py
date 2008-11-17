@@ -17,6 +17,7 @@ import time
 import pmap
 import logging
 
+from updatebot.update import Updater
 from updatebot.advisories.common import BaseAdvisor
 
 log = logging.getLogger('updatebot.advisories')
@@ -30,33 +31,13 @@ class Advisor(BaseAdvisor):
         object to patch object for a given platform into self._pkgMap.
         """
 
-        def compLocation(pkg1, pkg2):
-            loc1 = pkg1.location.split('/')
-            loc1.pop(2)
-            loc2 = pkg2.location.split('/')
-            loc2.pop(2)
-
-            if loc1 == loc2:
-                return True
-            return False
-
         # Build data structure for looking up packages based on basename.
         pkgCache = {}
         for binPkg in self._pkgSource.binPkgMap:
             baseName = os.path.basename(binPkg.location)
-            if baseName in pkgCache:
-                if pkgCache[baseName] is binPkg:
-                    log.info('found multiple instances of the same package in binPkgMap')
-                    continue
-                elif pkgCache[baseName].location == binPkg.location:
-                    log.info('found multiple package objects with the same location')
-                    continue
-                elif compLocation(pkgCache[baseName], binPkg):
-                    continue
-                else:
-                    log.warn('found %s already in pkgCache' % baseName)
-                    continue
-            pkgCache[baseName] = binPkg
+            if baseName not in pkgCache:
+                pkgCache[baseName] = set()
+            pkgCache[baseName].add(binPkg)
 
         # Fetch all of the archives and process them.
         for url in self._getArchiveUrls():
@@ -117,14 +98,11 @@ class Advisor(BaseAdvisor):
                 #log.warn('found %s in msg, but not in pkgCache' % pkgName)
                 continue
 
-            binPkg = pkgCache[pkgName]
-            if binPkg not in self._pkgMap:
-                self._pkgMap[binPkg] = set()
-            self._pkgMap[binPkg].add(msg)
-
-            if msg.packages is None:
-                msg.packages = set()
-            msg.packages.add(binPkg)
+            for binPkg in pkgCache[pkgName]:
+                if binPkg not in self._pkgMap:
+                    self._pkgMap[binPkg] = set()
+                self._pkgMap[binPkg].add(msg)
+                msg.packages.add(binPkg)
 
             # Strip arch out of the subject
             for arch in self.supportedArches:
