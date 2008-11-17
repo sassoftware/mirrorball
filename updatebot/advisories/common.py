@@ -214,26 +214,15 @@ class BaseAdvisor(object):
         @type trvLst: [((name, version, flavor), srcPkg), ... ]
         """
 
-        """
-        1. figure out what advisory source to use
-        2. pass pkgsource, cfg, and trvLst to advisory source
-        3. run .check on advisory source to populate self._advisories
-
-
-        Advisory sources should be able to sanity check themselves.
-        """
-
         # FIXME: Maybe we should check to see if all binary rpms listed in
         #        the advisory are in the set of packages to be updated.
 
         for nvf, srcPkg in trvLst:
-            #import epdb; epdb.st()
             patches = set()
             for binPkg in self._pkgSource.srcPkgMap[srcPkg]:
                 if binPkg in self._pkgMap:
                     patches.update(self._pkgMap[binPkg])
 
-            #import epdb; epdb.st()
             if self._checkForDuplicates(patches):
                 patches = set([patches.pop()])
 
@@ -250,7 +239,6 @@ class BaseAdvisor(object):
                     log.info('package not in updates repository %s' % binPkg)
                     log.debug(binPkg.location)
                 elif len(patches) > 0:
-                    import epdb; epdb.st()
                     log.info('found package not mentioned in advisory %s'
                              % binPkg)
                     log.debug(binPkg.location)
@@ -258,7 +246,7 @@ class BaseAdvisor(object):
                     log.error('could not find advisory for %s' % binPkg)
                     raise NoAdvisoryFoundError(why=binPkg)
 
-            if len(patches) > 1 and not self._checkForDuplicates(patches):
+            if len(patches) > 1:
                 raise MultipleAdvisoriesFoundError(what=srcPkg,
                                                    advisories=patches)
 
