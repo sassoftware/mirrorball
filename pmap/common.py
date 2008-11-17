@@ -61,8 +61,7 @@ class BaseParser(Parser):
         self._curObj.fromAddr = fromLine[:fromLine.find('(')].replace(' at ', '@')
         self._curObj.fromName = fromLine[fromLine.find('('):].strip('()')
         self._curObj.timestamp = ' '.join(msg.get_from().split()[4:])
-        self._curObj.subject = msg['Subject']
-        self._curObj.subject.replace('\n\t', ' ')
+        self._curObj.subject = msg['Subject'].replace('\n\t', ' ')
 
         for line in msg.get_payload().split('\n'):
             self._parseLine(line)
