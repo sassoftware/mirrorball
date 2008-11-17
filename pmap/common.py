@@ -21,7 +21,8 @@ from aptmd.container import Container
 from aptmd.parser import ContainerizedParser as Parser
 
 class BaseContainer(Container):
-    __slots__ = ('fromAddr', 'fromName', 'timestamp', 'subject', 'msg')
+    __slots__ = ('fromAddr', 'fromName', 'timestamp', 'subject', 'msg',
+                 'description', 'summary', 'packages')
 
 class BaseParser(Parser):
     def __init__(self):
