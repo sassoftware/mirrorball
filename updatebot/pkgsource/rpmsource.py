@@ -121,6 +121,10 @@ class RpmSource(object):
 
             pkg.location = basePath + '/' + pkg.location
 
+            # ignore 32bit rpms in a 64bit repo.
+            if pkg.arch in ('i386', 'i586', 'i686') and 'x86_64' in pkg.location:
+                continue
+
             if pkg.sourcerpm == '':
                 self._procSrc(pkg)
             else:

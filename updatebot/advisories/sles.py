@@ -12,7 +12,11 @@
 # full details.
 #
 
-from updatebot.advisories.common import BaseAdvisor, log
+import logging
+
+from updatebot.advisories.common import BaseAdvisor
+
+log = logging.getLogger('updatebot.advisories')
 
 class Advisor(BaseAdvisor):
     def load(self):
@@ -43,21 +47,6 @@ class Advisor(BaseAdvisor):
             if package not in self._pkgMap:
                 self._pkgMap[package] = set()
             self._pkgMap[package].add(patch)
-
-    def _filterPatch(self, patch):
-        """
-        Filter out patches that match filters in config.
-        @param patch: repomd patch object
-        @type patch: repomd.patchxml._Patch
-        """
-
-        for _, regex in self._cfg.patchFilter:
-            if regex.match(patch.summary):
-                return True
-            if regex.match(patch.description):
-                return True
-
-        return False
 
     def _hasException(self, binPkg):
         """
@@ -91,3 +80,13 @@ class Advisor(BaseAdvisor):
             return True
         else:
             return False
+
+    def _checkForDuplicates(self, patchSet):
+        """
+        Check a set of "patch" objects for duplicates. If there are duplicates
+        combine any required information into the first object in the set and
+        return True, otherwise return False.
+        """
+
+        # Don't have dups on sles
+        return False

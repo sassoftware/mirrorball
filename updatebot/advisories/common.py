@@ -227,10 +227,15 @@ class BaseAdvisor(object):
         #        the advisory are in the set of packages to be updated.
 
         for nvf, srcPkg in trvLst:
+            #import epdb; epdb.st()
             patches = set()
             for binPkg in self._pkgSource.srcPkgMap[srcPkg]:
                 if binPkg in self._pkgMap:
                     patches.update(self._pkgMap[binPkg])
+
+            #import epdb; epdb.st()
+            if self._checkForDuplicates(patches):
+                patches = set([patches.pop()])
 
             # Make sure we have advisories for all packages we expect to have
             # advisories for.
@@ -245,6 +250,7 @@ class BaseAdvisor(object):
                     log.info('package not in updates repository %s' % binPkg)
                     log.debug(binPkg.location)
                 elif len(patches) > 0:
+                    import epdb; epdb.st()
                     log.info('found package not mentioned in advisory %s'
                              % binPkg)
                     log.debug(binPkg.location)
@@ -252,7 +258,7 @@ class BaseAdvisor(object):
                     log.error('could not find advisory for %s' % binPkg)
                     raise NoAdvisoryFoundError(why=binPkg)
 
-            if len(patches) > 1:
+            if len(patches) > 1 and not self._checkForDuplicates(patches):
                 raise MultipleAdvisoriesFoundError(what=srcPkg,
                                                    advisories=patches)
 
@@ -310,6 +316,35 @@ class BaseAdvisor(object):
         log.error('The %s backend does not implement %s'
             % (self.__class__.__name__, '_isUpdateRepo'))
         raise NotImplmentedError
+
+    def _checkForDuplicates(self, patchSet):
+        """
+        Check a set of "patch" objects for duplicates. If there are duplicates
+        combine any required information into the first object in the set and
+        return True, otherwise return False.
+
+        Note: This method is meant to be implemented by the backend module
+              that inherits from this class.
+        """
+
+        log.error('The %s backend does not implement %s'
+            % (self.__class__.__name__, '_isUpdateRepo'))
+        raise NotImplmentedError
+
+    def _filterPatch(self, patch):
+        """
+        Filter out patches that match filters in config.
+        @param patch: repomd patch object
+        @type patch: repomd.patchxml._Patch
+        """
+
+        for _, regex in self._cfg.patchFilter:
+            if regex.match(patch.summary):
+                return True
+            if regex.match(patch.description):
+                return True
+
+        return False
 
     def _mkAdvisory(self, patch):
         """

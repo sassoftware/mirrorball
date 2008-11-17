@@ -24,7 +24,7 @@ log = logging.getLogger('updatebot.advisories')
 class InvalidBackendError(Exception):
     pass
 
-__supported_backends = ('sles', )
+__supported_backends = ('sles', 'centos')
 
 def __getBackend(backend):
     if backend not in __supported_backends:

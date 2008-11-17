@@ -40,7 +40,6 @@ class CfgBranch(CfgLabel):
         except versions.ParseError, e:
             raise ParseError, e
 
-
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
     Config class for updatebot.
@@ -103,6 +102,12 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # Filter out patches with matching descriptions or summaries.
     patchFilter         = (CfgList(CfgRegExp), [])
+
+    # url to base archive searchs off of
+    listArchiveBaseUrl  = CfgString
+
+    # date to start querying archives
+    listArchiveStartDate = CfgString
 
     # list of contexts that all packages are built in.
     archContexts        = CfgList(CfgString)
