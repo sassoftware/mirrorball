@@ -19,7 +19,6 @@ class Container(object):
         for cls in self.__class__.__mro__:
             if hasattr(cls, '__slots__'):
                 for item in cls.__slots__:
-                    print item
                     setattr(self, item, None)
 
         self._data = {}
