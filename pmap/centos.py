@@ -22,8 +22,12 @@ from pmap.common import BaseContainer
 class CentOSAdvisory(BaseContainer):
     __slots__ = ('discard', 'archs', 'header', 'pkgs', 'upstreamAdvisoryUrl', )
 
-    def __repr__(self):
-        return self.subject
+    def finalize(self):
+        BaseContainer.finalize(self)
+
+        assert self.subject is not None
+        self.summary = self.subject
+        self.description = self.upstreamAdvisoryUrl
 
 
 class Parser(BaseParser):
@@ -41,13 +45,13 @@ class Parser(BaseParser):
             'sha1'              : self._sha1,
         })
 
-        self._supportedArchRE = '(src|i386|i686|x86_64)'
+        self._supportedArchRE = '(noarch|src|i386|i686|x86_64)'
         self._suparch = re.compile(self._supportedArchRE)
 
         self._filter('^.*rhn\.redhat\.com.*$', 'rhnurl')
         self._filter('^updates.*', 'updates')
         self._filter('^%s' % self._supportedArchRE, 'supportedarch')
-        self._filter('(ia64|s390|s390x)', 'unsupported')
+        self._filter('(ia64|s390|s390x)', 'unsupportedarch')
         self._filter('^[a-z0-9]{32}$', 'sha1')
 
     def _newContainer(self):
@@ -63,6 +67,8 @@ class Parser(BaseParser):
     def _addPkg(self, pkg):
         if self._curObj.pkgs is None:
             self._curObj.pkgs = set()
+        if not pkg.endswith('.rpm'):
+            return
         self._curObj.pkgs.add(pkg)
 
     def _rhnurl(self):

@@ -24,9 +24,8 @@ import repomd
 
 from updatebot import build
 from updatebot import update
-from updatebot import advise
 from updatebot import pkgsource
-from updatebot import patchsource
+from updatebot import advisories
 
 log = logging.getLogger('updatebot.bot')
 
@@ -38,55 +37,14 @@ class Bot(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self._pkgSourcePopulated = False
         self._patchSourcePopulated = False
 
         self._clients = {}
         self._pkgSource = pkgsource.PackageSource(self._cfg)
-        self._patchSource = patchsource.PatchSource(self._cfg)
         self._updater = update.Updater(self._cfg, self._pkgSource)
-        self._advisor = advise.Advisor(self._cfg, self._pkgSource,
-                                       self._patchSource)
+        self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
+                                           self._cfg.platformName)
         self._builder = build.Builder(self._cfg)
-
-    def _populatePkgSource(self):
-        """
-        Populate the rpm source data structures.
-        """
-
-        if self._pkgSourcePopulated:
-            return
-
-        if self._cfg.repositoryFormat == 'apt':
-            client = aptmd.Client(self._cfg.repositoryUrl)
-
-        for repo in self._cfg.repositoryPaths:
-            log.info('loading repository data %s/%s'
-                     % (self._cfg.repositoryUrl, repo))
-
-            if self._cfg.repositoryFormat == 'yum':
-                client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-
-            self._pkgSource.loadFromClient(client, repo)
-            self._clients[repo] = client
-
-        self._pkgSource.finalize()
-        self._pkgSourcePopulated = True
-
-    def _populatePatchSource(self):
-        """
-        Populate the patch source data structures.
-        """
-
-        if self._patchSourcePopulated:
-            return
-
-        for path, client in self._clients.iteritems():
-            log.info('loading patch information %s/%s'
-                     % (self._cfg.repositoryUrl, path))
-            self._patchSource.loadFromClient(client, path)
-
-        self._patchSourcePopulated = True
 
     @staticmethod
     def _flattenSetDict(setDict):
@@ -111,7 +69,7 @@ class Bot(object):
         log.info('starting import')
 
         # Populate rpm source object from yum metadata.
-        self._populatePkgSource()
+        self._pkgSource.load()
 
         # Import sources into repository.
         toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
@@ -170,7 +128,7 @@ class Bot(object):
         log.info('starting update')
 
         # Populate rpm source object from yum metadata.
-        self._populatePkgSource()
+        self._pkgSource.load()
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
@@ -181,7 +139,7 @@ class Bot(object):
 
         # Populate patch source not that we know that there are updates
         # available.
-        self._populatePatchSource()
+        self._advisor.load()
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)

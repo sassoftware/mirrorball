@@ -66,6 +66,8 @@ class SlotNode(xmllib.BaseNode):
     __slots__ = ()
 
     def __init__(self, *args, **kw):
-        for attr in self.__slots__:
-            setattr(self, attr, None)
+        for cls in self.__class__.__mro__:
+            if hasattr(cls, '__slots__'):
+                for attr in self.__slots__:
+                    setattr(self, attr, None)
         xmllib.BaseNode.__init__(self, *args, **kw)

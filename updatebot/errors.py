@@ -196,6 +196,16 @@ class NoPackagesFoundForAdvisory(AdvisoryError):
     _params = ['what', ]
     _template = 'Could not find binary packages for %(what)s'
 
+class ExtraPackagesFoundInUpdateError(AdvisoryError):
+    """
+    ExtraPackagesFoundInUpdateError, raised when packages are found for an
+    update that are not mentioned in the advisory.
+    """
+
+    _params = ['pkg', 'src', 'advisory']
+    _template = ('At least one (%(pkg)s) was found that is not mentioned in the'
+                 ' advisory for %(src)s, %(advisory)s')
+
 class MultipleAdvisoriesFoundError(AdvisoryError):
     """
     MultipleAdvisoriesFoundError, raised when multiple advisories are found

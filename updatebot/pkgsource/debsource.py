@@ -21,16 +21,41 @@ log = logging.getLogger('updatebot.pkgsource')
 
 class DebSource(object):
     def __init__(self, cfg):
-        self._excludeArch = cfg.excludeArch
+        self._cfg = cfg
+        self._excludeArch = self._cfg.excludeArch
 
         self._binPkgs = set()
         self._srcPkgs = set()
+        self._clients = dict()
 
         self.srcPkgMap = dict()
         self.binPkgMap = dict()
         self.srcNameMap = dict()
         self.binNameMap = dict()
         self.locationMap = dict()
+
+    def getClients(self):
+        """
+        Get repository client instances.
+        """
+
+        if not self._clients:
+            self.load()
+
+        return self._clients
+
+    def load(self):
+        """
+        Load repository metadata from a config object.
+        """
+
+        client = repomd.Client(self._cfg.repositoryUrl)
+        for repo in self._cfg.repositoryPaths:
+            log.info('loading repository data %s' % repo)
+            self.loadFromClient(client, repo)
+            self._clients[repo] = client
+
+        self.finalize()
 
     def loadFromClient(self, client, path):
         for pkg in client.parse(path):

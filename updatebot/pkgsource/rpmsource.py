@@ -30,7 +30,8 @@ class RpmSource(object):
     """
 
     def __init__(self, cfg):
-        self._excludeArch = cfg.excludeArch
+        self._cfg = cfg
+        self._excludeArch = self._cfg.excludeArch
 
         # {srcTup: srpm}
         self._srcMap = dict()
@@ -40,6 +41,9 @@ class RpmSource(object):
 
         # set of all src pkg objects
         self._srcPkgs = set()
+
+        # {repoShortUrl: clientObj}
+        self._clients = dict()
 
         # {location: srpm}
         self.locationMap = dict()
@@ -56,7 +60,30 @@ class RpmSource(object):
         # {binName: [binPkg, ... ] }
         self.binNameMap = dict()
 
-    def load(self, url, basePath=''):
+    def getClients(self):
+        """
+        Get instances of repository clients.
+        """
+
+        if not self._clients:
+            self.load()
+
+        return self._clients
+
+    def load(self):
+        """
+        Load package source based on config data.
+        """
+
+        for repo in self._cfg.repositoryPaths:
+            log.info('loading repository data %s' % repo)
+            client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
+            self.loadFromClient(client, repo)
+            self._clients[repo] = client
+
+        self.finalize()
+
+    def loadFromUrl(self, url, basePath=''):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -93,6 +120,10 @@ class RpmSource(object):
             assert '-' not in pkg.release
 
             pkg.location = basePath + '/' + pkg.location
+
+            # ignore 32bit rpms in a 64bit repo.
+            if pkg.arch in ('i386', 'i586', 'i686') and 'x86_64' in pkg.location:
+                continue
 
             if pkg.sourcerpm == '':
                 self._procSrc(pkg)
