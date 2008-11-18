@@ -102,6 +102,9 @@ class Advisor(BaseAdvisor):
                 if binPkg not in self._pkgMap:
                     self._pkgMap[binPkg] = set()
                 self._pkgMap[binPkg].add(msg)
+
+                if msg.packages is None:
+                    msg.packages = set()
                 msg.packages.add(binPkg)
 
             # Strip arch out of the subject
