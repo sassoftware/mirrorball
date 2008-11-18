@@ -16,8 +16,11 @@ class Container(object):
     __slots__ = ('_data', )
 
     def __init__(self):
-        for item in self.__slots__:
-            setattr(self, item, None)
+        for cls in self.__class__.__mro__:
+            if hasattr(cls, '__slots__'):
+                for item in cls.__slots__:
+                    print item
+                    setattr(self, item, None)
 
         self._data = {}
 
