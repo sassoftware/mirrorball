@@ -65,3 +65,7 @@ class BaseParser(Parser):
 
         for line in msg.get_payload().split('\n'):
             self._parseLine(line)
+
+        # Make sure last object gets added to self._objects while allowing
+        # subclasses to have special handling in newContainer.
+        self._newContainer()
