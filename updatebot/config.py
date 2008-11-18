@@ -68,6 +68,9 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # name of the product to use in advisories
     productName         = CfgString
 
+    # platform short name
+    platformName        = CfgString
+
     # path to configuration files relative to updatebotrc (conaryrc, rmakerc)
     configPath          = (CfgString, './')
 
@@ -96,9 +99,6 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # Label to promote to
     targetLabel         = CfgBranch
 
-    # Packages other than the topGroup that need to be promoted.
-    extraPromoteTroves  = (CfgList(CfgTroveSpec), [])
-
     # Packages to import
     package             = (CfgList(CfgString), [])
 
@@ -119,6 +119,12 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # Filter out patches with matching descriptions or summaries.
     patchFilter         = (CfgList(CfgRegExp), [])
+
+    # url to base archive searchs off of
+    listArchiveBaseUrl  = CfgString
+
+    # date to start querying archives
+    listArchiveStartDate = CfgString
 
     # list of contexts that all packages are built in.
     archContexts        = CfgList(CfgString)
