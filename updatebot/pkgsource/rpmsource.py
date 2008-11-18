@@ -150,6 +150,7 @@ class RpmSource(object):
         # Now that we have processed all of the rpms, build some more data
         # structures.
         count = 0
+        toDelete = set()
         for pkg in self._srcPkgs:
             key = (pkg.name, pkg.epoch, pkg.version, pkg.release, pkg.arch)
             if pkg in self.srcPkgMap:
@@ -167,13 +168,17 @@ class RpmSource(object):
 
             self.srcPkgMap[pkg] = self._rpmMap[key]
             self.srcPkgMap[pkg].add(pkg)
-            del self._rpmMap[key]
+            toDelete.add(key)
 
             for binPkg in self.srcPkgMap[pkg]:
                 self.binPkgMap[binPkg] = pkg
 
         if count > 0:
             log.warn('found %s source rpms without matching binary rpms' % count)
+
+        # Defer deletes, contents of rpmMap are used more than once.
+        for key in toDelete:
+            del self._rpmMap[key]
 
         # Attempt to match up remaining binaries with srpms.
         for srcTup in self._rpmMap.keys():
