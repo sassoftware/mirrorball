@@ -19,6 +19,8 @@ from updatebot.advisories.common import BaseAdvisor
 log = logging.getLogger('updatebot.advisories')
 
 class Advisor(BaseAdvisor):
+    allowExtraPackages = True
+
     def load(self):
         """
         Parse the required data to generate a mapping of binary package

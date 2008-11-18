@@ -33,6 +33,7 @@ from updatebot.errors import NoPackagesFoundForAdvisory
 from updatebot.errors import NoRecipientsFoundError
 from updatebot.errors import NoSenderFoundError
 from updatebot.errors import ProductNameNotDefinedError
+from updatebot.errors import ExtraPackagesFoundInUpdateError
 
 class BaseAdvisory(object):
     """
@@ -193,6 +194,7 @@ class BaseAdvisor(object):
     """
 
     _advisoryClass = BaseAdvisory
+    allowExtraPackages = False
 
     def __init__(self, cfg, pkgSource):
         self._cfg = cfg
@@ -239,9 +241,13 @@ class BaseAdvisor(object):
                     log.info('package not in updates repository %s' % binPkg)
                     log.debug(binPkg.location)
                 elif len(patches) > 0:
+                    import epdb; epdb.st()
                     log.info('found package not mentioned in advisory %s'
                              % binPkg)
                     log.debug(binPkg.location)
+                    if not self.allowExtraPacakges:
+                        raise ExtraPackagesFoundInUpdateError(pkg=binPkg,
+                                src=srcPkg, advisory=list(patches)[0])
                 else:
                     log.error('could not find advisory for %s' % binPkg)
                     raise NoAdvisoryFoundError(why=binPkg)
