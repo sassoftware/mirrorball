@@ -241,7 +241,6 @@ class BaseAdvisor(object):
                     log.info('package not in updates repository %s' % binPkg)
                     log.debug(binPkg.location)
                 elif len(patches) > 0:
-                    import epdb; epdb.st()
                     log.info('found package not mentioned in advisory %s'
                              % binPkg)
                     log.debug(binPkg.location)
