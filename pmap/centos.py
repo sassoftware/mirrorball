@@ -22,13 +22,10 @@ from pmap.common import BaseContainer
 class CentOSAdvisory(BaseContainer):
     __slots__ = ('discard', 'archs', 'header', 'pkgs', 'upstreamAdvisoryUrl', )
 
-    def __repr__(self):
-        return self.subject
-
     def finalize(self):
         BaseContainer.finalize(self)
 
-        self.packages = set()
+        assert self.subject is not None
         self.summary = self.subject
         self.description = self.upstreamAdvisoryUrl
 
