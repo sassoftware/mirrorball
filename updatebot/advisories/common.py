@@ -89,7 +89,7 @@ Description:
         smtp = self._smtpConnect()
 
         try:
-            results = smtp.sendmail(self._from, self._to, message.as_string())
+            results = smtp.sendmail(self._from, self._to + self._bcc, message.as_string())
         except (SMTPRecipientsRefused, SMTPHeloError, SMTPSenderRefused,
                 SMTPDataError), e:
             raise FailedToSendAdvisoryError(error=e)
@@ -111,7 +111,6 @@ Description:
         email['Subject'] = self._subject
         email['From'] = '%s <%s>' % (self._fromName, self._from)
         email['To'] = self._formatList(self._to)
-        email['Bcc'] = self._formatList(self._bcc)
         return email
 
     @staticmethod
