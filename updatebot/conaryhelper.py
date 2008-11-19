@@ -28,7 +28,9 @@ from conary import checkin
 from conary.build import use
 from conary import conarycfg
 from conary import conaryclient
+from conary.lib import log as clog
 from conary.conaryclient import mirror
+
 
 from updatebot import util
 from updatebot.errors import GroupNotFound
@@ -478,8 +480,6 @@ class ConaryHelper(object):
             log.info('mirroring disabled, no mirror.conf found for this platform')
             return
 
-        from conary.lib import log as clog
-
         # Always use DEBUG logging when mirroring
         curLevel = clog.fmtLogger.level
         clog.setVerbosity(clog.DEBUG)
@@ -492,3 +492,5 @@ class ConaryHelper(object):
 
         # Reset loglevel
         clog.setVerbosity(curLevel)
+
+        return rc
