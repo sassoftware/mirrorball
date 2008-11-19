@@ -137,7 +137,7 @@ class Bot(object):
             log.info('no updates available')
             return
 
-        # Populate patch source not that we know that there are updates
+        # Populate patch source now that we know that there are updates
         # available.
         self._advisor.load()
 
