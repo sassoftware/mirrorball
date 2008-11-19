@@ -23,7 +23,7 @@ time cvc promote $cfg \
     anaconda-templates=centos.rpath.com@rpath:centos-5-devel \
     group-os=centos.rpath.com@rpath:centos-5-devel \
     /centos.rpath.com@rpath:centos-5-devel--/centos.rpath.com@rpath:centos-5 \
-    /centos.rpath.com@rpath:centos-devel//centos-5-devel--/centos.rpath.com@rpath:centos-devel//centos-5 \
+    /centos.rpath.com@rpath:centos-devel//centos-5-devel--/centos.rpath.com@rpath:centos-5 \
     /conary.rpath.com@rpl:devel//2--/centos.rpath.com@rpath:centos-5 \
     /conary.rpath.com@rpl:devel//2//centos.rpath.com@rpath:centos-5-devel--/centos.rpath.com@rpath:centos-5 \
     /conary.rpath.com@rpl:devel//centos.rpath.com@rpath:centos-5-devel--/centos.rpath.com@rpath:centos-5
