@@ -480,6 +480,8 @@ class ConaryHelper(object):
             log.info('mirroring disabled, no mirror.conf found for this platform')
             return
 
+        log.info('starting mirror')
+
         # Always use DEBUG logging when mirroring
         curLevel = clog.fmtLogger.level
         clog.setVerbosity(clog.DEBUG)
@@ -492,5 +494,7 @@ class ConaryHelper(object):
 
         # Reset loglevel
         clog.setVerbosity(curLevel)
+
+        log.info('mirror complete')
 
         return rc
