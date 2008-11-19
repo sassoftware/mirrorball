@@ -131,6 +131,14 @@ class PromoteMismatchError(PromoteFailedError):
     _template = ('Expected to promote %(expected)s, actually tried to promote'
                  ' %(actual)s.')
 
+class MirrorFailedError(UnhandledUpdateError):
+    """
+    MirrorFailedError, raised when the mirror process fails.
+    """
+
+    _params = ['rc', ]
+    _template = 'Mirror process exited with code %(rc)s'
+
 class AdvisoryError(UnhandledUpdateError):
     """
     Base error for other advisory errors to inherit from.

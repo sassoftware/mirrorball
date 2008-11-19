@@ -23,8 +23,12 @@ import logging
 import tempfile
 
 import conary
+from conary import trove
+from conary import checkin
 from conary.build import use
-from conary import conaryclient, conarycfg, trove, checkin
+from conary import conarycfg
+from conary import conaryclient
+from conary.conaryclient import mirror
 
 from updatebot import util
 from updatebot.errors import GroupNotFound
@@ -32,6 +36,7 @@ from updatebot.errors import TooManyFlavorsFoundError
 from updatebot.errors import NoManifestFoundError
 from updatebot.errors import PromoteFailedError
 from updatebot.errors import PromoteMismatchError
+from updatebot.errors import MirrorFailedError
 
 log = logging.getLogger('updatebot.conaryhelper')
 
@@ -48,6 +53,12 @@ class ConaryHelper(object):
         self._ccfg.dbPath = ':memory:'
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
+
+        self._mcfg = None
+        mcfgfn = util.join(cfg.configPath, 'mirror.conf')
+        if os.path.exists(mcfgfn):
+            self._mcfg = mirror.MirrorFileConfiguration()
+            self._mcfg.read(mcfgfn)
 
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
@@ -412,7 +423,14 @@ class ConaryHelper(object):
 
         # mix in the extra troves
         for n, v, f in extraPromoteTroves:
-            trvLst.append((n, None, None))
+            trvs = self._repos.findTrove(fromLabel, (n, v, f))
+            latestVer = trvs[0][1]
+            for name, version, flavor in trvs:
+                if version > latestVer:
+                    latestVer = version
+            for name, version, flavor in trvs:
+                if version == latestVer:
+                    trvLst.append((name, version, flavor))
 
         success, cs = self._client.createSiblingCloneChangeSet(
                             labelMap,
@@ -449,3 +467,28 @@ class ConaryHelper(object):
         log.info('promote complete, elapsed time %s' % (time.time() - start, ))
 
         return packageList
+
+    def mirror(self):
+        """
+        Mirror the current platform to the external repository if a
+        mirror.conf exists.
+        """
+
+        if self._mcfg is None:
+            log.info('mirroring disabled, no mirror.conf found for this platform')
+            return
+
+        from conary.lib import log as clog
+
+        # Always use DEBUG logging when mirroring
+        curLevel = clog.fmtLogger.level
+        clog.setVerbosity(clog.DEBUG)
+
+        callback = mirror.ChangesetCallback()
+        rc = mirror.mainWorkflow(cfg=self._mcfg, callback=callback)
+
+        if rc is not None and rc != 0:
+            raise MirrorFailedError(rc=rc)
+
+        # Reset loglevel
+        clog.setVerbosity(curLevel)
