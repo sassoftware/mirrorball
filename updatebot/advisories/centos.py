@@ -89,6 +89,15 @@ class Advisor(BaseAdvisor):
         if msg.pkgs is None:
             return
 
+        # Strip arch out of the subject
+        for arch in self.supportedArches:
+            if arch in msg.subject:
+                msg.subject = msg.subject.replace('%s ' % arch, '')
+
+        # Strip subject.
+        msg.subject = msg.subject.replace('[CentOS-announce]', '')
+        msg.subject = msg.subject.strip()
+
         for pkgName in msg.pkgs:
             # Toss out any arches that we don't know how to handle.
             if not self._supportedArch(pkgName):
@@ -106,15 +115,6 @@ class Advisor(BaseAdvisor):
                 if msg.packages is None:
                     msg.packages = set()
                 msg.packages.add(binPkg)
-
-            # Strip arch out of the subject
-            for arch in self.supportedArches:
-                if arch in msg.subject:
-                    msg.subject = msg.subject.replace('%s ' % arch, '')
-
-            # Strip subject.
-            msg.subject = msg.subject.replace('[CentOS-announce]', '')
-            msg.subject = msg.subject.strip()
 
     def _supportedArch(self, pkgfn):
         """
