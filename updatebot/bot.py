@@ -173,6 +173,9 @@ class Bot(object):
         # Send advisories.
         self._advisor.send(toAdvise, newTroves)
 
+        # Mirror out content
+        self._update.mirror()
+
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'
                  % (len(toUpdate), len(toAdvise)))
