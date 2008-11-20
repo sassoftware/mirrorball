@@ -12,6 +12,11 @@
 # full details.
 #
 
+"""
+Module for pasring Apt repository metadata. Also includes a handy FSM for
+parsing text files in general.
+"""
+
 import os
 
 from repomd.repository import Repository
@@ -21,6 +26,10 @@ from aptmd.packages import PackagesParser
 from aptmd.errors import UnsupportedFileError
 
 class Client(object):
+    """
+    Class for interacting with apt repositories.
+    """
+
     def __init__(self, repoUrl):
         self._repoUrl = repoUrl
 
@@ -29,6 +38,10 @@ class Client(object):
         self._sources = SourcesParser()
 
     def parse(self, path):
+        """
+        Parse repository metadata.
+        """
+
         fh = self._repo.get(path)
         basename = os.path.basename(path)
         if basename.startswith('Packages'):

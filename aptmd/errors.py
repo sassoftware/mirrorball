@@ -12,11 +12,22 @@
 # full details.
 #
 
+"""
+AptMD Error Module.
+"""
+
 class AptMDError(Exception):
-    pass
+    """
+    Base error class.
+    """
 
 class UnsupportedFileError(AptMDError):
+    """
+    Raised for files that the parser doesn't know how to handle.
+    """
+
     def __init__(self, path):
+        AptMDError.__init__(self)
         self.path = path
 
     def __str__(self):

@@ -12,21 +12,36 @@
 # full details.
 #
 
+"""
+Common module for apt metadata parsers to inherit from.
+"""
+
 from updatebot import util
 
 from aptmd.container import Container
 from aptmd.parser import ContainerizedParser as Parser
 
 class BaseContainer(Container):
+    """
+    Base class that implements a data container for entries in apt repository
+    metadata.
+    """
+
     __slots__ = ('name', 'arch', 'epoch', 'version', 'release')
 
     def __repr__(self):
+        # Instance of 'BaseContainer' has no 'name' member
+        # pylint: disable-msg=E1101
+
         klass = self.__class__.__name__.strip('_')
         return '<%s(%s, %s, %s, %s, %s)>' % (klass, self.name, self.epoch,
                                              self.version, self.release,
                                              self.arch)
 
     def __hash__(self):
+        # Instance of 'BaseContainer' has no 'name' member
+        # pylint: disable-msg=E1101
+
         return hash((self.name, self.epoch, self.version, self.release,
                      self.arch))
 
@@ -35,6 +50,10 @@ class BaseContainer(Container):
 
 
 class BaseParser(Parser):
+    """
+    Base parser class to be used in parsing apt metadata.
+    """
+
     def __init__(self):
         Parser.__init__(self)
 
@@ -51,6 +70,10 @@ class BaseParser(Parser):
         })
 
     def _package(self):
+        """
+        Parse package info.
+        """
+
         if self._curObj is not None:
             if hasattr(self._curObj, 'finalize'):
                 self._curObj.finalize()
@@ -59,11 +82,25 @@ class BaseParser(Parser):
         self._curObj.name = self._getLine()
 
     def _architecture(self):
+        """
+        Parse architectures.
+        """
+
+        # Attribute 'arch' defined outside __init__
+        # pylint: disable-msg=W0201
+
         arch = self._getLine()
         assert arch in ('all', 'i386', 'amd64')
         self._curObj.arch = arch
 
     def _version(self):
+        """
+        Parse versions.
+        """
+
+        # Attribute 'release' defined outside __init__
+        # pylint: disable-msg=W0201
+
         debVer = self._getLine()
 
         epoch = '0'

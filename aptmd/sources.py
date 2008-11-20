@@ -12,15 +12,27 @@
 # full details.
 #
 
+"""
+Module for parsing Sources file from an Apt repository.
+"""
+
 import os
 
 from aptmd.common import BaseContainer, BaseParser
 
 class _SourcePackage(BaseContainer):
+    """
+    Container for source data.
+    """
+
     __slots__ = ('binaries', 'directory', 'files')
 
 
 class SourcesParser(BaseParser):
+    """
+    Class for parsing Source metadata.
+    """
+
     def __init__(self):
         BaseParser.__init__(self)
 
@@ -38,19 +50,51 @@ class SourcesParser(BaseParser):
         })
 
     def _architecture(self):
+        """
+        Parse architecture.
+        """
+
+        # Attribute 'arch' defined outside __init__
+        # pylint: disable-msg=W0201
+
         self._curObj.arch = 'src'
 
     def _binary(self):
+        """
+        Parse binary info.
+        """
+
+        # Attribute 'binary' defined outside __init__
+        # pylint: disable-msg=W0201
+
         self._line[-1] = self._line[-1].strip()
         self._curObj.binaries = [ x.strip(',') for x in self._line[1:] ]
 
     def _directory(self):
+        """
+        Parse directory info.
+        """
+
+        # Attribute 'directory' defined outside __init__
+        # pylint: disable-msg=W0201
+
         self._curObj.directory = self._getLine()
 
     def _files(self):
+        """
+        Parse files info.
+        """
+
+        # Attribute 'files' defined outside __init__
+        # pylint: disable-msg=W0201
+
         self._curObj.files = []
 
     def _file(self):
+        """
+        Parse file info.
+        """
+
         if len(self._line) != 4:
             return
 

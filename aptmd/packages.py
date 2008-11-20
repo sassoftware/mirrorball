@@ -12,14 +12,25 @@
 # full details.
 #
 
+"""
+Module for parsing package metadata files.
+"""
+
 from aptmd.common import BaseContainer, BaseParser
 
 class _Package(BaseContainer):
+    """
+    Package container class.
+    """
+
     __slots__ = ('source', 'sourceVersion', 'location', 'summary',
                  'description')
 
 
 class PackagesParser(BaseParser):
+    """
+    Package MD Parser class.
+    """
 
     def __init__(self):
         BaseParser.__init__(self)
@@ -44,6 +55,15 @@ class PackagesParser(BaseParser):
         })
 
     def parse(self, fn):
+        """
+        Parse a given file or file like object line by line.
+        @param fn: filename or file like object to parse.
+        @type fn: string or file like object.
+        """
+
+        # Attribute 'description' defined outside __init__
+        # pylint: disable-msg=W0201
+
         ret = BaseParser.parse(self, fn)
         # If there is any text left, collect it in the description
         if self._text:
@@ -53,6 +73,13 @@ class PackagesParser(BaseParser):
         return ret
 
     def _source(self):
+        """
+        Parse the source line.
+        """
+
+        # Attribute 'sourceVersion' defined outside __init__
+        # pylint: disable-msg=W0201
+
         source = self._getLine()
         assert source != ''
 
@@ -69,12 +96,30 @@ class PackagesParser(BaseParser):
         self._curObj.source = source
 
     def _filename(self):
+        """
+        Parse the filename line.
+        """
+
+        # Attribute 'location' defined outside __init__
+        # pylint: disable-msg=W0201
+
         self._curObj.location = self._getLine()
 
     def _description(self):
+        """
+        Parse the description line.
+        """
+
+        # Attribute 'summary' defined outside __init__
+        # pylint: disable-msg=W0201
+
         self._curObj.summary = self._getLine()
 
     def _bugs(self):
+        """
+        Parse the bugs line.
+        """
+
         self._curObj.description = self._text
         self._text = ''
         self._keyval()
