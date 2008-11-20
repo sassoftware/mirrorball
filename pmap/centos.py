@@ -39,7 +39,8 @@ class CentOSAdvisory(BaseContainer):
         #        member
         # W0201: Attribute 'description' defined outside __init__
         # W0201: Attribute 'summary' defined outside __init__
-        # pylint disable-msg=E1101,W0201
+        # pylint: disable-msg=E1101
+        # pylint: disable-msg=W0201
 
         BaseContainer.finalize(self)
 
@@ -111,7 +112,8 @@ class Parser(BaseParser):
         """
 
         line = self._getFullLine()
-        self._curObj.upstreamAdvisoryUrl = line[line.find('http'):line.find('html')+4]
+        self._curObj.upstreamAdvisoryUrl = \
+            line[line.find('http'):line.find('html')+4]
 
     def _updates(self):
         """

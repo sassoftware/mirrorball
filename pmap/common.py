@@ -64,7 +64,8 @@ class BaseParser(Parser):
 
         return self._objects
 
-    def _getMbox(self, fileObj):
+    @staticmethod
+    def _getMbox(fileObj):
         """
         Copy a file and return a mbox instance.
         """
