@@ -60,6 +60,11 @@ class _Package(SlotNode):
 
         # R0915 - Too many statements
         # pylint: disable-msg=R0915
+
+        # E0203 - Access to member 'files' before its definition line 84
+        # files is set to None by the superclasses __init__
+        # pylint: disable-msg=E0203
+
         n = child.getName()
         if n == 'name':
             self.name = child.finalize()
