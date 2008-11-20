@@ -12,4 +12,8 @@
 # full details.
 #
 
+"""
+UpdateBot Constants
+"""
+
 version = '0.1'

@@ -19,9 +19,6 @@ Module for driving the update process.
 import time
 import logging
 
-import aptmd
-import repomd
-
 from updatebot import build
 from updatebot import update
 from updatebot import pkgsource
@@ -143,15 +140,15 @@ class Bot(object):
         # toAdvise and toUpdate as needed.
         if force:
             advise = list()
-            update = list()
+            updates = list()
             for pkg in toAdvise:
                 if pkg[1].name in force:
                     advise.append(pkg)
             for pkg in toUpdate:
                 if pkg[1].name in force:
-                    update.append(pkg)
+                    updates.append(pkg)
             toAdvise = advise
-            toUpdate = update
+            toUpdate = updates
 
         if len(toAdvise) == 0:
             log.info('no updates available')

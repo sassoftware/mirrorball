@@ -241,7 +241,8 @@ class Updater(object):
                 if not version:
                     version = self.update((pkg.name, None, None), pkg)
 
-                if not self._conaryhelper._getVersionsByName(pkg.name) or buildAll:
+                if (not self._conaryhelper._getVersionsByName(pkg.name) or
+                    buildAll):
                     toBuild.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
@@ -364,10 +365,14 @@ class Updater(object):
         @type checkPackageList: boolean
         """
 
-        return self._conaryhelper.promote(trvLst, expected,
-                                          self._cfg.sourceLabel, targetLabel,
-                                          checkPackageList=checkPackageList,
-                                          extraPromoteTroves=self._cfg.extraPromoteTroves)
+        return self._conaryhelper.promote(
+            trvLst,
+            expected,
+            self._cfg.sourceLabel,
+            targetLabel,
+            checkPackageList=checkPackageList,
+            extraPromoteTroves=self._cfg.extraPromoteTroves
+        )
 
     def mirror(self):
         """

@@ -52,7 +52,8 @@ class Builder(object):
         # manager, then create a new rmake config object so that rmakeUser
         # will be parsed correctly.
         rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
-        disabledPlugins = [ x[0] for x in rmakeCfg.usePlugin.items() if not x[1] ]
+        disabledPlugins = [ x[0] for x in rmakeCfg.usePlugin.items()
+                            if not x[1] ]
         disabledPlugins.append('monitor')
         pluginMgr = plugins.PluginManager(rmakeCfg.pluginDirs, disabledPlugins)
         pluginMgr.loadPlugins()
@@ -92,19 +93,23 @@ class Builder(object):
 
         troveSpecs = list(troveSpecs)
         def trvSort(a, b):
+            """
+            Sort troves tuples based on the first element.
+            """
+
             return cmp(a[0], b[0])
         troveSpecs.sort(trvSort)
 
-        id = 0
+        index = 0
         jobs = {}
         for i, trv in enumerate(troveSpecs):
-            if id not in jobs:
-                jobs[id] = []
+            if index not in jobs:
+                jobs[index] = []
 
-            jobs[id].append(trv)
+            jobs[index].append(trv)
 
             if i % 40 == 0:
-                id += 1
+                index += 1
 
         failed = set()
         results = {}

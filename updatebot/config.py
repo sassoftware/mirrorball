@@ -21,7 +21,8 @@ import os
 from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, ParseError
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool
+from coanry.lib.cfgtypes import ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
 
@@ -78,7 +79,8 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # path to configuration files relative to updatebotrc (conaryrc, rmakerc)
     configPath          = (CfgString, './')
 
-    # type of upstream repostory to pull packages from, supported are apt and yum.
+    # type of upstream repostory to pull packages from, supported are apt
+    # and yum.
     repositoryFormat    = (CfgString, 'yum')
 
     # Default commit message to use when committing to the repository.
@@ -150,12 +152,17 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     smtpServer          = CfgString
 
     def __init__(self, *args, **kwargs):
-        cfg.SectionedConfigFile.__init__(self)
+        cfg.SectionedConfigFile.__init__(self, *args, **kwargs)
 
     def read(self, *args, **kwargs):
+        """
+        Read specified file.
+        """
+
         ret = cfg.SectionedConfigFile.read(self, *args, **kwargs)
         if not self.configPath.startswith(os.sep):
             # configPath is relative
             dirname = os.path.dirname(args[0])
-            self.configPath = os.path.normpath(os.path.join(dirname, self.configPath))
+            self.configPath = os.path.normpath(os.path.join(dirname,
+                                                            self.configPath))
         return ret

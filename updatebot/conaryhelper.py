@@ -31,7 +31,6 @@ from conary import conaryclient
 from conary.lib import log as clog
 from conary.conaryclient import mirror
 
-
 from updatebot import util
 from updatebot.errors import GroupNotFound
 from updatebot.errors import TooManyFlavorsFoundError
@@ -447,15 +446,18 @@ class ConaryHelper(object):
         packageList = [ x.getNewNameVersionFlavor()
                         for x in cs.iterNewTroveList() ]
 
-        oldPkgs = set([ (x[0], x[2]) for x in expected if not x[0].endswith(':source') ])
-        newPkgs = set([ (x[0], x[2]) for x in packageList if not x[0].endswith(':source') ])
+        oldPkgs = set([ (x[0], x[2]) for x in expected
+                        if not x[0].endswith(':source') ])
+        newPkgs = set([ (x[0], x[2]) for x in packageList
+                        if not x[0].endswith(':source') ])
 
         # Make sure that all packages being promoted are in the set of packages
         # that we think should be available to promote. Note that all packages
         # in expected will not be promoted because not all packages are
         # included in the groups.
         trvDiff = newPkgs.difference(oldPkgs)
-        grpTrvs = set([ (x[0], x[2]) for x in trvLst if not x[0].endswith(':source') ])
+        grpTrvs = set([ (x[0], x[2]) for x in trvLst
+                        if not x[0].endswith(':source') ])
         grpDiff = set([ x[0] for x in trvDiff.difference(grpTrvs) ])
         extraTroves = set([ x[0] for x in extraPromoteTroves ])
         if checkPackageList and grpDiff.difference(extraTroves):
@@ -477,7 +479,8 @@ class ConaryHelper(object):
         """
 
         if self._mcfg is None:
-            log.info('mirroring disabled, no mirror.conf found for this platform')
+            log.info('mirroring disabled, no mirror.conf found for this '
+                     'platform')
             return
 
         log.info('starting mirror')
