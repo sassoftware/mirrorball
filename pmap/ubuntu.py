@@ -27,5 +27,3 @@ class Parser(BaseParser):
         self._states.update({
 
         })
-
-    def 
