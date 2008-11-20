@@ -243,7 +243,7 @@ class BaseAdvisor(object):
                     log.info('found package not mentioned in advisory %s'
                              % binPkg)
                     log.debug(binPkg.location)
-                    if not self.allowExtraPacakges:
+                    if not self.allowExtraPackages:
                         raise ExtraPackagesFoundInUpdateError(pkg=binPkg,
                                 src=srcPkg, advisory=list(patches)[0])
                 else:
