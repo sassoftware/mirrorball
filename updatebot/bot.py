@@ -119,10 +119,16 @@ class Bot(object):
 
         return trvMap
 
-    def update(self):
+    def update(self, force=None):
         """
         Update the conary repository from the yum repositories.
+        @param force: list of packages to update without exception
+        @type force: list(pkgName, pkgName, ...)
         """
+
+        if force is not None:
+            self._cfg.disableUpdateSanity = True
+            assert isinstance(force, list)
 
         start = time.time()
         log.info('starting update')
@@ -132,6 +138,20 @@ class Bot(object):
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
+
+        # If forcing an update, make sure that all packages are listed in
+        # toAdvise and toUpdate as needed.
+        if force:
+            advise = list()
+            update = list()
+            for pkg in toAdvise:
+                if pkg[1].name in force:
+                    advise.append(pkg)
+            for pkg in toUpdate:
+                if pkg[1].name in force:
+                    update.append(pkg)
+            toAdvise = advise
+            toUpdate = update
 
         if len(toAdvise) == 0:
             log.info('no updates available')
@@ -170,11 +190,11 @@ class Bot(object):
         newTroves = self._updater.publish(toPublish, expected,
                                           self._cfg.targetLabel)
 
+        # Mirror out content
+        self._updater.mirror()
+
         # Send advisories.
         self._advisor.send(toAdvise, newTroves)
-
-        # Mirror out content
-        self._update.mirror()
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'

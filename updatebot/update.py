@@ -153,7 +153,8 @@ class Updater(object):
                 raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
-            if (binPkg.name, binPkg.arch) not in newNames:
+            if ((binPkg.name, binPkg.arch) not in newNames and
+                not self._cfg.disableUpdateSanity):
                 # Novell releases updates to only the binary rpms of a package
                 # that have chnaged. We have to use binaries from the old srpm.
                 # Get the last version of the pkg and add it to the srcPkgMap.
@@ -367,3 +368,10 @@ class Updater(object):
                                           self._cfg.sourceLabel, targetLabel,
                                           checkPackageList=checkPackageList,
                                           extraPromoteTroves=self._cfg.extraPromoteTroves)
+
+    def mirror(self):
+        """
+        If a mirror is configured, mirror out any changes.
+        """
+
+        return self._conaryhelper.mirror()

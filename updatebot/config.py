@@ -21,7 +21,7 @@ import os
 from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, ParseError
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
 
@@ -70,6 +70,10 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # platform short name
     platformName        = CfgString
+
+    # disables checks for update completeness, this should only be enabled if
+    # you know what you are doing and have a good reason.
+    disableUpdateSanity = CfgBool
 
     # path to configuration files relative to updatebotrc (conaryrc, rmakerc)
     configPath          = (CfgString, './')
