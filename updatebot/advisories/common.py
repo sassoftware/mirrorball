@@ -89,7 +89,8 @@ Description:
         smtp = self._smtpConnect()
 
         try:
-            results = smtp.sendmail(self._from, self._to + self._bcc, message.as_string())
+            results = smtp.sendmail(self._from, self._to + self._bcc,
+                                    message.as_string())
         except (SMTPRecipientsRefused, SMTPHeloError, SMTPSenderRefused,
                 SMTPDataError), e:
             raise FailedToSendAdvisoryError(error=e)
@@ -277,7 +278,7 @@ class BaseAdvisor(object):
 
         log.error('The %s backend does not implement %s'
             % (self.__class__.__name__, 'load'))
-        raise NotImplemntedError
+        raise NotImplementedError
 
     def _hasException(self, binPkg):
         """
@@ -307,7 +308,7 @@ class BaseAdvisor(object):
 
         log.error('The %s backend does not implement %s'
             % (self.__class__.__name__, '_isUpdateRepo'))
-        raise NotImplmentedError
+        raise NotImplementedError
 
     def _checkForDuplicates(self, patchSet):
         """
@@ -321,7 +322,7 @@ class BaseAdvisor(object):
 
         log.error('The %s backend does not implement %s'
             % (self.__class__.__name__, '_isUpdateRepo'))
-        raise NotImplmentedError
+        raise NotImplementedError
 
     def _filterPatch(self, patch):
         """
