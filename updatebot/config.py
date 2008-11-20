@@ -22,7 +22,7 @@ from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
 from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool
-from coanry.lib.cfgtypes import ParseError
+from conary.lib.cfgtypes import ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
 
