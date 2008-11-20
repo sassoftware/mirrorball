@@ -12,13 +12,23 @@
 # full details.
 #
 
+"""
+Module for parsing Ubuntu mail archives.
+"""
+
 from pmap.common import BaseParser
 from pmap.common import BaseContainer
 
-class Container(BaseContainer):
-    pass
+class UbuntuContainer(BaseContainer):
+    """
+    Ubuntu specific container class.
+    """
 
 class Parser(BaseParser):
+    """
+    Class for parsing Ubuntu mbox mail archives.
+    """
+
     def __init__(self):
         BaseParser.__init__(self)
 

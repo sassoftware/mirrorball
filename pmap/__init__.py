@@ -27,12 +27,19 @@ import tempfile
 from imputil import imp
 
 __all__ = ('InvalidBackendError', 'parse')
-__supported_backends = ('ubuntu', 'centos')
+_supported_backends = ('ubuntu', 'centos')
 
 class InvalidBackendError(Exception):
-    pass
+    """
+    Raised when requested backend is not available.
+    """
 
-def __getFileObjFromUrl(url):
+def _getFileObjFromUrl(url):
+    """
+    Given a URL download the file, gunzip if needed, and return an open
+    file object.
+    """
+
     fn = tempfile.mktemp(prefix='pmap')
 
     # download file
@@ -48,10 +55,15 @@ def __getFileObjFromUrl(url):
     os.unlink(fn)
     return fh
 
-def __getBackend(backend):
-    if backend not in __supported_backends:
+def _getBackend(backend):
+    """
+    If the requested backend exists find it and return the backend module,
+    otherwise raise an exception.
+    """
+
+    if backend not in _supported_backends:
         raise InvalidBackendError('%s is not a supported backend, please '
-            'choose from %s' % (backend, ','.join(__supported_backends)))
+            'choose from %s' % (backend, ','.join(_supported_backends)))
 
     try:
         path = [imp.find_module('pmap')[1], ]
@@ -59,10 +71,15 @@ def __getBackend(backend):
         loaded = imp.load_module(backend, mod[0], mod[1], mod[2])
         return loaded
     except ImportError, e:
-        raise InvalidBackendError('Could not load %s backend: %s' % (backend, e))
+        raise InvalidBackendError('Could not load %s backend: %s'
+                                  % (backend, e))
 
 def parse(url, backend='centos'):
-    fh = __getFileObjFromUrl(url)
-    backend = __getBackend(backend)
+    """
+    Parse a mbox archive pointed to by url.
+    """
+
+    fh = _getFileObjFromUrl(url)
+    backend = _getBackend(backend)
     parser = backend.Parser()
     return parser.parse(fh)

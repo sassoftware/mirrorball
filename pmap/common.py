@@ -12,7 +12,10 @@
 # full details.
 #
 
-import email
+"""
+Common parser module for parsing mbox mail archives.
+"""
+
 import shutil
 import mailbox
 import tempfile
@@ -21,6 +24,10 @@ from aptmd.container import Container
 from aptmd.parser import ContainerizedParser as Parser
 
 class BaseContainer(Container):
+    """
+    Base MBox Message container class.
+    """
+
     __slots__ = ('fromAddr', 'fromName', 'timestamp', 'subject', 'msg',
                  'description', 'summary', 'packages')
 
@@ -29,6 +36,10 @@ class BaseContainer(Container):
 
 
 class BaseParser(Parser):
+    """
+    Base MBox parsing class.
+    """
+
     def __init__(self):
         Parser.__init__(self)
 
@@ -38,6 +49,10 @@ class BaseParser(Parser):
         })
 
     def parse(self, fileObj):
+        """
+        Parse file or file like objects.
+        """
+
         self._objects = []
         mbox = self._getMbox(fileObj)
         for msg in mbox:
@@ -50,6 +65,10 @@ class BaseParser(Parser):
         return self._objects
 
     def _getMbox(self, fileObj):
+        """
+        Copy a file and return a mbox instance.
+        """
+
         tmpfn = tempfile.mktemp()
         tmpfh = open(tmpfn, 'w')
         shutil.copyfileobj(fileObj, tmpfh)
@@ -59,8 +78,19 @@ class BaseParser(Parser):
         return mbox
 
     def _parseMsg(self, msg):
+        """
+        Parse a single message.
+        """
+
         self._newContainer()
         assert msg.get_content_type() == 'text/plain'
+
+        # W0201: Attribute 'msg' defined outside __init__
+        # W0201: Attribute 'fromAddr' defined outside __init__
+        # W0201: Attribute 'subject' defined outside __init__
+        # W0201: Attribute 'timestamp' defined outside __init__
+        # W0201: Attribute 'fromName' defined outside __init__
+        # pylint: disable-msg=W0201
 
         self._curMsg = msg
         self._curObj.msg = msg
