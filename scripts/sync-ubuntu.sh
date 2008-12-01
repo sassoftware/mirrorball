@@ -16,6 +16,8 @@
 SOURCE=rsync://mirrors.us.kernel.org/ubuntu/
 DEST=/l/ubuntu/
 
+date
+
 rsync -arv --progress --exclude dapper* --exclude feisty* --exclude gustsy* --delete --exclude pool/universe/* --exclude pool/restricted/* --exclude pool/multiverse/* $SOURCE $DEST
 
 ./hardlink.py $DEST
