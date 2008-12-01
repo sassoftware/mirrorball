@@ -19,17 +19,17 @@ from conary.lib import util
 from conary.lib import options
 
 from updatebot import errors
-from updatebot import config
 from updatebot import constants
 from updatebot import log as logger
 from updatebot.cmdline import command
+from updatebot.cmdline import clientcfg
 
 class BotMain(options.MainHandler):
     name = 'updatebot'
     version = constants.version
 
     abstractCommand = command.BotCommand
-    configClass = config.UpdateBotConfig
+    configClass = clientcfg.UpdateBotClientConfig
 
     useConaryOptions = False
 

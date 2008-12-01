@@ -41,6 +41,7 @@ class CfgBranch(CfgLabel):
         except versions.ParseError, e:
             raise ParseError, e
 
+
 class CfgContextFlavor(CfgFlavor):
     """
     Class for representing both a flavor context name and a build flavor.
@@ -58,7 +59,8 @@ class CfgContextFlavor(CfgFlavor):
         except versions.ParseError, e:
             raise ParseError, e
 
-class UpdateBotConfig(cfg.SectionedConfigFile):
+
+class UpdateBotConfigSection(cfg.ConfigSection):
     """
     Config class for updatebot.
     """
@@ -151,8 +153,19 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     emailBcc            = (CfgList(CfgString), [])
     smtpServer          = CfgString
 
-    def __init__(self, *args, **kwargs):
-        cfg.SectionedConfigFile.__init__(self, *args, **kwargs)
+
+class UpdateBotConfig(cfg.SectionedConfigFile):
+    """
+    Config object for UpdateBot.
+    """
+
+    _defaultSectionType = UpdateBotConfigSection
+
+    def __init__(self):
+        cfg.SectionedConfigFile.__init__(self)
+        for info in self._defaultSectionType._getConfigOptions():
+            if info[0] not in self:
+                self.addConfigOption(*info)
 
     def read(self, *args, **kwargs):
         """
