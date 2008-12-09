@@ -93,8 +93,6 @@ class ConaryHelper(object):
 
         latest = self._findLatest(trvlst)
 
-        # Magic number should probably be a config option.
-        # 2 here is the number of flavors expected.
         if len(latest) != self._groupFlavorCount:
             raise TooManyFlavorsFoundError(why=latest)
 
