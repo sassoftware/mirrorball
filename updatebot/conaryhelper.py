@@ -383,7 +383,8 @@ class ConaryHelper(object):
         return None
 
     def promote(self, trvLst, expected, sourceLabels, targetLabel,
-                checkPackageList=True, extraPromoteTroves=None):
+                checkPackageList=True, extraPromoteTroves=None,
+                commit=True):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -401,6 +402,8 @@ class ConaryHelper(object):
         @param extraPromoteTroves: troves to promote in addition to the troves
                                    that have been built.
         @type extraPromoteTroves: list of trove specs.
+        @param commit: commit the promote changeset or just return it.
+        @type commit: boolean
         """
 
         start = time.time()
@@ -460,6 +463,9 @@ class ConaryHelper(object):
         extraTroves = set([ x[0] for x in extraPromoteTroves ])
         if checkPackageList and grpDiff.difference(extraTroves):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
+
+        if not commit:
+            return cs, packageList
 
         log.info('committing changeset')
 
