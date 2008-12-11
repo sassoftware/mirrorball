@@ -25,6 +25,7 @@ import logging
 slog = logging.getLogger('script')
 
 trvLst = helper._repos.findTrove(helper._ccfg.buildLabel, cfg.topGroup)
+trvLst = helper._findLatest(trvLst)
 
 cs, packages = helper.promote(
     trvLst,
@@ -48,6 +49,8 @@ pkgs = pkgMap.keys()
 pkgs.sort()
 
 for pkg in pkgs:
+    if pkg[0].startswith('group-'):
+        continue
     for flv in pkgMap[pkg]:
         if len(pkgMap[pkg]) > 1 and flv == deps.Flavor():
             continue
