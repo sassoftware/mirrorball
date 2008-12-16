@@ -91,12 +91,14 @@ class Advisor(BaseAdvisor):
 
         # Strip arch out of the subject
         for arch in self.supportedArches:
-            if arch in msg.subject:
-                msg.subject = msg.subject.replace('%s ' % arch, '')
+            if arch in msg.summary:
+                msg.summary = msg.summary.replace('%s ' % arch, '')
 
         # Strip subject.
-        msg.subject = msg.subject.replace('[CentOS-announce]', '')
-        msg.subject = msg.subject.strip()
+        msg.summary = msg.summary.replace('[CentOS-announce]', '')
+        msg.summary = msg.summary.strip()
+
+        import epdb; epdb.st()
 
         for pkgName in msg.pkgs:
             # Toss out any arches that we don't know how to handle.
