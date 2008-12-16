@@ -98,8 +98,6 @@ class Advisor(BaseAdvisor):
         msg.summary = msg.summary.replace('[CentOS-announce]', '')
         msg.summary = msg.summary.strip()
 
-        import epdb; epdb.st()
-
         for pkgName in msg.pkgs:
             # Toss out any arches that we don't know how to handle.
             if not self._supportedArch(pkgName):
