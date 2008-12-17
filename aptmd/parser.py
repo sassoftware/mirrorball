@@ -135,7 +135,9 @@ class Parser(object):
                 func()
                 self._text = ''
             else:
-                self._text += ' '.join(self._line)
+                self._text += '\n' + ' '.join(self._line)
+        else:
+            self._text += '\n'
 
     def _getState(self, key):
         """
