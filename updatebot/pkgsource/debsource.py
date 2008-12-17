@@ -49,7 +49,7 @@ class DebSource(object):
         Load repository metadata from a config object.
         """
 
-        client = repomd.Client(self._cfg.repositoryUrl)
+        client = aptmd.Client(self._cfg.repositoryUrl)
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             self.loadFromClient(client, repo)
