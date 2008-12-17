@@ -16,33 +16,16 @@ import logging
 
 import aptmd
 from updatebot import util
+from updatebot.pkgsource.common import BasePackageSource
 
 log = logging.getLogger('updatebot.pkgsource')
 
-class DebSource(object):
+class DebSource(BasePackageSource):
     def __init__(self, cfg):
-        self._cfg = cfg
-        self._excludeArch = self._cfg.excludeArch
+        BasePackageSource.__init__(self, cfg)
 
         self._binPkgs = set()
         self._srcPkgs = set()
-        self._clients = dict()
-
-        self.srcPkgMap = dict()
-        self.binPkgMap = dict()
-        self.srcNameMap = dict()
-        self.binNameMap = dict()
-        self.locationMap = dict()
-
-    def getClients(self):
-        """
-        Get repository client instances.
-        """
-
-        if not self._clients:
-            self.load()
-
-        return self._clients
 
     def load(self):
         """

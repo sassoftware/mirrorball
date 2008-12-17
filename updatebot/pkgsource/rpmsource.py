@@ -21,17 +21,17 @@ import logging
 
 import repomd
 from updatebot import util
+from updatebot.pkgsource.common import BasePackageSource
 
 log = logging.getLogger('updatebot.pkgsource')
 
-class RpmSource(object):
+class RpmSource(BasePackageSource):
     """
     Class that builds maps of packages from multiple yum repositories.
     """
 
     def __init__(self, cfg):
-        self._cfg = cfg
-        self._excludeArch = self._cfg.excludeArch
+        BasePackageSource.__init__(self, cfg)
 
         # {srcTup: srpm}
         self._srcMap = dict()
@@ -41,34 +41,6 @@ class RpmSource(object):
 
         # set of all src pkg objects
         self._srcPkgs = set()
-
-        # {repoShortUrl: clientObj}
-        self._clients = dict()
-
-        # {location: srpm}
-        self.locationMap = dict()
-
-        # {srcPkg: [binPkg, ... ] }
-        self.srcPkgMap = dict()
-
-        # {binPkg: srcPkg}
-        self.binPkgMap = dict()
-
-        # {srcName: [srcPkg, ... ] }
-        self.srcNameMap = dict()
-
-        # {binName: [binPkg, ... ] }
-        self.binNameMap = dict()
-
-    def getClients(self):
-        """
-        Get instances of repository clients.
-        """
-
-        if not self._clients:
-            self.load()
-
-        return self._clients
 
     def load(self):
         """
