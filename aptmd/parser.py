@@ -197,6 +197,8 @@ class ContainerizedParser(Parser):
         self._containerClass = None
         self._stateFilters = {
         }
+        self._stateLineFilters = {
+        }
 
     def _filter(self, fltr, state):
         """
@@ -204,6 +206,13 @@ class ContainerizedParser(Parser):
         """
 
         self._stateFilters[re.compile(fltr)] = state
+
+    def _filterLine(self, fltr, state):
+        """
+        Build a state based on line filter.
+        """
+
+        self._stateLineFilters[re.compile(fltr)] = state
 
     def _getState(self, key):
         """
@@ -220,6 +229,10 @@ class ContainerizedParser(Parser):
 
         for fltr, state in self._stateFilters.iteritems():
             if fltr.match(key):
+                return state
+
+        for fltr, state in self._stateLineFilters.iteritems():
+            if fltr.match(self._getFullLine()):
                 return state
 
         return key
