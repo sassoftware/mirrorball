@@ -332,8 +332,9 @@ class Updater(object):
         """
 
         manifest = self._getManifestFromPkgSource(srcPkg)
-        newVersion = self._conaryhelper.setManifest(nvf[0], manifest,
-                        commitMessage=self._cfg.commitMessage)
+        self._conaryhelper.setManifest(nvf[0], manifest)
+        newVersion = self._conarhelper.commit(nvf[0],
+                                    commitMessage=self._cfg.commitMessage)
         return newVersion
 
     def _getManifestFromPkgSource(self, srcPkg):

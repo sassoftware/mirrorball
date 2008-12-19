@@ -35,6 +35,7 @@ from updatebot import util
 from updatebot.errors import GroupNotFound
 from updatebot.errors import TooManyFlavorsFoundError
 from updatebot.errors import NoManifestFoundError
+from updatebot.errors import NoCheckoutFoundError
 from updatebot.errors import PromoteFailedError
 from updatebot.errors import PromoteMismatchError
 from updatebot.errors import MirrorFailedError
@@ -65,6 +66,8 @@ class ConaryHelper(object):
         self._repos = self._client.getRepos()
 
         self._newPkgFactory = cfg.newPackageFactory
+
+        self._checkoutCache = {}
 
     def getConaryConfig(self):
         """
@@ -197,35 +200,28 @@ class ConaryHelper(object):
         """
 
         log.info('retrieving manifest for %s' % pkgname)
-        recipeDir = self._checkout(pkgname)
+        recipeDir = self._edit(pkgname)
         manifestFileName = util.join(recipeDir, 'manifest')
 
         if not os.path.exists(manifestFileName):
             raise NoManifestFoundError(pkgname=pkgname, dir=recipeDir)
 
         manifest = [ x.strip() for x in open(manifestFileName).readlines() ]
-        util.rmtree(recipeDir)
+        #util.rmtree(recipeDir)
         return manifest
 
-    def setManifest(self, pkgname, manifest, commitMessage=''):
+    def setManifest(self, pkgname, manifest):
         """
         Create/Update a manifest file.
         @param pkgname: name of the package
         @type pkgname: string
         @param manifest: list of files to go in the manifest file
         @type manifest: list(string, string, ...)
-        @param commitMessage: optional argument for setting the commit message
-                              to use when committing to the repository.
-        @type commitMessage: string
         """
 
         log.info('setting manifest for %s' % pkgname)
 
-        # Figure out if we should create or update.
-        if not self.getLatestSourceVersion(pkgname):
-            recipeDir = self._newpkg(pkgname)
-        else:
-            recipeDir = self._checkout(pkgname)
+        recipeDir = self._edit(pkgname)
 
         # Update manifest file.
         manifestFileName = util.join(recipeDir, 'manifest')
@@ -237,18 +233,93 @@ class ConaryHelper(object):
         # Make sure manifest file has been added.
         self._addFile(recipeDir, 'manifest')
 
+    def getMetadata(self, pkgname):
+        """
+        Get the metadata.xml file from a source componet named pkgname.
+        @param pkgname name of the package to checkout
+        @type pkgname string
+        @return xml string
+        """
+
+        log.info('retrieving metadata for %s' % pkgname)
+        recipeDir = self._edit(pkgname)
+        metadataFileName = util.join(recipeDir, 'metadata.xml')
+
+        if not os.path.exists(metadataFileName):
+            return ''
+
+        return open(metadataFileName).read()
+
+    def setMetadata(self, pkgname, metadata):
+        """
+        Create/Update metadata.xml in a source component.
+        @param pkgname name of the package
+        @type pkgname string
+        @param metadata xml string
+        @type metadata string
+        """
+
+        log.info('setting metadata for %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+
+        # Update metadata file.
+        metadataFileName = util.join(recipeDir, 'metadata.xml')
+        metadatafh = open(metadataFileName, 'w')
+        metadatafh.write(metadata)
+        metadatafh.write('\n')
+        metadatafh.close()
+
+        # Make sure metadata file has been added.
+        self._addFile(recipeDir, 'metadata.xml')
+
+    def commit(self, pkgname, commitMessage=''):
+        """
+        Commit the cached checkout of a source component.
+        @param pkgname name of the package
+        @type pkgname string
+        @param commitMessage: optional argument for setting the commit message
+                              to use when committing to the repository.
+        @type commitMessage: string
+        @return version of the source commit.
+        """
+
+        if pkgname not in self._checkoutCache:
+            raise NoCheckoutFoundError(pkgname=pkgname)
+
         # Setup flavor objects
         use.setBuildFlagsFromFlavor(pkgname, self._ccfg.buildFlavor,
                                     error=False)
 
         # Commit to repository.
         self._commit(recipeDir, commitMessage)
-        util.rmtree(recipeDir)
 
         # Get new version of the source trove.
         version = self.getLatestSourceVersion(pkgname)
         assert version is not None
         return version
+
+    def _edit(self, pkgname):
+        """
+        Checkout/Create source checkout.
+        @param pkgname name of the package
+        @type pkgname string
+        @return path to checkout
+        """
+
+        if pkgname in self._checkoutCache:
+            return self._checkoutCache[pkgname]
+
+        # Figure out if we should create or update.
+        if not self.getLatestSourceVersion(pkgname):
+            recipeDir = self._newpkg(pkgname)
+        else:
+            recipeDir = self._checkout(pkgname)
+
+        self._checkoutCache[pkgname] = recipeDir
+        self._checkoutCache[recipeDir] = pkgname
+
+        return recipeDir
 
     def _checkout(self, pkgname):
         """
@@ -264,24 +335,6 @@ class ConaryHelper(object):
         checkin.checkout(self._repos, self._ccfg, recipeDir, [pkgname, ])
 
         return recipeDir
-
-    def _commit(self, pkgDir, commitMessage):
-        """
-        Commit a source trove to the repository.
-        @param pkgDir: directory returned by checkout
-        @type pkgDir: string
-        @param commitMessage: commit message to use.
-        @type commitMessage: string
-        """
-
-        log.info('committing %s' % os.path.basename(pkgDir))
-
-        cwd = os.getcwd()
-        try:
-            os.chdir(pkgDir)
-            checkin.commit(self._repos, self._ccfg, commitMessage)
-        finally:
-            os.chdir(cwd)
 
     def _newpkg(self, pkgname):
         """
@@ -304,6 +357,29 @@ class ConaryHelper(object):
             os.chdir(cwd)
 
         return util.join(recipeDir, pkgname)
+
+    def _commit(self, pkgDir, commitMessage):
+        """
+        Commit a source trove to the repository.
+        @param pkgDir: directory returned by checkout
+        @type pkgDir: string
+        @param commitMessage: commit message to use.
+        @type commitMessage: string
+        """
+
+        log.info('committing %s' % os.path.basename(pkgDir))
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(pkgDir)
+            checkin.commit(self._repos, self._ccfg, commitMessage)
+            if pkgDir in self._checkoutCache:
+                pkgName = self._checkoutCache[pkgDir]
+                del self._checkoutCache[pkgName]
+                del self._checkoutCache[pkgDir]
+        finally:
+            os.chdir(cwd)
+            util.rmtree(recipeDir)
 
     @staticmethod
     def _addFile(pkgDir, fileName):
