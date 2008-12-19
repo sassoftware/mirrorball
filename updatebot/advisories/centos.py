@@ -13,11 +13,9 @@
 #
 
 import os
-import time
 import pmap
 import logging
 
-from updatebot.update import Updater
 from updatebot.advisories.common import BaseAdvisor
 
 log = logging.getLogger('updatebot.advisories')
@@ -44,38 +42,6 @@ class Advisor(BaseAdvisor):
             log.info('parsing mail archive: %s' % url)
             for msg in pmap.parse(url, backend=self._cfg.platformName):
                 self._loadOne(msg, pkgCache)
-
-    def _getArchiveUrls(self):
-        """
-        Compute archive urls to load.
-        """
-
-        base = self._cfg.listArchiveBaseUrl
-        startDate = self._cfg.listArchiveStartDate
-        timeTup = list(time.strptime(startDate, '%Y%m'))
-
-        startYear = timeTup[0]
-        startMonth = timeTup[1]
-
-        endYear = time.localtime()[0]
-        endMonth = time.localtime()[1]
-
-        while timeTup[0] <= endYear:
-            if timeTup[0] != startYear:
-                timeTup[1] = 1
-
-            if timeTup[0] == endYear:
-                end = endMonth
-            else:
-                end = 12
-
-            while timeTup[1] <= end:
-                fname = time.strftime('%Y-%B.txt.gz', timeTup)
-                yield '/'.join([base, fname])
-
-                timeTup[1] += 1
-
-            timeTup[0] += 1
 
     def _loadOne(self, msg, pkgCache):
         """
