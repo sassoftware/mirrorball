@@ -27,7 +27,7 @@ class BaseContainer(Container):
     metadata.
     """
 
-    __slots__ = ('name', 'arch', 'epoch', 'version', 'release')
+    _slots = ('name', 'arch', 'epoch', 'version', 'release')
 
     def __repr__(self):
         # Instance of 'BaseContainer' has no 'name' member

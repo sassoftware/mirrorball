@@ -21,12 +21,12 @@ class Container(object):
     Base container class.
     """
 
-    __slots__ = ('_data', )
+    _slots = ('_data', )
 
     def __init__(self):
         for cls in self.__class__.__mro__:
-            if hasattr(cls, '__slots__'):
-                for item in cls.__slots__:
+            if hasattr(cls, '_slots'):
+                for item in cls._slots:
                     setattr(self, item, None)
 
         self._data = {}

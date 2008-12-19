@@ -24,7 +24,7 @@ class UbuntuContainer(BaseContainer):
     Ubuntu specific container class.
     """
 
-    __slots__ = ('pkgs', 'pkgNameVersion')
+    _slots = ('pkgs', 'pkgNameVersion')
 
     def finalize(self):
         BaseContainer.finalize(self)

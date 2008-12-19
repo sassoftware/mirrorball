@@ -28,7 +28,7 @@ class CentOSAdvisory(BaseContainer):
     Container class for CentOS advisories.
     """
 
-    __slots__ = ('discard', 'archs', 'header', 'pkgs', 'upstreamAdvisoryUrl', )
+    _slots = ('discard', 'archs', 'header', 'pkgs', 'upstreamAdvisoryUrl', )
 
     def finalize(self):
         """
