@@ -18,6 +18,7 @@ import sys
 import logging
 
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
@@ -36,7 +37,7 @@ logger.addRootLogger()
 log = logging.getLogger('verifymanifest')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/centos/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/ubuntu/updatebotrc')
 b = bot.Bot(cfg)
 
 b._pkgSource.load()
@@ -80,10 +81,20 @@ for pkg, v in pkgs:
     if not manifest and not repoManifest:
         continue
 
-    if 'system-config-securitylevel' in repoManifest[0] and pkg != 'system-config-securitylevel':
-        changed[pkg] = [manifest, repoManifest, srcPkg]
+    if manifest != repoManifest:
+        for item in repoManifest:
+            if item in manifest:
+                manifest.remove(item)
 
-    #if manifest != repoManifest:
+        debug = False
+        for item in manifest:
+            if 'universe' in item:
+                print '%s: new packages found in universe' % pkg
+            else:
+                debug = True
+
+        if debug:
+            import epdb; epdb.st()
     #    assert len(manifest) == len(repoManifest)
 
     #    baseNames1 = [ os.path.basename(x) for x in manifest ]
@@ -102,7 +113,8 @@ trvs = set()
 for pkg in changed:
     srcPkg = changed[pkg][2]
     manifest = b._updater._getManifestFromPkgSource(srcPkg)
-    helper.setManifest(pkg, manifest, commitMessage=cfg.commitMessage)
+    helper.setManifest(pkg, manifest)
+    helper.commit(pkg, commitMessage=cfg.commitMessage)
     trvs.add((pkg, cfg.topSourceGroup[1], None))
 
 import epdb; epdb.st()
