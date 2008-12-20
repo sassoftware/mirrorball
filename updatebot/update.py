@@ -23,6 +23,7 @@ from rpmutils import rpmvercmp
 from updatebot import util
 from updatebot import conaryhelper
 from updatebot.errors import GroupNotFound
+from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
 
@@ -139,10 +140,21 @@ class Updater(object):
 
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
+        metadata = None
         manifest = self._conaryhelper.getManifest(nvf[0])
         for line in manifest:
-            binPkg = self._pkgSource.locationMap[line]
-            srcPkg = self._pkgSource.binPkgMap[binPkg]
+            if line in self._pkgSource.locationMap:
+                binPkg = self._pkgSource.locationMap[line]
+                srcPkg = self._pkgSource.binPkgMap[binPkg]
+            else:
+                if metadata is None:
+                    metadata = self._conaryhelper.getMetadata(nvf[0])
+                if metadata:
+                    binPkg = metadata.locationMap[line]
+                    srcPkg = metadata.binPkgMap[binPkg]
+                else:
+                    raise OldVersionNotFoundError(
+                                why="can't find metadata for %s" % line)
 
             # set needsUpdate if version changes
             if util.packagevercmp(srpm, srcPkg) == 1:
@@ -333,6 +345,14 @@ class Updater(object):
 
         manifest = self._getManifestFromPkgSource(srcPkg)
         self._conaryhelper.setManifest(nvf[0], manifest)
+
+        # FIXME: This is apt specific for now. Once repomd has been rewritten
+        #        to use something other than rpath-xmllib we should be able to
+        #        convert this to xobj.
+        if self._cfg.repositoryFormat == 'apt':
+            metadata = self._getMetadataFromPkgSource(srcPkg)
+            self._conaryhelper.setMetadata(nvf[0], metadata)
+
         newVersion = self._conarhelper.commit(nvf[0],
                                     commitMessage=self._cfg.commitMessage)
         return newVersion
@@ -352,6 +372,33 @@ class Updater(object):
             elif hasattr(pkg, 'files'):
                 manifest.extend(pkg.files)
         return manifest
+
+    def _getMetadataFromPkgSource(self, srcPkg):
+        """
+        Get the xml representation of pkg metadata from a srcPkg.
+        @param srcPkg: source package object
+        @return xml string
+        """
+
+        metadata = {}
+        metadata['pkgs'] = self._pkgSource.srcPkgMap[srcPkg]
+        metadata['locationMap'] = {}
+        metadata['binPkgMap'] = {}
+
+        src = None
+        for pkg in metadata['pkgs']:
+            if hasattr(pkg, 'location'):
+                metadata['locationMap'][pkg.location] = pkg
+            elif hasattr(pkg, 'files'):
+                for path in pkg.files:
+                    metadata['locationMap'][path] = pkg
+            if pkg.arch == 'src':
+                src = pkg
+
+        for pkg in metadata['pkgs']:
+            metadata['binPkgMap'][pkg] = src
+
+        return metadata
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """

@@ -238,7 +238,7 @@ class ConaryHelper(object):
         Get the metadata.xml file from a source componet named pkgname.
         @param pkgname name of the package to checkout
         @type pkgname string
-        @return xml string
+        @return list like object
         """
 
         log.info('retrieving metadata for %s' % pkgname)
@@ -248,14 +248,17 @@ class ConaryHelper(object):
         if not os.path.exists(metadataFileName):
             return ''
 
-        return open(metadataFileName).read()
+        xml = open(metadataFileName).read()
+        xMetadata = XObjContainer.thaw(xml)
+
+        return xMetadata
 
     def setMetadata(self, pkgname, metadata):
         """
         Create/Update metadata.xml in a source component.
         @param pkgname name of the package
         @type pkgname string
-        @param metadata xml string
+        @param list of pkg objects
         @type metadata string
         """
 
@@ -263,10 +266,12 @@ class ConaryHelper(object):
 
         recipeDir = self._edit(pkgname)
 
+        xMetadata = util.XObjContainer(metadata)
+
         # Update metadata file.
         metadataFileName = util.join(recipeDir, 'metadata.xml')
         metadatafh = open(metadataFileName, 'w')
-        metadatafh.write(metadata)
+        metadatafh.write(xMetadata.freeze())
         metadatafh.write('\n')
         metadatafh.close()
 
