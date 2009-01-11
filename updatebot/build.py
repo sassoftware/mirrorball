@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -25,7 +25,7 @@ from rmake import plugins
 from rmake.build import buildcfg
 from rmake.cmdline import helper, monitor, commit
 
-from updatebot import util
+from updatebot.lib import util
 from updatebot.errors import JobFailedError, CommitFailedError
 
 log = logging.getLogger('updateBot.build')

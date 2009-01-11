@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -20,7 +20,6 @@ Module for common utility functions.
 # pylint: disable-msg=W0611
 
 import os
-from xobj import xobj
 from conary.lib.util import rmtree
 
 from rpmutils import rpmvercmp
@@ -98,26 +97,3 @@ def packageCompareByName(a, b):
         return nameCmp
 
     return packagevercmp(a, b)
-
-class XObjContainer(xobj.XObject):
-    """
-    Container class for XObjects that can be frozen and thawed.
-    """
-
-    def __init__(self, dataMap):
-        self._dataMap = dataMap
-
-    def __getattr__(self, name):
-        if name in self._dataMap:
-            return self._dataMap[name]
-        return xobj.XObject.__getattr__(self, name)
-
-    def freeze(self):
-        return xobj.toxml(self, 'data')
-
-    __str__ = freeze
-
-    @classmethod
-    def thaw(cls, xml):
-        obj = xobj.parse(xml)
-        return cls(obj.data._dataMap)
