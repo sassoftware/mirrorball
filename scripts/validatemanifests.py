@@ -28,7 +28,7 @@ from conary.lib import util
 sys.excepthook = util.genExcepthook()
 
 from updatebot import bot
-from updatebot import util
+from updatebot.lib import util
 from updatebot import config
 from updatebot import log as logger
 
@@ -56,8 +56,7 @@ for n, v, f in helper.getSourceTroves(cfg.topGroup):
             pkgs.append((n, v.getSourceVersion()))
 
 changed = {}
-for pkg, v in pkgs:
-
+for i, (pkg, v) in enumerate(pkgs):
     srpms = list(b._pkgSource.srcNameMap[pkg])
 
     map = {}
@@ -65,62 +64,68 @@ for pkg, v in pkgs:
         key = '%s_%s' % (x.version, x.release)
         map[key] = x
 
-    srcPkg = map[v.trailingRevision().asString().split('-')[0]]
-    manifest = b._updater._getManifestFromPkgSource(srcPkg)
-    repoManifest = b._updater._conaryhelper.getManifest(pkg)
-
-    if len(manifest) == len(repoManifest):
-        offt = 0
-        for i in range(len(manifest)):
-            index = i - offt
-            if manifest[index] == repoManifest[index]:
-                manifest.pop(index)
-                repoManifest.pop(index)
-                offt += 1
-
-    if not manifest and not repoManifest:
+    key = v.trailingRevision().asString().split('-')[0]
+    if key not in map:
+        log.info('%s (%s) version not found, using latest' % (pkg, key))
+        srcPkg = b._updater._getLatestSource(pkg)
+        changed[pkg] = srcPkg
         continue
 
-    if manifest != repoManifest:
-        for item in repoManifest:
-            if item in manifest:
-                manifest.remove(item)
+    srcPkg = map[key]
+    #manifest = b._updater._getManifestFromPkgSource(srcPkg)
+    #repoManifest = b._updater._conaryhelper.getManifest(pkg)
 
-        debug = False
-        for item in manifest:
-            if 'universe' in item:
-                print '%s: new packages found in universe' % pkg
-            else:
-                debug = True
+    #if len(manifest) == len(repoManifest):
+    #    offt = 0
+    #    for i in range(len(manifest)):
+    #        index = i - offt
+    #        if manifest[index] == repoManifest[index]:
+    #            manifest.pop(index)
+    #            repoManifest.pop(index)
+    #            offt += 1
 
-        if debug:
-            import epdb; epdb.st()
-    #    assert len(manifest) == len(repoManifest)
+    #if not manifest and not repoManifest:
+    #    changed[pkg] = srcPkg
+    #    continue
 
-    #    baseNames1 = [ os.path.basename(x) for x in manifest ]
-    #    baseNames2 = [ os.path.basename(x) for x in repoManifest ]
+    #if manifest != repoManifest:
+    #    removed = []
+    #    for item in repoManifest:
+    #        if item in manifest:
+    #            manifest.remove(item)
+    #            removed.append(item)
 
-    #    baseNames1.sort()
-    #    baseNames2.sort()
+    #    for item in removed:
+    #        repoManifest.remove(item)
 
-    #    assert baseNames1 == baseNames2
+    #    debug = False
+    #    for item in manifest:
+    #        if 'universe' in item:
+    #            log.info('%s: new packages found in universe' % pkg)
+    #        else:
+    #            debug = True
 
-    #    changed[pkg] = [manifest, repoManifest, srcPkg]
+    changed[pkg] = srcPkg
 
-import epdb; epdb.st()
 
-trvs = set()
+#import epdb; epdb.st()
+toBuild = set()
 for pkg in changed:
-    srcPkg = changed[pkg][2]
+    srcPkg = changed[pkg]
     manifest = b._updater._getManifestFromPkgSource(srcPkg)
     helper.setManifest(pkg, manifest)
-    helper.commit(pkg, commitMessage=cfg.commitMessage)
-    trvs.add((pkg, cfg.topSourceGroup[1], None))
+    metadata = b._updater._getMetadataFromPkgSource(srcPkg)
+    helper.setMetadata(pkg, metadata)
+#    helper.commit(pkg, commitMessage=cfg.commitMessage)
+    toBuild.add((pkg, cfg.topSourceGroup[1], None))
+
+    new = helper.getMetadata(pkg)
+
+    assert metadata == new
 
 import epdb; epdb.st()
 
-#trvMap = b._builder.build(trvs)
-trvMap = b._builder.buildmany(trvs)
+trvMap = b._builder.buildmany(toBuild)
 
 def displayTrove(nvf):
     flavor = ''
