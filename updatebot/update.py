@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -20,7 +20,7 @@ import logging
 
 from rpmutils import rpmvercmp
 
-from updatebot import util
+from updatebot.lib import util
 from updatebot import conaryhelper
 from updatebot.errors import GroupNotFound
 from updatebot.errors import OldVersionNotFoundError
@@ -148,7 +148,7 @@ class Updater(object):
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             else:
                 if metadata is None:
-                    metadata = self._conaryhelper.getMetadata(nvf[0])
+                    metadata = self._getMetadataFromConaryRepository(nvf[0])
                 if metadata:
                     binPkg = metadata.locationMap[line]
                     srcPkg = metadata.binPkgMap[binPkg]
@@ -375,13 +375,23 @@ class Updater(object):
 
     def _getMetadataFromPkgSource(self, srcPkg):
         """
-        Get the xml representation of pkg metadata from a srcPkg.
+        Get the data to go into the xml metadata from a srcPkg.
         @param srcPkg: source package object
-        @return xml string
+        @return list of packages
+        """
+
+        return self._pkgSource.srcPkgMap[srcPkg]
+
+    def _getMetadataFromConaryRepository(self, pkgName):
+        """
+        Get the metadata from the repository and generate required mappings.
+        @param pkgName: source package name
+        @type pkgName: string
+        @return dictionary of infomation that looks like a pkgsource.
         """
 
         metadata = {}
-        metadata['pkgs'] = self._pkgSource.srcPkgMap[srcPkg]
+        metadata['pkgs'] = self._conaryhelper.getMetadata(pkgName)
         metadata['locationMap'] = {}
         metadata['binPkgMap'] = {}
 

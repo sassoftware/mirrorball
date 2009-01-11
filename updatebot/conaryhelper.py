@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -31,7 +31,8 @@ from conary import conaryclient
 from conary.lib import log as clog
 from conary.conaryclient import mirror
 
-from updatebot import util
+from updatebot.lib import util
+from updatebot.lib import xobjects
 from updatebot.errors import GroupNotFound
 from updatebot.errors import TooManyFlavorsFoundError
 from updatebot.errors import NoManifestFoundError
@@ -246,12 +247,15 @@ class ConaryHelper(object):
         metadataFileName = util.join(recipeDir, 'metadata.xml')
 
         if not os.path.exists(metadataFileName):
-            return ''
+            return set()
 
         xml = open(metadataFileName).read()
-        xMetadata = XObjContainer.thaw(xml)
+        xMetadata = xobjects.XMetadataDoc.thaw(xml)
 
-        return xMetadata
+        pkgs = set(xMetadata.data.binaryPackages)
+        pkgs.add(xMetadata.data.sourcePackage)
+
+        return pkgs
 
     def setMetadata(self, pkgname, metadata):
         """
@@ -266,12 +270,13 @@ class ConaryHelper(object):
 
         recipeDir = self._edit(pkgname)
 
-        xMetadata = util.XObjContainer(metadata)
+        xMetadata = xobjects.XMetadataDoc(data=metadata)
+        xml = xMetadata.freeze()
 
         # Update metadata file.
         metadataFileName = util.join(recipeDir, 'metadata.xml')
         metadatafh = open(metadataFileName, 'w')
-        metadatafh.write(xMetadata.freeze())
+        metadatafh.write(xml)
         metadatafh.write('\n')
         metadatafh.close()
 
