@@ -19,6 +19,9 @@ import logging
 
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
