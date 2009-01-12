@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -21,15 +21,24 @@ class Container(object):
     Base container class.
     """
 
-    __slots__ = ('_data', )
+    _slots = ('_data', )
 
     def __init__(self):
         for cls in self.__class__.__mro__:
-            if hasattr(cls, '__slots__'):
-                for item in cls.__slots__:
+            if hasattr(cls, '_slots'):
+                for item in cls._slots:
                     setattr(self, item, None)
 
         self._data = {}
+
+    def __eq__(self, other):
+        """
+        Check for equality.
+        """
+
+        if not isinstance(other, Container):
+            return False
+        return cmp(self, other) == 0
 
     def set(self, key, value):
         """

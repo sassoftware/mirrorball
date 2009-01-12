@@ -23,8 +23,8 @@ class _Package(BaseContainer):
     Package container class.
     """
 
-    __slots__ = ('source', 'sourceVersion', 'location', 'summary',
-                 'description')
+    _slots = ('source', 'sourceVersion', 'location', 'summary',
+              'description')
 
 
 class PackagesParser(BaseParser):

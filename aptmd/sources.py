@@ -25,7 +25,7 @@ class _SourcePackage(BaseContainer):
     Container for source data.
     """
 
-    __slots__ = ('binaries', 'directory', 'files')
+    _slots = ('binaries', 'directory', 'files')
 
 
 class SourcesParser(BaseParser):

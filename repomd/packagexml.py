@@ -22,7 +22,7 @@ import os
 
 from rpath_common.xmllib import api1 as xmllib
 
-from updatebot import util
+from updatebot.lib import util
 
 from repomd.errors import UnknownElementError, UnknownAttributeError
 from repomd.xmlcommon import SlotNode

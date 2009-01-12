@@ -74,6 +74,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # platform short name
     platformName        = CfgString
 
+    # upstream product version
+    upstreamProductVersion = CfgString
+
     # disables checks for update completeness, this should only be enabled if
     # you know what you are doing and have a good reason.
     disableUpdateSanity = CfgBool
