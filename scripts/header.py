@@ -15,9 +15,15 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/rpath-xmllib')
-sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/rpath-xmllib')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
 
 from updatebot import log
 from updatebot import build
@@ -32,7 +38,7 @@ if len(sys.argv) < 2 or sys.argv[1] not in os.listdir(os.environ['HOME'] + '/hg/
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/%s/updatebotrc' % sys.argv[1])
 
 builder = build.Builder(cfg)
 
