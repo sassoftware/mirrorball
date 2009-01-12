@@ -57,6 +57,10 @@ class ConaryHelper(object):
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
 
+        mirrorDir = util.join(cfg.configPath, 'mirrors')
+        if os.path.exists(mirrorDir):
+            self._ccfg.mirrorDirs.insert(0, mirrorDir)
+
         self._mcfg = None
         mcfgfn = util.join(cfg.configPath, 'mirror.conf')
         if os.path.exists(mcfgfn):
