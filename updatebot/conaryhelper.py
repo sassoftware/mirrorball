@@ -302,6 +302,7 @@ class ConaryHelper(object):
                                     error=False)
 
         # Commit to repository.
+        recipeDir = self._checkoutCache[pkgname]
         self._commit(recipeDir, commitMessage)
 
         # Get new version of the source trove.
@@ -389,7 +390,7 @@ class ConaryHelper(object):
                 del self._checkoutCache[pkgDir]
         finally:
             os.chdir(cwd)
-            util.rmtree(recipeDir)
+            util.rmtree(pkgDir)
 
     @staticmethod
     def _addFile(pkgDir, fileName):
