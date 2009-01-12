@@ -17,12 +17,8 @@ import os
 import sys
 import logging
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rpath-xmllib')
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -52,7 +48,7 @@ for n, v, f in helper.getSourceTroves(cfg.topGroup):
             not n.startswith('info-') and
             not n.startswith('factory-') and
             not n in cfg.excludePackages):
-            #v = helper.getLatestSourceVersion(n)
+            v = helper.getLatestSourceVersion(n)
             pkgs.append((n, v.getSourceVersion()))
 
 changed = {}
@@ -71,41 +67,7 @@ for i, (pkg, v) in enumerate(pkgs):
         changed[pkg] = srcPkg
         continue
 
-    srcPkg = map[key]
-    #manifest = b._updater._getManifestFromPkgSource(srcPkg)
-    #repoManifest = b._updater._conaryhelper.getManifest(pkg)
-
-    #if len(manifest) == len(repoManifest):
-    #    offt = 0
-    #    for i in range(len(manifest)):
-    #        index = i - offt
-    #        if manifest[index] == repoManifest[index]:
-    #            manifest.pop(index)
-    #            repoManifest.pop(index)
-    #            offt += 1
-
-    #if not manifest and not repoManifest:
-    #    changed[pkg] = srcPkg
-    #    continue
-
-    #if manifest != repoManifest:
-    #    removed = []
-    #    for item in repoManifest:
-    #        if item in manifest:
-    #            manifest.remove(item)
-    #            removed.append(item)
-
-    #    for item in removed:
-    #        repoManifest.remove(item)
-
-    #    debug = False
-    #    for item in manifest:
-    #        if 'universe' in item:
-    #            log.info('%s: new packages found in universe' % pkg)
-    #        else:
-    #            debug = True
-
-    changed[pkg] = srcPkg
+    changed[pkg] = map[key]
 
 
 #import epdb; epdb.st()
@@ -116,12 +78,15 @@ for pkg in changed:
     helper.setManifest(pkg, manifest)
     metadata = b._updater._getMetadataFromPkgSource(srcPkg)
     helper.setMetadata(pkg, metadata)
-#    helper.commit(pkg, commitMessage=cfg.commitMessage)
-    toBuild.add((pkg, cfg.topSourceGroup[1], None))
 
     new = helper.getMetadata(pkg)
-
     assert metadata == new
+
+    newManifest = helper.getManifest(pkg)
+    assert manifest == newManifest
+
+    helper.commit(pkg, commitMessage=cfg.commitMessage)
+    toBuild.add((pkg, cfg.topSourceGroup[1], None))
 
 import epdb; epdb.st()
 
