@@ -108,7 +108,7 @@ class Builder(object):
 
             jobs[index].append(trv)
 
-            if i % 40 == 0:
+            if i % 50 == 0:
                 index += 1
 
         failed = set()
@@ -156,6 +156,52 @@ class Builder(object):
                     failed.add((trv, jobId))
 
         return results, failed
+
+    def buildsplitarch(self, troveSpecs):
+        """
+        Build a list of packages, in N jobs where N is the number of
+        configured arch contexts.
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @return troveMap: dictionary of troveSpecs to built troves
+        """
+
+        # Split troves by context.
+        jobs = {}
+        for trv in self._formatInput(troveSpecs):
+            if len(trv) != 4:
+                continue
+
+            key = trv[3]
+            if key not in jobs:
+                jobs[key] = []
+            jobs[key].append(trv)
+
+        # Start all build jobs.
+        jobIds = {}
+        for ctx, job in jobs.iteritems():
+            jobIds[ctx] = self._startJob(job)
+
+        fmtstr = ','.join([ '%s:%s' % (x, y) for x, y in jobIds.iteritems()])
+        log.info('Started %s' % fmtstr)
+
+        # Wait for the jobs to finish.
+        log.info('Waiting for jobs to complete')
+        for jobId in jobIds.itervalues():
+            job = self._helper.getJob(jobId)
+            while not job.isFinished() and not job.isFailed():
+                time.sleep(1)
+                job = self._helper.getJob(jobId)
+
+        # Sanity check all jobs.
+        for jobId in jobIds.itervalues():
+            self._sanityCheckJob(jobId)
+
+        # Commit if all jobs were successfull.
+        trvMap = self._commitJob(jobIds.values())
+
+        ret = self._formatOutput(trvMap)
+        return ret
 
     def start(self, troveSpecs):
         """
@@ -271,23 +317,30 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
+        if type(jobId) != list:
+            jobIds = [ jobId, ]
+        else:
+            jobIds = jobId
+
+        jobIdsStr = ','.join(jobIds)
+
         # Do the commit
         startTime = time.time()
-        job = self._helper.getJob(jobId)
-        log.info('Starting commit of job %d', jobId)
+        jobs = [ self._helper.getJob(x) for x in jobIds ]
+        log.info('Starting commit of job %s', jobIdsStr)
 
-        self._helper.client.startCommit([jobId, ])
+        self._helper.client.startCommit(jobIds)
         succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
-                                            [job, ],
+                                            jobs,
                                             self._rmakeCfg.reposName,
                                             self._cfg.commitMessage)
 
         if not succeeded:
-            self._helper.client.commitFailed([jobId, ], data)
-            raise CommitFailedError(jobId=job.jobId, why=data)
+            self._helper.client.commitFailed(jobIds, data)
+            raise CommitFailedError(jobId=jobIdsStr, why=data)
 
-        log.info('Commit of job %d completed in %.02f seconds',
-                 jobId, time.time() - startTime)
+        log.info('Commit of job %s completed in %.02f seconds',
+                 jobIdsStr, time.time() - startTime)
 
         troveMap = {}
         for troveTupleDict in data.itervalues():
