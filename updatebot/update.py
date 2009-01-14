@@ -353,7 +353,7 @@ class Updater(object):
             metadata = self._getMetadataFromPkgSource(srcPkg)
             self._conaryhelper.setMetadata(nvf[0], metadata)
 
-        newVersion = self._conarhelper.commit(nvf[0],
+        newVersion = self._conaryhelper.commit(nvf[0],
                                     commitMessage=self._cfg.commitMessage)
         return newVersion
 
