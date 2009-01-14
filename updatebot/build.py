@@ -182,7 +182,7 @@ class Builder(object):
         for ctx, job in jobs.iteritems():
             jobIds[ctx] = self._startJob(job)
 
-        fmtstr = ','.join([ '%s:%s' % (x, y) for x, y in jobIds.iteritems()])
+        fmtstr = ', '.join([ '%s:%s' % (x, y) for x, y in jobIds.iteritems()])
         log.info('Started %s' % fmtstr)
 
         # Wait for the jobs to finish.
