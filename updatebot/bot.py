@@ -57,7 +57,7 @@ class Bot(object):
             lst.extend(list(trvSet))
         return lst
 
-    def create(self):
+    def create(self, rebuild=False):
         """
         Do initial imports.
         """
@@ -69,46 +69,14 @@ class Bot(object):
         self._pkgSource.load()
 
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
+        toBuild, fail = self._updater.create(self._cfg.package, buildAll=rebuild)
 
-        # Build all newly imported packages.
-        trvMap, failed = self._builder.buildmany(toBuild)
-
-#        import epdb; epdb.st()
-
-##        trvMap = self._builder.build(toBuild)
-        #import epdb; epdb.st()
-
-        #trvs = self._builder._formatInput(toBuild)
-        #jobs = {}
-        #for trv in trvs:
-        #    key = 'other'
-        #    if len(trv) == 4:
-        #        key = trv[3]
-
-        #    if key not in jobs:
-        #        jobs[key] = []
-
-        #    jobs[key].append(trv)
-
-        #ids = {}
-        #for job in jobs:
-        #    if job == 'other':
-        #        continue
-
-        #    ids[job] = self._builder._startJob(jobs[job])
-
-        #for job in ids:
-        #    self._builder._monitorJob(ids[job])
-
-        #log.info('completed jobs %s' % (' '.join(ids.values()), ))
-
-        #import epdb; epdb.st()
-
-        #for trv in self._flattenSetDict(trvMap):
-        #    log.info('built: %s' % trv)
-
-        #import epdb; epdb.st()
+        if not rebuild:
+            # Build all newly imported packages.
+            trvMap, failed = self._builder.buildmany(toBuild)
+        else:
+            # ReBuild all packages.
+            trvMap = self._builder.buildsplitarch(toBuild)
 
         log.info('import completed successfully')
         log.info('imported %s source packages' % (len(toBuild), ))
