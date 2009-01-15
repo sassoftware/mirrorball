@@ -322,7 +322,7 @@ class Builder(object):
         else:
             jobIds = jobId
 
-        jobIdsStr = ','.join(jobIds)
+        jobIdsStr = ','.join(map(str, jobIds))
 
         # Do the commit
         startTime = time.time()
