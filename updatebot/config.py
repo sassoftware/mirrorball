@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -25,6 +25,8 @@ from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool
 from conary.lib.cfgtypes import ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
+
+from updatebot.lib import util
 
 class CfgBranch(CfgLabel):
     """
@@ -156,6 +158,15 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     emailBcc            = (CfgList(CfgString), [])
     smtpServer          = CfgString
 
+    # Jira Info
+    jiraUser            = CfgString
+    jiraPassword        = CfgString
+    jiraUrl             = CfgString
+    jiraSecurityGroup   = CfgString
+
+    # Satis Info
+    satisUrl            = CfgString
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
@@ -175,6 +186,13 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
         Read specified file.
         """
 
+        # If there is a global config, load it first.
+        cfgDir = os.path.dirname(args[0])
+        cfgFile = util.join(cfgDir, '../', 'updatebotrc')
+        if os.path.exists(cfgFile):
+            cfg.SectionedConfigFile.read(self, cfgFile, **kwargs)
+
+        # Find configPath.
         ret = cfg.SectionedConfigFile.read(self, *args, **kwargs)
         if not self.configPath.startswith(os.sep):
             # configPath is relative
