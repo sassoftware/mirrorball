@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -57,4 +57,8 @@ class BasePackageSource(object):
 
         return self._clients
 
-
+    def load(self):
+        """
+        Method to parse all package data into data structures listed above.
+        NOTE: This method should be implmented by all backends.
+        """

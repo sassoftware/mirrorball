@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -98,7 +98,8 @@ class BaseParser(Parser):
 
         # Extract info from message
         fromLine = msg['From']
-        self._curObj.fromAddr = fromLine[:fromLine.find('(')].replace(' at ', '@')
+        self._curObj.fromAddr = \
+                fromLine[:fromLine.find('(')].replace(' at ', '@')
         self._curObj.fromName = fromLine[fromLine.find('('):].strip('()')
         self._curObj.timestamp = ' '.join(msg.get_from().split()[4:])
         self._curObj.subject = msg['Subject'].replace('\n\t', ' ')

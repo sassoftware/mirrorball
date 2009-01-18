@@ -12,15 +12,22 @@
 # full details.
 #
 
+"""
+Package source for APT repositories.
+"""
+
 import logging
 
 import aptmd
-from updatebot.lib import util
 from updatebot.pkgsource.common import BasePackageSource
 
 log = logging.getLogger('updatebot.pkgsource')
 
 class DebSource(BasePackageSource):
+    """
+    PackageSource backend for APT repositories.
+    """
+
     def __init__(self, cfg):
         BasePackageSource.__init__(self, cfg)
 
@@ -41,6 +48,10 @@ class DebSource(BasePackageSource):
         self.finalize()
 
     def loadFromClient(self, client, path):
+        """
+        Load repository metadata from a aptmd client object.
+        """
+
         for pkg in client.parse(path):
             if pkg.arch in self._excludeArch:
                 continue
@@ -51,6 +62,10 @@ class DebSource(BasePackageSource):
                 self._procBin(pkg)
 
     def _procSrc(self, pkg):
+        """
+        Process source packages.
+        """
+
         if pkg.name not in self.srcNameMap:
             self.srcNameMap[pkg.name] = set()
         self.srcNameMap[pkg.name].add(pkg)
@@ -61,6 +76,10 @@ class DebSource(BasePackageSource):
         self._srcPkgs.add(pkg)
 
     def _procBin(self, pkg):
+        """
+        Process binary packages.
+        """
+
         if pkg.name not in self.binNameMap:
             self.binNameMap[pkg.name] = set()
         self.binNameMap[pkg.name].add(pkg)
@@ -70,6 +89,10 @@ class DebSource(BasePackageSource):
         self._binPkgs.add(pkg)
 
     def finalize(self):
+        """
+        Finalize all data structures.
+        """
+
         for srcPkg in self._srcPkgs:
             if srcPkg in self.srcPkgMap:
                 continue

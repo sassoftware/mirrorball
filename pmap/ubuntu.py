@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -27,6 +27,16 @@ class UbuntuContainer(BaseContainer):
     _slots = ('pkgs', 'pkgNameVersion')
 
     def finalize(self):
+        """
+        Finalize the instance.
+        """
+
+        # E1101 - Instance has no member
+        # pylint: disable-msg=E1101
+
+        # W0201 - Attribute defined outside of __init__
+        # pylint: disable-msg=W0201
+
         BaseContainer.finalize(self)
 
         assert self.subject is not None
@@ -67,15 +77,27 @@ class Parser(BaseParser):
         self._filterLine('^The problem can be corrected.*$', 'setdescription')
 
     def _newContainer(self):
+        """
+        Create a new container instance.
+        """
+
         if self._curObj and not self._curObj.pkgs:
             self._curObj = None
         BaseParser._newContainer(self)
 
     def _parseLine(self, cfgline):
+        """
+        Parse a single line.
+        """
+
         cfgline = cfgline.strip()
         return BaseParser._parseLine(self, cfgline)
 
     def _getState(self, state):
+        """
+        Find the correct state.
+        """
+
         state = BaseParser._getState(self, state)
         if state in self._states:
             return state
@@ -86,6 +108,10 @@ class Parser(BaseParser):
         return state
 
     def _headersep(self):
+        """
+        Parse header serparator.
+        """
+
         if len(self._line) != 1:
             return
 
@@ -96,16 +122,28 @@ class Parser(BaseParser):
             self._inHeader = False
 
     def _the(self):
+        """
+        Parse lines starting in "the".
+        """
+
         if self._endHeader and self._text.strip():
             self._curObj.description = self._text.strip()
 
     def _ubuntu(self):
+        """
+        Parse Ubuntu lines.
+        """
+
         if '.' in self._line[1] and len(self._line[1].split('.')) == 2:
             year, month = self._line[1].strip(':').split('.')
             if year.isdigit() and month.isdigit():
                 self._curDistroVer = self._line[1].strip(':')
 
     def _pkgnamever(self):
+        """
+        Parse the package name and version line.
+        """
+
         # looks like a version
         line = [ x for x in self._line if x ]
 
@@ -120,6 +158,10 @@ class Parser(BaseParser):
             self._curObj.pkgNameVersion[self._curDistroVer].add((name, version))
 
     def _repourl(self):
+        """
+        Parse repository Url line.
+        """
+
         url = self._line[0]
         parts = url.split('/')
 
@@ -130,20 +172,36 @@ class Parser(BaseParser):
             self._curObj.pkgs.add('/'.join(parts[4:]))
 
     def _details(self):
+        """
+        Find the begining of the description section.
+        """
+
         if self._line[1] == 'follow:':
             self._curDistroVer = None
             self._inDetails = True
             self._endHeader = False
 
     def _updated(self):
+        """
+        Find the end of the description section.
+        """
+
         if self._line[1] == 'packages':
             self._processDetails()
 
     def _source(self):
+        """
+        Find the end of the description section.
+        """
+
         if self._line[1] == 'archives:':
             self._processDetails()
 
     def _processDetails(self):
+        """
+        Process the description section.
+        """
+
         if self._inDetails or self._endHeader:
             self._inDetails = False
             if self._curObj.description is None:

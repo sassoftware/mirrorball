@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -27,7 +27,7 @@ import tempfile
 from imputil import imp
 
 __all__ = ('InvalidBackendError', 'parse')
-_supportedBackends = ('ubuntu', 'centos')
+__supportedBackends = ('ubuntu', 'centos')
 
 class InvalidBackendError(Exception):
     """
@@ -61,9 +61,9 @@ def _getBackend(backend):
     otherwise raise an exception.
     """
 
-    if backend not in _supportedBackends:
+    if backend not in __supportedBackends:
         raise InvalidBackendError('%s is not a supported backend, please '
-            'choose from %s' % (backend, ','.join(_supportedBackends)))
+            'choose from %s' % (backend, ','.join(__supportedBackends)))
 
     try:
         path = [imp.find_module('pmap')[1], ]

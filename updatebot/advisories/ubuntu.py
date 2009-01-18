@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -25,6 +25,10 @@ from updatebot.advisories.common import BaseAdvisor
 log = logging.getLogger('updatebot.advisories')
 
 class Advisor(BaseAdvisor):
+    """
+    Class for processing Ubuntu advisory information.
+    """
+
     def load(self):
         """
         Parse the required data to generate a mapping of binary package
@@ -93,6 +97,9 @@ class Advisor(BaseAdvisor):
         @type binPkg: repomd.packagexml._Package
         """
 
+        # W0613 - Unused argument
+        # pylint: disable-msg=W0613
+
         return False
 
     def _isUpdatesRepo(self, binPkg):
@@ -103,6 +110,9 @@ class Advisor(BaseAdvisor):
         @type binPkg: repomd.packagexml._Package
         """
 
+        # W0613 - Unused argument
+        # pylint: disable-msg=W0613
+
         return True
 
     def _checkForDuplicates(self, patchSet):
@@ -111,5 +121,8 @@ class Advisor(BaseAdvisor):
         combine any required information into the first object in the set and
         return True, otherwise return False.
         """
+
+        # W0613 - Unused argument
+        # pylint: disable-msg=W0613
 
         return False

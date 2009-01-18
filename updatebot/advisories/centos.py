@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -12,6 +12,10 @@
 # full details.
 #
 
+"""
+Advisory module for CentOS.
+"""
+
 import os
 import pmap
 import logging
@@ -21,6 +25,10 @@ from updatebot.advisories.common import BaseAdvisor
 log = logging.getLogger('updatebot.advisories')
 
 class Advisor(BaseAdvisor):
+    """
+    Class for processing CentOS advisory information.
+    """
+
     supportedArches = ('i386', 'i586', 'i686', 'x86_64', 'noarch', 'src')
 
     def load(self):
@@ -96,10 +104,13 @@ class Advisor(BaseAdvisor):
     def _hasException(self, binPkg):
         """
         Check the config for repositories with exceptions for sending
-        advisories. (io. repositories that we generated metadata for.)
+        advisories. (ie. repositories that we generated metadata for.)
         @param binPkg: binary package object
         @type binPkg: repomd.packagexml._Package
         """
+
+        # W0613 - Unused argument binPkg
+        # pylint: disable-msg=W0613
 
         return False
 

@@ -11,3 +11,7 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
+
+"""
+Module for general libary modules.
+"""

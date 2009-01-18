@@ -12,6 +12,10 @@
 # full details.
 #
 
+"""
+Module for manipulating Jira issues.
+"""
+
 import pyjira
 
 class JiraClient(pyjira.JiraClient):
@@ -21,8 +25,8 @@ class JiraClient(pyjira.JiraClient):
 
     def __init__(self, cfg):
         self._cfg = cfg
-        self._wsdl = '%s/rpc/soap/jirasoapservice-v2?wsdl' % cfg.jiraUrl
-        self._login = (cfg.jiraUser, cfg.jiraPassword)
+        self._wsdl = '%s/rpc/soap/jirasoapservice-v2?wsdl' % self._cfg.jiraUrl
+        self._login = (self._cfg.jiraUser, self._cfg.jiraPassword)
 
         pyjira.JiraClient.__init__(self, self._wsdl, self._login)
 
@@ -33,4 +37,4 @@ class JiraClient(pyjira.JiraClient):
         """
 
         pyjira.JiraClient.addComment(self, issueKey, body,
-            level=cfg.jiraSecurityGroup)
+            level=self._cfg.jiraSecurityGroup)

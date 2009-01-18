@@ -24,6 +24,9 @@ class Container(object):
     _slots = ('_data', )
 
     def __init__(self):
+        # W0212 - Access to a protected member _slots of a client class
+        # pylint: disable-msg=W0212
+
         for cls in self.__class__.__mro__:
             if hasattr(cls, '_slots'):
                 for item in cls._slots:

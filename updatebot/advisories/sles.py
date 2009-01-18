@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -12,6 +12,10 @@
 # full details.
 #
 
+"""
+Advisory module for SLES.
+"""
+
 import logging
 
 from updatebot.advisories.common import BaseAdvisor
@@ -19,6 +23,10 @@ from updatebot.advisories.common import BaseAdvisor
 log = logging.getLogger('updatebot.advisories')
 
 class Advisor(BaseAdvisor):
+    """
+    Class for processing SLES advisory information.
+    """
+
     allowExtraPackages = True
 
     def load(self):
@@ -89,6 +97,9 @@ class Advisor(BaseAdvisor):
         combine any required information into the first object in the set and
         return True, otherwise return False.
         """
+
+        # W0613 - Unused argument patchSet
+        # pylint: disable-msg=W0613
 
         # Don't have dups on sles
         return False

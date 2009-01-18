@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -69,7 +69,8 @@ class Bot(object):
         self._pkgSource.load()
 
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package, buildAll=rebuild)
+        toBuild, fail = self._updater.create(self._cfg.package,
+                                             buildAll=rebuild)
 
         if not rebuild:
             # Build all newly imported packages.

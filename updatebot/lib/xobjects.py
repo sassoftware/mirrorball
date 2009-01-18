@@ -27,7 +27,6 @@ class XDocManager(xobj.Document):
     """
 
     data = str
-
     freeze = xobj.Document.toxml
 
     @classmethod

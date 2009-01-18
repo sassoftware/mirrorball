@@ -17,9 +17,9 @@ Module for interacting with satis.
 """
 
 from satis import types
+from satis.types import And, Equals
 from satis import util as satisutil
 from satis.client.http import HTTPClient
-from satis.types import Or, And, Equals, NewerThan
 
 class SatisClient(object):
     """

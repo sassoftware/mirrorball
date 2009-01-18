@@ -94,7 +94,8 @@ class RpmSource(BasePackageSource):
             pkg.location = basePath + '/' + pkg.location
 
             # ignore 32bit rpms in a 64bit repo.
-            if pkg.arch in ('i386', 'i586', 'i686') and 'x86_64' in pkg.location:
+            if (pkg.arch in ('i386', 'i586', 'i686') and
+                'x86_64' in pkg.location):
                 continue
 
             if pkg.sourcerpm == '':
@@ -116,7 +117,8 @@ class RpmSource(BasePackageSource):
         self.locationMap[package.location] = package
 
         self._srcPkgs.add(package)
-        self._srcMap[(package.name, package.epoch, package.version, package.release, package.arch)] = package
+        self._srcMap[(package.name, package.epoch, package.version,
+                      package.release, package.arch)] = package
 
     def _procBin(self, package):
         """
@@ -177,7 +179,8 @@ class RpmSource(BasePackageSource):
                 self.binPkgMap[binPkg] = pkg
 
         if count > 0:
-            log.warn('found %s source rpms without matching binary rpms' % count)
+            log.warn('found %s source rpms without matching binary '
+                     'rpms' % count)
 
         # Defer deletes, contents of rpmMap are used more than once.
         for key in toDelete:
@@ -204,6 +207,10 @@ class RpmSource(BasePackageSource):
             log.warn('found %s binary rpms without matching srpms' % count)
 
     def loadFileLists(self, client, basePath):
+        """
+        Parse file information.
+        """
+
         for pkg in client.getFileLists():
             for binPkg in self.binPkgMap.iterkeys():
                 if util.packageCompare(pkg, binPkg) == 0:

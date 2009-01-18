@@ -12,12 +12,22 @@
 # full details.
 #
 
+"""
+PackageSource Errors Module
+"""
+
 from updatebot.errors import UpdateBotError
 
 class PackageSourceError(UpdateBotError):
-    pass
+    """
+    Base error for all package source related errors to inherit from.
+    """
 
 class UnsupportedRepositoryError(PackageSourceError):
+    """
+    Raised when an unsupported backend is used.
+    """
+
     _params = ['repo', 'supported']
     _template = ('%(repo)s is not a supported repository format, please '
                  'choose one of the following %(supported)s')

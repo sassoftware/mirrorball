@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -414,8 +414,6 @@ class BaseAdvisor(object):
         timeTup = list(time.strptime(startDate, '%Y%m'))
 
         startYear = timeTup[0]
-        startMonth = timeTup[1]
-
         endYear = time.localtime()[0]
         endMonth = time.localtime()[1]
 
