@@ -34,7 +34,8 @@ success, cs = client.createSiblingCloneChangeSet(
         labelMap,
         trvs,
         cloneSources=True,
-        callback=cb)
+        callback=cb,
+        updateBuildInfo=False)
 
 import epdb
 epdb.st()
