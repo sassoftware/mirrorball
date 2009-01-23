@@ -98,4 +98,4 @@ okay = conaryclient.cmdline.askYn('commit changset? [y/N]', default=False)
 
 # Commit changeset.
 if okay:
-    client.repos.commitChangeSet(cs, callback=callback)
+    client.repos.commitChangeSet(cs, callback=cb)
