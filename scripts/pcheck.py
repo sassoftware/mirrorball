@@ -11,6 +11,8 @@ from conary import callbacks
 from conary import conarycfg
 from conary import conaryclient
 
+log.setVerbosity(log.INFO)
+
 cfg = conarycfg.ConaryConfiguration(True)
 cfg.setContext('1-binary')
 
@@ -57,6 +59,7 @@ hiddenLabels = [
 # Find troves that have labels that are not in the label map.
 log.info('Searching for troves that will not be promoted')
 branches = labelMap.keys()
+found = False
 for name, version, flavor in sorted(oldTrvSpecs):
     if version.branch() not in branches:
         match = False
@@ -64,8 +67,11 @@ for name, version, flavor in sorted(oldTrvSpecs):
              if label in version.versions:
                 match = True
         if not match:
+            found = True
             log.warning('not promoting %s=%s[%s]' % (name, version, flavor)) 
 
+if not found:
+    log.info('No troves found that will not be promoted')
 
 # Ask before moving on.
 okay = conaryclient.cmdline.askYn('continue with clone? [y/N]', default=False)
