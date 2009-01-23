@@ -67,6 +67,11 @@ for name, version, flavor in sorted(oldTrvSpecs):
             log.warning('not promoting %s=%s[%s]' % (name, version, flavor)) 
 
 
+# Ask before moving on.
+okay = conaryclient.cmdline.askYn('continue with clone? [y/N]', default=False)
+if not okay:
+    sys.exit(0)
+
 # Make the promote changeset.
 log.info('Creating promote changeset')
 cb = conaryclient.callbacks.CloneCallback(cfg, 'automated commit')
@@ -83,7 +88,7 @@ if not success:
     sys.exit(1)
 
 # Ask before committing.
-okay = conaryclient.cmdline.askYn('continue with clone? [y/N]', default=False)
+okay = conaryclient.cmdline.askYn('commit changset? [y/N]', default=False)
 
 # Commit changeset.
 if okay:
