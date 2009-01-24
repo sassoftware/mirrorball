@@ -148,7 +148,8 @@ class Updater(object):
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             else:
                 if metadata is None:
-                    metadata = self._getMetadataFromConaryRepository(nvf[0])
+                    pkgs = self._getMetadataFromConaryRepository(nvf[0])
+                    metadata = util.Metadata(pkgs)
                 if metadata:
                     binPkg = metadata.locationMap[line]
                     srcPkg = metadata.binPkgMap[binPkg]
@@ -390,25 +391,7 @@ class Updater(object):
         @return dictionary of infomation that looks like a pkgsource.
         """
 
-        metadata = {}
-        metadata['pkgs'] = self._conaryhelper.getMetadata(pkgName)
-        metadata['locationMap'] = {}
-        metadata['binPkgMap'] = {}
-
-        src = None
-        for pkg in metadata['pkgs']:
-            if hasattr(pkg, 'location'):
-                metadata['locationMap'][pkg.location] = pkg
-            elif hasattr(pkg, 'files'):
-                for path in pkg.files:
-                    metadata['locationMap'][path] = pkg
-            if pkg.arch == 'src':
-                src = pkg
-
-        for pkg in metadata['pkgs']:
-            metadata['binPkgMap'][pkg] = src
-
-        return metadata
+        return self._conaryhelper.getMetadata(pkgName)
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """

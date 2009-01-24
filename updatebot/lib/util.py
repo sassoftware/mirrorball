@@ -97,3 +97,26 @@ def packageCompareByName(a, b):
         return nameCmp
 
     return packagevercmp(a, b)
+
+class Metadata(object):
+    """
+    Base class for repository metadata.
+    """
+
+    def __init__(self, pkgs):
+        self.pkgs = pkgs
+        self.locationMap = {}
+        self.binPkgMap = {}
+
+        src = None
+        for pkg in self.pkgs:
+            if hasattr(pkg, 'location'):
+                self.locationMap[pkg.location] = pkg
+            elif hasattr(pkg, 'files'):
+                for path in pkg.files:
+                    self.locationMap[path] = pkg
+            if pkg.arch == 'src':
+                src = pkg
+
+        for pkg in self.pkgs:
+            self.binPkgMap[pkg] = src
