@@ -54,17 +54,19 @@ class PackagesParser(BaseParser):
             'task'                  : self._keyval,
         })
 
-    def parse(self, fn):
+    def parse(self, fn, path):
         """
         Parse a given file or file like object line by line.
         @param fn: filename or file like object to parse.
         @type fn: string or file like object.
+        @param path: path to the metadata file
+        @type path: string
         """
 
         # Attribute 'description' defined outside __init__
         # pylint: disable-msg=W0201
 
-        ret = BaseParser.parse(self, fn)
+        ret = BaseParser.parse(self, fn, path)
         # If there is any text left, collect it in the description
         if self._text:
             self._curObj.description = self._text

@@ -72,8 +72,7 @@ class Advisor(BaseAdvisor):
                 #log.warn('found path (%s) not in cache' % path)
                 continue
 
-            #import epdb; epdb.st()
-            log.info('found path (%s) in cache' % path)
+            #log.info('found path (%s) in cache' % path)
             nvMap = msg.pkgNameVersion[self._cfg.upstreamProductVersion]
             for pkg in pkgCache[path]:
                 nv = (pkg.name, '-'.join([pkg.version, pkg.release]))
@@ -113,7 +112,11 @@ class Advisor(BaseAdvisor):
         # W0613 - Unused argument
         # pylint: disable-msg=W0613
 
-        return True
+        for path in ('-security', ):
+            if path in binPkg.mdpath:
+                return True
+
+        return False
 
     def _checkForDuplicates(self, patchSet):
         """

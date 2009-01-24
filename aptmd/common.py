@@ -27,7 +27,7 @@ class BaseContainer(Container):
     metadata.
     """
 
-    _slots = ('name', 'arch', 'epoch', 'version', 'release')
+    _slots = ('name', 'arch', 'epoch', 'version', 'release', 'mdpath')
 
     def __repr__(self):
         # Instance of 'BaseContainer' has no 'name' member
@@ -58,6 +58,7 @@ class BaseParser(Parser):
         Parser.__init__(self)
 
         self._containerClass = BaseContainer
+        self._mdPath = None
 
         self._states.update({
             'package'               : self._package,
@@ -69,16 +70,29 @@ class BaseParser(Parser):
             'original-maintainer'   : self._keyval,
         })
 
+    def parse(self, fn, path):
+        """
+        Parse repository metadata.
+        """
+
+        self._mdPath = path
+        return Parser.parse(self, fn)
+
+    def _newContainer(self):
+        """
+        Create a new container object and store the finished one.
+        """
+
+        if self._curObj is not None:
+            self._curObj.mdpath = self._mdPath
+        return Parser._newContainer(self)
+
     def _package(self):
         """
         Parse package info.
         """
 
-        if self._curObj is not None:
-            if hasattr(self._curObj, 'finalize'):
-                self._curObj.finalize()
-            self._objects.append(self._curObj)
-        self._curObj = self._containerClass()
+        self._newContainer()
         self._curObj.name = self._getLine()
 
     def _architecture(self):

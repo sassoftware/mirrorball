@@ -45,8 +45,8 @@ class Client(object):
         fh = self._repo.get(path)
         basename = os.path.basename(path)
         if basename.startswith('Packages'):
-            return self._packages.parse(fh)
+            return self._packages.parse(fh, path)
         elif basename.startswith('Sources'):
-            return self._sources.parse(fh)
+            return self._sources.parse(fh, path)
         else:
             raise UnsupportedFileError(path)
