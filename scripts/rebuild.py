@@ -30,12 +30,12 @@ from updatebot import bot, config, log
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/%s/updatebotrc' % sys.argv[1])
 obj = bot.Bot(cfg)
-trvMap = obj.create()
-
-import epdb ; epdb.st()
+trvMap = obj.create(rebuild=True)
 
 for source in trvMap:
     for bin in trvMap[source]:
         print '%s=%s[%s]' % bin
+
+import epdb ; epdb.st()

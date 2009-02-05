@@ -39,7 +39,7 @@ log.addRootLogger()
 slog = logging.getLogger('findbinaries')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/sles/updatebotrc')
 
 bot = bot.Bot(cfg)
 updater = bot._updater

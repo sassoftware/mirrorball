@@ -24,7 +24,7 @@ from updatebot import config
 from updatebot import pkgsource
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/sles/updatebotrc')
 
 pkgSource = pkgsource.PackageSource(cfg)
 pkgSource.load()

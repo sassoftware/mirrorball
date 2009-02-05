@@ -19,6 +19,6 @@ sys.excepthook = util.genExcepthook()
 from updatebot import bot, config
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/sles/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/ubuntu/updatebotrc')
 obj = bot.Bot(cfg)
 obj.update()

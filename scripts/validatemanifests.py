@@ -73,27 +73,28 @@ for i, (pkg, v) in enumerate(pkgs):
     changed[pkg] = map[key]
 
 
-#import epdb; epdb.st()
+#toBuild = set()
+#for pkg in changed:
+#    srcPkg = changed[pkg]
+#    manifest = b._updater._getManifestFromPkgSource(srcPkg)
+#    helper.setManifest(pkg, manifest)
+#    metadata = b._updater._getMetadataFromPkgSource(srcPkg)
+#    helper.setMetadata(pkg, metadata)
+
+#    new = helper.getMetadata(pkg)
+#    assert metadata == new
+
+#    newManifest = helper.getManifest(pkg)
+#    assert manifest == newManifest
+
+#    helper.commit(pkg, commitMessage=cfg.commitMessage)
+#    toBuild.add((pkg, cfg.topSourceGroup[1], None))
+
 toBuild = set()
-for pkg in changed:
-    srcPkg = changed[pkg]
-    manifest = b._updater._getManifestFromPkgSource(srcPkg)
-    helper.setManifest(pkg, manifest)
-    metadata = b._updater._getMetadataFromPkgSource(srcPkg)
-    helper.setMetadata(pkg, metadata)
-
-    new = helper.getMetadata(pkg)
-    assert metadata == new
-
-    newManifest = helper.getManifest(pkg)
-    assert manifest == newManifest
-
-    helper.commit(pkg, commitMessage=cfg.commitMessage)
+for pkg in changed.iterkeys():
     toBuild.add((pkg, cfg.topSourceGroup[1], None))
 
-import epdb; epdb.st()
-
-trvMap = b._builder.buildmany(toBuild)
+trvMap = b._builder.buildsplitarch(toBuild)
 
 def displayTrove(nvf):
     flavor = ''
