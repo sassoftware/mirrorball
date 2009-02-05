@@ -48,8 +48,11 @@ class Advisor(BaseAdvisor):
         # Fetch all of the archives and process them.
         for url in self._getArchiveUrls():
             log.info('parsing mail archive: %s' % url)
-            for msg in pmap.parse(url, backend=self._cfg.platformName):
-                self._loadOne(msg, pkgCache)
+            try:
+                for msg in pmap.parse(url, backend=self._cfg.platformName):
+                    self._loadOne(msg, pkgCache)
+            except pmap.ArchiveNotFound, e:
+                log.warn('unable to retrieve archive for %s' % url)
 
     def _loadOne(self, msg, pkgCache):
         """
