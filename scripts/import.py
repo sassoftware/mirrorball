@@ -27,7 +27,7 @@ from updatebot import bot, config, log
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/centos/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/sles/updatebotrc')
 obj = bot.Bot(cfg)
 trvMap = obj.create()
 
