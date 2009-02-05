@@ -26,12 +26,17 @@ import tempfile
 
 from imputil import imp
 
-__all__ = ('InvalidBackendError', 'parse')
+__all__ = ('InvalidBackendError', 'ArchiveNotFoundError', 'parse')
 __supportedBackends = ('ubuntu', 'centos')
 
 class InvalidBackendError(Exception):
     """
     Raised when requested backend is not available.
+    """
+
+class ArchiveNotFoundError(Exception):
+    """
+    Raised when an archive could not be retrieved.
     """
 
 def _getFileObjFromUrl(url):
@@ -43,7 +48,11 @@ def _getFileObjFromUrl(url):
     fn = tempfile.mktemp(prefix='pmap')
 
     # download file
-    inf = urllib2.urlopen(url)
+    try:
+        inf = urllib2.urlopen(url)
+    except urllib2.HTTPError, e:
+        if e.getcode() == 404:
+            raise ArchiveNotFoundError, e
     outf = open(fn, 'w')
     shutil.copyfileobj(inf, outf)
 
