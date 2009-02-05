@@ -29,6 +29,8 @@ class Advisor(BaseAdvisor):
     Class for processing Ubuntu advisory information.
     """
 
+    allowExtraPackages = True
+
     def load(self):
         """
         Parse the required data to generate a mapping of binary package
