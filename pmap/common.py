@@ -28,8 +28,8 @@ class BaseContainer(Container):
     Base MBox Message container class.
     """
 
-    __slots__ = ('fromAddr', 'fromName', 'timestamp', 'subject', 'msg',
-                 'description', 'summary', 'packages')
+    _slots = ('fromAddr', 'fromName', 'timestamp', 'subject', 'msg',
+              'description', 'summary', 'packages')
 
     def __repr__(self):
         return self.subject

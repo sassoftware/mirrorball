@@ -75,6 +75,12 @@ class TooManySrpmsError(UnhandledUpdateError):
     version.
     """
 
+class OldVersionNotFoundError(UnhandledUpdateError):
+    """
+    OldVersionNotFoundError, raised when the bot can not find metadata for
+    the current versionoof a package.
+    """
+
 class UpdateGoesBackwardsError(UnhandledUpdateError):
     """
     UpdateGoesBackwardsError, raised when the bot tries to update to an older
@@ -110,6 +116,15 @@ class NoManifestFoundError(UnhandledUpdateError):
 
     _params = ['pkgname', 'dir']
     _template = 'No manifest was found for %(pkgname)s in directory %(dir)s'
+
+class NoCheckoutFoundError(UnhandledUpdateError):
+    """
+    NoCheckoutFoundError, raised when trying to commit a package that has not
+    been checked out.
+    """
+
+    _params = ['pkgname']
+    _template = 'No checked out version of %(pkgname)s was found.'
 
 class PromoteFailedError(UnhandledUpdateError):
     """

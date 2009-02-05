@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -20,9 +20,10 @@ import logging
 
 from rpmutils import rpmvercmp
 
-from updatebot import util
+from updatebot.lib import util
 from updatebot import conaryhelper
 from updatebot.errors import GroupNotFound
+from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
 
@@ -139,10 +140,21 @@ class Updater(object):
 
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
+        metadata = None
         manifest = self._conaryhelper.getManifest(nvf[0])
         for line in manifest:
-            binPkg = self._pkgSource.locationMap[line]
-            srcPkg = self._pkgSource.binPkgMap[binPkg]
+            if line in self._pkgSource.locationMap:
+                binPkg = self._pkgSource.locationMap[line]
+                srcPkg = self._pkgSource.binPkgMap[binPkg]
+            else:
+                if metadata is None:
+                    metadata = self._getMetadataFromConaryRepository(nvf[0])
+                if metadata:
+                    binPkg = metadata.locationMap[line]
+                    srcPkg = metadata.binPkgMap[binPkg]
+                else:
+                    raise OldVersionNotFoundError(
+                                why="can't find metadata for %s" % line)
 
             # set needsUpdate if version changes
             if util.packagevercmp(srpm, srcPkg) == 1:
@@ -332,8 +344,17 @@ class Updater(object):
         """
 
         manifest = self._getManifestFromPkgSource(srcPkg)
-        newVersion = self._conaryhelper.setManifest(nvf[0], manifest,
-                        commitMessage=self._cfg.commitMessage)
+        self._conaryhelper.setManifest(nvf[0], manifest)
+
+        # FIXME: This is apt specific for now. Once repomd has been rewritten
+        #        to use something other than rpath-xmllib we should be able to
+        #        convert this to xobj.
+        if self._cfg.repositoryFormat == 'apt':
+            metadata = self._getMetadataFromPkgSource(srcPkg)
+            self._conaryhelper.setMetadata(nvf[0], metadata)
+
+        newVersion = self._conarhelper.commit(nvf[0],
+                                    commitMessage=self._cfg.commitMessage)
         return newVersion
 
     def _getManifestFromPkgSource(self, srcPkg):
@@ -351,6 +372,43 @@ class Updater(object):
             elif hasattr(pkg, 'files'):
                 manifest.extend(pkg.files)
         return manifest
+
+    def _getMetadataFromPkgSource(self, srcPkg):
+        """
+        Get the data to go into the xml metadata from a srcPkg.
+        @param srcPkg: source package object
+        @return list of packages
+        """
+
+        return self._pkgSource.srcPkgMap[srcPkg]
+
+    def _getMetadataFromConaryRepository(self, pkgName):
+        """
+        Get the metadata from the repository and generate required mappings.
+        @param pkgName: source package name
+        @type pkgName: string
+        @return dictionary of infomation that looks like a pkgsource.
+        """
+
+        metadata = {}
+        metadata['pkgs'] = self._conaryhelper.getMetadata(pkgName)
+        metadata['locationMap'] = {}
+        metadata['binPkgMap'] = {}
+
+        src = None
+        for pkg in metadata['pkgs']:
+            if hasattr(pkg, 'location'):
+                metadata['locationMap'][pkg.location] = pkg
+            elif hasattr(pkg, 'files'):
+                for path in pkg.files:
+                    metadata['locationMap'][path] = pkg
+            if pkg.arch == 'src':
+                src = pkg
+
+        for pkg in metadata['pkgs']:
+            metadata['binPkgMap'][pkg] = src
+
+        return metadata
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """

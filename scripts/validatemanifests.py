@@ -17,17 +17,17 @@ import os
 import sys
 import logging
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rpath-xmllib')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
+sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
 
 from updatebot import bot
-from updatebot import util
+from updatebot.lib import util
 from updatebot import config
 from updatebot import log as logger
 
@@ -36,7 +36,7 @@ logger.addRootLogger()
 log = logging.getLogger('verifymanifest')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/centos/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/ubuntu/updatebotrc')
 b = bot.Bot(cfg)
 
 b._pkgSource.load()
@@ -51,12 +51,11 @@ for n, v, f in helper.getSourceTroves(cfg.topGroup):
             not n.startswith('info-') and
             not n.startswith('factory-') and
             not n in cfg.excludePackages):
-            #v = helper.getLatestSourceVersion(n)
+            v = helper.getLatestSourceVersion(n)
             pkgs.append((n, v.getSourceVersion()))
 
 changed = {}
-for pkg, v in pkgs:
-
+for i, (pkg, v) in enumerate(pkgs):
     srpms = list(b._pkgSource.srcNameMap[pkg])
 
     map = {}
@@ -64,51 +63,37 @@ for pkg, v in pkgs:
         key = '%s_%s' % (x.version, x.release)
         map[key] = x
 
-    srcPkg = map[v.trailingRevision().asString().split('-')[0]]
-    manifest = b._updater._getManifestFromPkgSource(srcPkg)
-    repoManifest = b._updater._conaryhelper.getManifest(pkg)
-
-    if len(manifest) == len(repoManifest):
-        offt = 0
-        for i in range(len(manifest)):
-            index = i - offt
-            if manifest[index] == repoManifest[index]:
-                manifest.pop(index)
-                repoManifest.pop(index)
-                offt += 1
-
-    if not manifest and not repoManifest:
+    key = v.trailingRevision().asString().split('-')[0]
+    if key not in map:
+        log.info('%s (%s) version not found, using latest' % (pkg, key))
+        srcPkg = b._updater._getLatestSource(pkg)
+        changed[pkg] = srcPkg
         continue
 
-    if 'system-config-securitylevel' in repoManifest[0] and pkg != 'system-config-securitylevel':
-        changed[pkg] = [manifest, repoManifest, srcPkg]
+    changed[pkg] = map[key]
 
-    #if manifest != repoManifest:
-    #    assert len(manifest) == len(repoManifest)
 
-    #    baseNames1 = [ os.path.basename(x) for x in manifest ]
-    #    baseNames2 = [ os.path.basename(x) for x in repoManifest ]
-
-    #    baseNames1.sort()
-    #    baseNames2.sort()
-
-    #    assert baseNames1 == baseNames2
-
-    #    changed[pkg] = [manifest, repoManifest, srcPkg]
-
-import epdb; epdb.st()
-
-trvs = set()
+#import epdb; epdb.st()
+toBuild = set()
 for pkg in changed:
-    srcPkg = changed[pkg][2]
+    srcPkg = changed[pkg]
     manifest = b._updater._getManifestFromPkgSource(srcPkg)
-    helper.setManifest(pkg, manifest, commitMessage=cfg.commitMessage)
-    trvs.add((pkg, cfg.topSourceGroup[1], None))
+    helper.setManifest(pkg, manifest)
+    metadata = b._updater._getMetadataFromPkgSource(srcPkg)
+    helper.setMetadata(pkg, metadata)
+
+    new = helper.getMetadata(pkg)
+    assert metadata == new
+
+    newManifest = helper.getManifest(pkg)
+    assert manifest == newManifest
+
+    helper.commit(pkg, commitMessage=cfg.commitMessage)
+    toBuild.add((pkg, cfg.topSourceGroup[1], None))
 
 import epdb; epdb.st()
 
-#trvMap = b._builder.build(trvs)
-trvMap = b._builder.buildmany(trvs)
+trvMap = b._builder.buildmany(toBuild)
 
 def displayTrove(nvf):
     flavor = ''

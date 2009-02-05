@@ -12,30 +12,39 @@
 # full details.
 #
 
-import os
+"""
+Advisory module for Ubuntu.
+"""
+
 import pmap
 import logging
 
+from updatebot.errors import AdvisoryError
 from updatebot.advisories.common import BaseAdvisor
 
 log = logging.getLogger('updatebot.advisories')
 
 class Advisor(BaseAdvisor):
-    supportedArches = ('i386', 'i586', 'i686', 'x86_64', 'noarch', 'src')
-
     def load(self):
         """
         Parse the required data to generate a mapping of binary package
         object to patch object for a given platform into self._pkgMap.
         """
 
-        # Build data structure for looking up packages based on basename.
+        # Build data structure for looking up srcPkgs based on file path in
+        # the advisory.
         pkgCache = {}
-        for binPkg in self._pkgSource.binPkgMap:
-            baseName = os.path.basename(binPkg.location)
-            if baseName not in pkgCache:
-                pkgCache[baseName] = set()
-            pkgCache[baseName].add(binPkg)
+        for pkg in self._pkgSource.binPkgMap:
+            # is a source package
+            if hasattr(pkg, 'files'):
+                files = pkg.files
+            elif hasattr(pkg, 'location'):
+                files = [pkg.location, ]
+
+            for path in set(files):
+                if path not in pkgCache:
+                    pkgCache[path] = set()
+                pkgCache[path].add(pkg)
 
         # Fetch all of the archives and process them.
         for url in self._getArchiveUrls():
@@ -51,47 +60,30 @@ class Advisor(BaseAdvisor):
         if self._filterPatch(msg):
             return
 
-        # Toss any messages that do not have packages associated with them.
-        if msg.pkgs is None:
+        if self._cfg.upstreamProductVersion not in msg.pkgNameVersion:
             return
 
-        # Strip arch out of the subject
-        for arch in self.supportedArches:
-            if arch in msg.summary:
-                msg.summary = msg.summary.replace('%s ' % arch, '')
-
-        # Strip subject.
-        msg.summary = msg.summary.replace('[CentOS-announce]', '')
-        msg.summary = msg.summary.strip()
-
-        for pkgName in msg.pkgs:
-            # Toss out any arches that we don't know how to handle.
-            if not self._supportedArch(pkgName):
+        for path in msg.pkgs:
+            if path not in pkgCache:
+                #log.warn('found path (%s) not in cache' % path)
                 continue
 
-            if pkgName not in pkgCache:
-                #log.warn('found %s in msg, but not in pkgCache' % pkgName)
-                continue
+            #import epdb; epdb.st()
+            log.info('found path (%s) in cache' % path)
+            nvMap = msg.pkgNameVersion[self._cfg.upstreamProductVersion]
+            for pkg in pkgCache[path]:
+                nv = (pkg.name, '-'.join([pkg.version, pkg.release]))
+                if nv[1].startswith('-') or nv[1].endswith('-'):
+                    raise AdvisoryError
+                if nv in nvMap:
+                    if pkg not in self._pkgMap:
+                        self._pkgMap[pkg] = set()
+                    self._pkgMap[pkg].add(msg)
 
-            for binPkg in pkgCache[pkgName]:
-                if binPkg not in self._pkgMap:
-                    self._pkgMap[binPkg] = set()
-                self._pkgMap[binPkg].add(msg)
+                    if msg.packages is None:
+                        msg.packages = set()
+                    msg.packages.add(pkg)
 
-                if msg.packages is None:
-                    msg.packages = set()
-                msg.packages.add(binPkg)
-
-    def _supportedArch(self, pkgfn):
-        """
-        Filter out unsupported arches based on rpm filename.
-        """
-
-        dotPos = pkgfn[:-4].rindex('.')
-        arch = pkgfn[dotPos + 1:-4]
-        if arch in self.supportedArches:
-            return True
-        return False
 
     def _hasException(self, binPkg):
         """
@@ -111,10 +103,7 @@ class Advisor(BaseAdvisor):
         @type binPkg: repomd.packagexml._Package
         """
 
-        parts = binPkg.location.split('/')
-        if parts[1] == 'updates':
-            return True
-        return False
+        return True
 
     def _checkForDuplicates(self, patchSet):
         """
@@ -123,16 +112,4 @@ class Advisor(BaseAdvisor):
         return True, otherwise return False.
         """
 
-        primary = list(patchSet)[0]
-        for patch in patchSet:
-            if patch is primary:
-                continue
-
-            # Thse are the same if they use the same advisory.
-            if primary.upstreamAdvisoryUrl != patch.upstreamAdvisoryUrl:
-                return False
-
-            # Copy pkg data into the primary
-            primary.pkgs.update(patch.pkgs)
-            primary.packages.update(patch.packages)
-        return True
+        return False

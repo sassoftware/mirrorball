@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006,2008 rPath, Inc.
+# Copyright (c) 2006,2008-2009 rPath, Inc.
 #
 #
 # This program is distributed under the terms of the Common Public License,
@@ -20,7 +20,7 @@ Module for interacting with packages in multiple yum repositories.
 import logging
 
 import repomd
-from updatebot import util
+from updatebot.lib import util
 from updatebot.pkgsource.common import BasePackageSource
 
 log = logging.getLogger('updatebot.pkgsource')

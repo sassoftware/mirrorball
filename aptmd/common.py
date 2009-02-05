@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -16,7 +16,7 @@
 Common module for apt metadata parsers to inherit from.
 """
 
-from updatebot import util
+from updatebot.lib import util
 
 from aptmd.container import Container
 from aptmd.parser import ContainerizedParser as Parser
@@ -27,7 +27,7 @@ class BaseContainer(Container):
     metadata.
     """
 
-    __slots__ = ('name', 'arch', 'epoch', 'version', 'release')
+    _slots = ('name', 'arch', 'epoch', 'version', 'release')
 
     def __repr__(self):
         # Instance of 'BaseContainer' has no 'name' member
