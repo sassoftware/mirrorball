@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
+import os
 import sys
+import time
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
 
@@ -12,6 +14,19 @@ from conary import conarycfg
 from conary import conaryclient
 
 log.setVerbosity(log.INFO)
+
+def ask(prompt, default=None):
+    while True:
+        try:
+            prompt = '%s [%s]' % (prompt, default)
+            resp = raw_input(prompt + ' ')
+        except EOFError:
+            return None
+
+        if not resp:
+            return default
+
+        return resp
 
 cfg = conarycfg.ConaryConfiguration(True)
 cfg.setContext('1-binary')
@@ -93,9 +108,12 @@ if not success:
     log.critical('Failed to create promote changeset')
     sys.exit(1)
 
-# Ask before committing.
-okay = conaryclient.cmdline.askYn('commit changset? [y/N]', default=False)
-
 # Commit changeset.
-if okay:
+if conaryclient.cmdline.askYn('commit changset? [y/N]', default=False):
+    start = time.time()
     client.repos.commitChangeSet(cs, callback=cb)
+    total = time.time() - start
+    log.info('commit time: %s' % total)
+elif conaryclient.cmdline.askYn('save changeset? [Y/n]', default=True):
+    location = ask('where?', default=os.path.join(os.getcwd(), 'promote-changeset.ccs'))
+    cs.writeToFile(location)
