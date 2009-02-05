@@ -21,7 +21,7 @@ import os
 from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict
 from conary.lib.cfgtypes import ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
@@ -55,8 +55,13 @@ class CfgContextFlavor(CfgFlavor):
         """
 
         try:
-            context, flavorStr = val.split()
-            flavor = CfgFlavor.parseString(self, flavorStr)
+            splt = val.split()
+            if len(splt) == 1:
+                context = val
+                flavor = None
+            else:
+                context, flavorStr = splt
+                flavor = CfgFlavor.parseString(self, flavorStr)
             return context, flavor
         except versions.ParseError, e:
             raise ParseError, e
@@ -150,6 +155,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # flavors to build kernels.
     kernelFlavors       = (CfgList(CfgContextFlavor), [])
+
+    # flavors to build packages in for packages that need specific flavoring.
+    packageFlavors      = (CfgDict(CfgList(CfgContextFlavor)), {})
 
     # email information for sending advisories
     emailFromName       = CfgString
