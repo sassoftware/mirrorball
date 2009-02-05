@@ -210,6 +210,9 @@ class Builder(object):
             elif name == 'kernel' and self._cfg.kernelFlavors:
                 for context, flavor in self._cfg.kernelFlavors:
                     troves.append((name, version, flavor, context))
+            elif name in self._cfg.packageFlavors:
+                for context, flavor in self._cfg.packageFlavors[name]:
+                    troves.append((name, version, flavor, context))
             else:
                 # Build all packages as x86 and x86_64.
                 for context in self._cfg.archContexts:
