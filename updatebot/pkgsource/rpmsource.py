@@ -98,7 +98,7 @@ class RpmSource(BasePackageSource):
                 'x86_64' in pkg.location):
                 continue
 
-            if pkg.sourcerpm == '':
+            if pkg.sourcerpm == '' or pkg.sourcerpm is None:
                 self._procSrc(pkg)
             else:
                 self._procBin(pkg)
