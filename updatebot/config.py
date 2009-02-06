@@ -123,6 +123,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Packages to import
     package             = (CfgList(CfgString), [])
 
+    # Include all packages, if this is set to true packages becomes an
+    # exclude list.
+    packageAll          = (CfgBool, False)
+
     # Factory to use for importing
     newPackageFactory   = (CfgString, None)
 

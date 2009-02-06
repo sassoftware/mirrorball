@@ -68,8 +68,16 @@ class Bot(object):
         # Populate rpm source object from yum metadata.
         self._pkgSource.load()
 
+        # Build list of packages
+        if self._cfg.packageAll:
+            toPackage = set([ x.name for x in
+                self._pkgSource.binPkgMap.iterkeys() if x.arch != 'src' ])
+            toPackage = toPackage.difference(set(self._cfg.package))
+        else:
+            toPackage = set(self._cfg.package)
+
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package,
+        toBuild, fail = self._updater.create(toPackage,
                                              buildAll=rebuild)
 
         if not rebuild:
