@@ -32,6 +32,8 @@ class _RepoMd(xmllib.BaseNode):
     Python representation of repomd.xml from the repository metadata.
     """
 
+    __slots__ = ('revision', )
+
     def addChild(self, child):
         """
         Parse children of repomd element.
@@ -40,7 +42,10 @@ class _RepoMd(xmllib.BaseNode):
         # W0212 - Access to a protected member _parser of a client class
         # pylint: disable-msg=W0212
 
-        if child.getName() == 'data':
+        name = child.getName()
+        if name == 'revision':
+            self.revision = child.finalize()
+        elif name == 'data':
             child.type = child.getAttribute('type')
             if child.type == 'patches':
                 child._parser = PatchesXml(None, child.location)
@@ -80,7 +85,7 @@ class _RepoMdDataElement(SlotNode):
     Parser for repomd.xml data elements.
     """
     __slots__ = ('location', 'checksum', 'checksumType', 'timestamp',
-                 'openChecksum', 'openChecksumType')
+                 'openChecksum', 'openChecksumType', 'databaseVersion', )
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -92,16 +97,19 @@ class _RepoMdDataElement(SlotNode):
         Parse children of data element.
         """
 
-        if child.getName() == 'location':
+        name = child.getName()
+        if name == 'location':
             self.location = child.getAttribute('href')
-        elif child.getName() == 'checksum':
+        elif name == 'checksum':
             self.checksum = child.finalize()
             self.checksumType = child.getAttribute('type')
-        elif child.getName() == 'timestamp':
+        elif name == 'timestamp':
             self.timestamp = child.finalize()
-        elif child.getName() == 'open-checksum':
+        elif name == 'open-checksum':
             self.openChecksum = child.finalize()
             self.openChecksumType = child.getAttribute('type')
+        elif name == 'database_version':
+            self.databaseVersion = child.finalize()
         else:
             raise UnknownElementError(child)
 
@@ -118,6 +126,8 @@ class RepoMdXml(XmlFileParser):
 
         self._databinder.registerType(_RepoMd, name='repomd')
         self._databinder.registerType(_RepoMdDataElement, name='data')
+        self._databinder.registerType(xmllib.StringNode, name='revision')
         self._databinder.registerType(xmllib.StringNode, name='checksum')
         self._databinder.registerType(xmllib.IntegerNode, name='timestamp')
         self._databinder.registerType(xmllib.StringNode, name='open-checksum')
+        self._databinder.registerType(xmllib.StringNode, name='database_version')
