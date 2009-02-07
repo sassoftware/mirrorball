@@ -19,6 +19,10 @@ Builder object implementation.
 import time
 import logging
 
+import xml
+from Queue import Queue
+from threading import Thread, RLock
+
 from conary import conarycfg, conaryclient
 
 from rmake import plugins
@@ -156,6 +160,10 @@ class Builder(object):
                     failed.add((trv, jobId))
 
         return results, failed
+
+    def buildmany2(self, troveSpecs):
+        dispatcher = Dispatcher(self._cfg, 10)
+        return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
         """
@@ -409,3 +417,165 @@ class _StatusOnlyDisplay(monitor.JobLogDisplay):
         """
         Don't care about the build log
         """
+
+##
+# Experimental threaded builder, beware of dragons
+##
+
+MESSAGE_TYPES = {
+    0: 'log',
+    'log': 0,
+    1: 'results',
+    'results': 1
+    2: 'error',
+    'error': 2,
+}
+
+class StatusMessage(object):
+    def __init__(self, name, trv, jobId, message, type=0):
+        assert type in MESSAGE_TYPES
+        self.name = name
+        self.trv = trv
+        self.jobId = jobId
+        self.message = message
+        self.type = type
+
+    def __str__(self):
+        return '%(name)s: %(trv)s [%(jobId)s] - %(message)s' % self.__dict__
+
+class BuildWorker(Thread):
+    BuilderClass = Builder
+
+    def __init__(self, cfg, toBuild, status, name=None):
+        Thread.__init__(self, name=name)
+
+        self.name = name
+        self.toBuild = toBuild
+        self.status = status
+        self.builder = self.BuilderClass(cfg)
+
+        self.trv = None
+        self.jobId = None
+
+    def run(self):
+        while True:
+            self.trv = toBuild.get()
+            self.log('received trv')
+            self.jobId = self.builder.start([self.trv, ])
+
+            done, job = self._watch():
+            while not done:
+                done, job = self._watch():
+
+            if job.isFailed():
+                self.error('job failed')
+
+            else:
+                try:
+                    res = self.builder.commit(self.jobId)
+                    self.results(res)
+                except JobFailedError:
+                    self.error('job failed')
+
+            self.toBuild.task_done()
+
+    def _watch(self):
+        try:
+            job = self.builder._helper.getJob(self.jobId)
+            while not job.isFinished() and not job.isFailed():
+                time.sleep(5)
+                job = self.builder._helper.getJob(self.jobId)
+        except xml.parsers.expat.ExpatError, e:
+            return False, job
+        return True, job
+
+    def _status(self, msg, type=0):
+        msg = StatusMessage(self.name, self.trv, self.jobId, msg, type)
+        self.status.put(msg)
+
+    def error(self, msg):
+        self._status(msg, type=MESSAGE_TYPES['error'])
+
+    def log(self, msg)
+        self._status(msg, type=MESSAGE_TYPES['log'])
+
+    def results(self, res):
+        self._status(res, type=MESSAGE_TYPES['result'])
+
+class Dispatcher(object):
+    workerClass = BuildWorker
+
+    def __init__(self, cfg, workerCount):
+        self._cfg = cfg
+        self._workerCount = workerCount
+
+        self._workers = []
+        self._started = False
+
+        self._toBuild = Queue()
+        self._status = Queue()
+
+        self._trvs = {}
+
+    def provisionWorkers(self):
+        for i in range(self._workerCount):
+            worker = BuildWorker(self._cfg, self._toBuild, self._status,
+                                 name='Build Worker %s' % i)
+            self._workers.append(worker)
+
+    def start(self):
+        if self._started:
+            return
+
+        for wkr in self._workers:
+            wkr.start()
+        self._started = True
+
+    def buildmany(self, trvSpecs):
+        self.provisionWorkers()
+        self.start()
+
+        for trv in trvSpecs:
+            self._trvs[trv] = []
+            self._toBuild.put(trv)
+
+        results, failed = self.monitorStatus()
+        return results, failed
+
+    def monitorStatus(self):
+        done = False
+        while not done:
+            try:
+                log.debug('checking for status messages')
+                msg = self.status.get(timeout=5)
+            except Empty:
+                continue
+
+            self._processMessage(msg)
+            done = self._buildDone()
+
+        return self._getResultsAndErrors()
+
+    def _processMessage(self, msg):
+        assert msg.trv in self._trvs
+        self._trvs[msg.trv].append(msg)
+        log.info(msg)
+
+    def _buildDone(self):
+        for trv, msgs in self._trvs.iteritems():
+            if len(msgs) == 0:
+                return False
+            elif msgs[-1].type not in (MESSAGE_TYPES['results'], MESSAGE_TYPES['error']):
+                return False
+        return True
+
+    def _getResultsAndErrors(self):
+        errors = set()
+        results = set()
+        for trv, msgs in self._trvs.iteritems():
+            msg = msgs[-1]
+            if msg.type == MESSAGE_TYPES['error']:
+                errors.add((trv, msg.jobId))
+            elif msg.type == MESSAGE_TYPES['results']:
+                results.add(msg.message)
+        return results, errors

@@ -82,7 +82,7 @@ class Bot(object):
 
         if not rebuild:
             # Build all newly imported packages.
-            trvMap, failed = self._builder.buildmany(toBuild)
+            trvMap, failed = self._builder.buildmany2(toBuild)
         else:
             # ReBuild all packages.
             trvMap = self._builder.buildsplitarch(toBuild)
