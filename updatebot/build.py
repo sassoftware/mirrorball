@@ -486,7 +486,7 @@ class BuildWorker(Thread):
                 time.sleep(5)
                 job = self.builder._helper.getJob(self.jobId)
         except xml.parsers.expat.ExpatError, e:
-            return False, job
+            return False, None
         return True, job
 
     def _status(self, msg, type=0):
