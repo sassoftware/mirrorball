@@ -415,9 +415,9 @@ class Updater(object):
             extraPromoteTroves=self._cfg.extraPromoteTroves
         )
 
-    def mirror(self):
+    def mirror(self, fullTroveSync=False):
         """
         If a mirror is configured, mirror out any changes.
         """
 
-        return self._conaryhelper.mirror()
+        return self._conaryhelper.mirror(fullTroveSync=fullTroveSync)

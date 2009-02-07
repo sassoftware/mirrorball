@@ -567,7 +567,7 @@ class ConaryHelper(object):
 
         return packageList
 
-    def mirror(self):
+    def mirror(self, fullTroveSync=False):
         """
         Mirror the current platform to the external repository if a
         mirror.conf exists.
@@ -585,7 +585,7 @@ class ConaryHelper(object):
         clog.setVerbosity(clog.DEBUG)
 
         callback = mirror.ChangesetCallback()
-        rc = mirror.mainWorkflow(cfg=self._mcfg, callback=callback)
+        rc = mirror.mainWorkflow(cfg=self._mcfg, callback=callback, sync=fullTroveSync)
 
         if rc is not None and rc != 0:
             raise MirrorFailedError(rc=rc)
