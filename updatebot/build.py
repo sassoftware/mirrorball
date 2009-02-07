@@ -20,7 +20,7 @@ import time
 import logging
 
 import xml
-from Queue import Queue
+from Queue import Queue, Empty
 from threading import Thread, RLock
 
 from conary import conarycfg, conaryclient
@@ -426,7 +426,7 @@ MESSAGE_TYPES = {
     0: 'log',
     'log': 0,
     1: 'results',
-    'results': 1
+    'results': 1,
     2: 'error',
     'error': 2,
 }
@@ -459,13 +459,13 @@ class BuildWorker(Thread):
 
     def run(self):
         while True:
-            self.trv = toBuild.get()
+            self.trv = self.toBuild.get()
             self.log('received trv')
             self.jobId = self.builder.start([self.trv, ])
 
-            done, job = self._watch():
+            done, job = self._watch()
             while not done:
-                done, job = self._watch():
+                done, job = self._watch()
 
             if job.isFailed():
                 self.error('job failed')
@@ -496,7 +496,7 @@ class BuildWorker(Thread):
     def error(self, msg):
         self._status(msg, type=MESSAGE_TYPES['error'])
 
-    def log(self, msg)
+    def log(self, msg):
         self._status(msg, type=MESSAGE_TYPES['log'])
 
     def results(self, res):
@@ -547,7 +547,7 @@ class Dispatcher(object):
         while not done:
             try:
                 log.debug('checking for status messages')
-                msg = self.status.get(timeout=5)
+                msg = self._status.get(timeout=5)
             except Empty:
                 continue
 
