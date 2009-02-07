@@ -162,7 +162,7 @@ class Builder(object):
         return results, failed
 
     def buildmany2(self, troveSpecs):
-        dispatcher = Dispatcher(self._cfg, 10)
+        dispatcher = Dispatcher(self._cfg, 20)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
@@ -500,7 +500,7 @@ class BuildWorker(Thread):
         self._status(msg, type=MESSAGE_TYPES['log'])
 
     def results(self, res):
-        self._status(res, type=MESSAGE_TYPES['result'])
+        self._status(res, type=MESSAGE_TYPES['results'])
 
 class Dispatcher(object):
     workerClass = BuildWorker
@@ -519,7 +519,7 @@ class Dispatcher(object):
 
     def provisionWorkers(self):
         for i in range(self._workerCount):
-            worker = BuildWorker(self._cfg, self._toBuild, self._status,
+            worker = self.workerClass(self._cfg, self._toBuild, self._status,
                                  name='Build Worker %s' % i)
             self._workers.append(worker)
 
