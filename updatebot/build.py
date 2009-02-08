@@ -441,7 +441,7 @@ class StatusMessage(object):
         self.type = type
 
     def __str__(self):
-        msg = '$(name)s: %(trv)s [%(jobId)s] - '
+        msg = '%(name)s: %(trv)s [%(jobId)s] - '
         if self.type == MESSAGE_TYPES['results']:
             msg += 'done'
         else:
