@@ -503,6 +503,8 @@ class BuildWorker(Thread):
                 job = self.builder._helper.getJob(self.jobId)
         except xml.parsers.expat.ExpatError, e:
             return False, None
+        except Exception, e:
+            return False, None
         return True, job
 
     def _status(self, msg, type=0):
