@@ -463,18 +463,19 @@ class BuildWorker(Thread):
         self.jobId = None
 
     def run(self):
-        done = False
         while True:
             self.trv = self.toBuild.get()
             self.log('received trv')
 
+            retries = 10
             built = False
-            while not built:
+            while not built and retries:
                 try:
                     self._doBuild()
                 except Exception, e:
                     built = False
                 built = True
+                retries -= 1
 
         self.toBuild.task_done()
 
