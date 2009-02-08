@@ -451,10 +451,11 @@ class StatusMessage(object):
 class BuildWorker(Thread):
     BuilderClass = Builder
 
-    def __init__(self, cfg, toBuild, status, name=None):
+    def __init__(self, cfg, toBuild, status, name=None, offset=0):
         Thread.__init__(self, name=name)
 
         self.name = name
+        self.offset = offset
         self.toBuild = toBuild
         self.status = status
         self.builder = self.BuilderClass(cfg)
@@ -463,6 +464,7 @@ class BuildWorker(Thread):
         self.jobId = None
 
     def run(self):
+        time.sleep(self.offset * 5)
         while True:
             self.trv = self.toBuild.get()
             self.log('received trv')
@@ -478,10 +480,10 @@ class BuildWorker(Thread):
                     continue
                 built = True
 
-        if not built:
-            self.error('job failed')
+            if not built:
+                self.error('job failed')
 
-        self.toBuild.task_done()
+            self.toBuild.task_done()
 
     def _doBuild(self):
         self.jobId = self.builder.start([self.trv, ])
@@ -543,7 +545,7 @@ class Dispatcher(object):
     def provisionWorkers(self):
         for i in range(self._workerCount):
             worker = self.workerClass(self._cfg, self._toBuild, self._status,
-                                 name='Build Worker %s' % i)
+                                 name='Build Worker %s' % i, offset=i)
             self._workers.append(worker)
 
     def start(self):
