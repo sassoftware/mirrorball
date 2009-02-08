@@ -470,12 +470,16 @@ class BuildWorker(Thread):
             retries = 10
             built = False
             while not built and retries:
+                retries -= 1
                 try:
                     self._doBuild()
                 except Exception, e:
                     built = False
+                    continue
                 built = True
-                retries -= 1
+
+        if not built:
+            self.error('job failed')
 
         self.toBuild.task_done()
 
