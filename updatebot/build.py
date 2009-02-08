@@ -506,7 +506,7 @@ class BuildWorker(Thread):
         try:
             job = self.builder._helper.getJob(self.jobId)
             while not job.isFinished() and not job.isFailed():
-                time.sleep(5)
+                time.sleep(20 + self.offset)
                 job = self.builder._helper.getJob(self.jobId)
         except xml.parsers.expat.ExpatError, e:
             return False, None
