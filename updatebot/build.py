@@ -441,7 +441,12 @@ class StatusMessage(object):
         self.type = type
 
     def __str__(self):
-        return '%(name)s: %(trv)s [%(jobId)s] - %(message)s' % self.__dict__
+        msg = '$(name)s: %(trv)s [%(jobId)s] - '
+        if self.type == MESSAGE_TYPES['results']:
+            msg += 'done'
+        else:
+            msg += '%(message)s'
+        return msg % self.__dict__
 
 class BuildWorker(Thread):
     BuilderClass = Builder
@@ -458,26 +463,37 @@ class BuildWorker(Thread):
         self.jobId = None
 
     def run(self):
+        done = False
         while True:
             self.trv = self.toBuild.get()
             self.log('received trv')
-            self.jobId = self.builder.start([self.trv, ])
 
-            done, job = self._watch()
-            while not done:
-                done, job = self._watch()
-
-            if job.isFailed():
-                self.error('job failed')
-
-            else:
+            built = False
+            while not built:
                 try:
-                    res = self.builder.commit(self.jobId)
-                    self.results(res)
-                except JobFailedError:
-                    self.error('job failed')
+                    self._doBuild()
+                except Exception, e:
+                    built = False
+                built = True
 
-            self.toBuild.task_done()
+        self.toBuild.task_done()
+
+    def _doBuild(self):
+        self.jobId = self.builder.start([self.trv, ])
+
+        done, job = self._watch()
+        while not done:
+            done, job = self._watch()
+
+        if job.isFailed():
+            self.error('job failed')
+
+        else:
+            try:
+                res = self.builder.commit(self.jobId)
+                self.results(res)
+            except JobFailedError:
+                self.error('job failed')
 
     def _watch(self):
         try:
