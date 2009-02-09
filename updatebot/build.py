@@ -477,6 +477,7 @@ class BuildWorker(Thread):
                     self._doBuild()
                 except Exception, e:
                     built = False
+                    self.log('traceback while building %s, retrying' % e)
                     continue
                 built = True
 
@@ -509,8 +510,10 @@ class BuildWorker(Thread):
                 time.sleep(20 + self.offset)
                 job = self.builder._helper.getJob(self.jobId)
         except xml.parsers.expat.ExpatError, e:
+            self.log('bad xml from server, retrying')
             return False, None
         except Exception, e:
+            self.log('unknown error querying server: %s' % e)
             return False, None
         return True, job
 
