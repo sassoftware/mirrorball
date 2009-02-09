@@ -17,4 +17,4 @@ from header import *
 
 from updatebot import conaryhelper
 helper = conaryhelper.ConaryHelper(cfg)
-helper.mirror()
+helper.mirror(fullTroveSync=False)
