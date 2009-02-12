@@ -80,9 +80,12 @@ class Bot(object):
         toBuild, fail = self._updater.create(toPackage,
                                              buildAll=rebuild)
 
+        log.info('failed to create %s packages' % len(fail))
+        log.info('found %s packages to build' % len(toBuild))
+
         if not rebuild:
             # Build all newly imported packages.
-            trvMap, failed = self._builder.buildmany2(toBuild)
+            trvMap, failed = self._builder.buildmany(toBuild)
         else:
             # ReBuild all packages.
             trvMap = self._builder.buildsplitarch(toBuild)
