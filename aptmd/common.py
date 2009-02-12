@@ -27,7 +27,8 @@ class BaseContainer(Container):
     metadata.
     """
 
-    _slots = ('name', 'arch', 'epoch', 'version', 'release', 'mdpath')
+    _slots = ('name', 'arch', 'epoch', 'version', 'release', 'mdpath',
+        'orignalmaintainer')
 
     def __repr__(self):
         # Instance of 'BaseContainer' has no 'name' member
@@ -60,6 +61,8 @@ class BaseParser(Parser):
         self._containerClass = BaseContainer
         self._mdPath = None
 
+        self._bucketState = None
+
         self._states.update({
             'package'               : self._package,
             'architecture'          : self._architecture,
@@ -67,7 +70,9 @@ class BaseParser(Parser):
             'priority'              : self._keyval,
             'section'               : self._keyval,
             'maintainer'            : self._keyval,
-            'original-maintainer'   : self._keyval,
+            '_maintainer'           : self._maintainer,
+            'original-maintainer'   : self._originalmaintainer,
+            ''                      : self._linewrap,
         })
 
     def parse(self, fn, path):
@@ -83,6 +88,7 @@ class BaseParser(Parser):
         Create a new container object and store the finished one.
         """
 
+        self._bucketState = None
         if self._curObj is not None:
             self._curObj.mdpath = self._mdPath
         return Parser._newContainer(self)
@@ -134,3 +140,37 @@ class BaseParser(Parser):
         self._curObj.epoch = epoch
         self._curObj.version = version
         self._curObj.release = release
+
+    def _originalmaintainer(self):
+        """
+        Parse orignal maintainer info.
+        """
+
+        self._curObj.orignalmaintainer = []
+        self._bucketState = '_maintainer'
+        self._maintainer()
+
+    def _maintainer(self):
+        """
+        Parse mainter.
+        """
+
+        data = ' '.join(self._line[1:])
+        if ',' in data:
+            lst = data.split(',')
+        else:
+            lst = [ data ]
+
+        self._curObj.orignalmaintainer.extend(lst)
+
+    def _linewrap(self):
+        """
+        Handle multiline sections.
+        """
+
+        if self._bucketState is None:
+            return
+
+        state = self._getState(self._bucketState)
+        func = self._states[state]
+        func()

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -25,7 +25,8 @@ class _SourcePackage(BaseContainer):
     Container for source data.
     """
 
-    _slots = ('binaries', 'directory', 'files')
+    _slots = ('binaries', 'directory', 'files', 'checksumssha1',
+        'checksumssha256')
 
 
 class SourcesParser(BaseParser):
@@ -44,9 +45,13 @@ class SourcesParser(BaseParser):
             'format'                : self._keyval,
             'directory'             : self._directory,
             'files'                 : self._files,
+            '_file'                 : self._file,
             'homepage'              : self._keyval,
             'uploaders'             : self._keyval,
-            ''                      : self._file,
+            'checksums-sha1'        : self._sha1,
+            '_checksums-sha1'       : self._sha1bucket,
+            'checksums-sha256'      : self._sha256,
+            '_checksums-sha256'     : self._sha256bucket,
         })
 
     def _architecture(self):
@@ -89,6 +94,7 @@ class SourcesParser(BaseParser):
         # pylint: disable-msg=W0201
 
         self._curObj.files = []
+        self._bucketState = '_file'
 
     def _file(self):
         """
@@ -101,3 +107,33 @@ class SourcesParser(BaseParser):
         fileName = self._line[3].strip()
         path = os.path.join(self._curObj.directory, fileName)
         self._curObj.files.append(path)
+
+    def _sha1(self):
+        """
+        Start of sha1 section.
+        """
+
+        self._curObj.checksumssha1 = []
+        self._bucketState = '_checksums-sha1'
+
+    def _sha1bucket(self):
+        """
+        Handle lines of a sha1 section.
+        """
+
+        self._curObj.checksumssha1.append(' '.join(self._line[1:]))
+
+    def _sha256(self):
+        """
+        Start of sha256 section.
+        """
+
+        self._curObj.checksumssha256 = []
+        self._bucketState = '_checksums-sha256'
+
+    def _sha256bucket(self):
+        """
+        Handle lines of a sha256 section.
+        """
+
+        self._curObj.checksumssha256.append(' '.join(self._line[1:]))
