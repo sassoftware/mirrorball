@@ -354,7 +354,7 @@ class Updater(object):
             metadata = self._getMetadataFromPkgSource(srcPkg)
             self._conaryhelper.setMetadata(nvf[0], metadata)
 
-        if self._cfg.repositoryFormat == 'yum' and self._cfg.generateBuildRequires:
+        if self._cfg.repositoryFormat == 'yum' and self._cfg.buildFromSource:
             buildrequires = self._getBuildRequiresFromPkgSource(srcPkg)
             self._conaryhelper.setBuildRequires(nvf[0], buildrequires)
 
@@ -370,12 +370,16 @@ class Updater(object):
         """
 
         manifest = []
-        manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
-        for pkg in self._getLatestOfAvailableArches(manifestPkgs):
-            if hasattr(pkg, 'location'):
-                manifest.append(pkg.location)
-            elif hasattr(pkg, 'files'):
-                manifest.extend(pkg.files)
+
+        if self._cfg.repositoryFormat == 'yum' and self._cfg.buildFromSource:
+            manifest.append(pkg.location)
+        else:
+            manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
+            for pkg in self._getLatestOfAvailableArches(manifestPkgs):
+                if hasattr(pkg, 'location'):
+                    manifest.append(pkg.location)
+                elif hasattr(pkg, 'files'):
+                    manifest.extend(pkg.files)
         return manifest
 
     def _getMetadataFromPkgSource(self, srcPkg):

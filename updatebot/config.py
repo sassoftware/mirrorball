@@ -179,8 +179,8 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Satis Info
     satisUrl            = CfgString
 
-    # Tell the updater to write build requires information
-    generateBuildRequires = (CfgBool, False)
+    # Try to build from source rpms
+    buildFromSource = (CfgBool, False)
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
