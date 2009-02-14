@@ -34,6 +34,32 @@ from updatebot.errors import JobFailedError, CommitFailedError
 
 log = logging.getLogger('updateBot.build')
 
+def jobInfoExceptionHandler(func):
+    def deco(self, *args, **kwargs):
+        retry = kwargs.pop('retry', True)
+
+        exception = None
+        while retry:
+            try:
+                ret = func(self, *args, **kwargs)
+                return ret
+            except xml.parsers.expat.ExpatError, e:
+                exception = e
+            except Exception, e:
+                exception = e
+
+            if type(retry) == int:
+                retry -= 1
+
+            # sleep between each retry
+            time.sleep(5)
+
+        if exception is not None:
+            raise exception
+
+    return deco
+
+
 class Builder(object):
     """
     Class for wrapping the rMake api until we can switch to using rBuild.
@@ -140,16 +166,13 @@ class Builder(object):
 
         for trv in jobkeys:
             jobId = jobs[trv]
-            job = self._helper.getJob(jobId)
-            while not job.isFinished() and not job.isFailed():
-                log.info('waiting for %s' % jobId)
-                time.sleep(1)
-                job = self._helper.getJob(jobId)
+            job = self._getJob(jobId)
+            self._wait(jobId)
 
         failed = set()
         results = {}
         for trv, jobId in jobs.iteritems():
-            job = self._helper.getJob(jobId)
+            job = self._getJob(jobId)
             if job.isFailed():
                 failed.add((trv, jobId))
             elif job.isFinished():
@@ -196,10 +219,7 @@ class Builder(object):
         # Wait for the jobs to finish.
         log.info('Waiting for jobs to complete')
         for jobId in jobIds.itervalues():
-            job = self._helper.getJob(jobId)
-            while not job.isFinished() and not job.isFailed():
-                time.sleep(1)
-                job = self._helper.getJob(jobId)
+            self._wait(jobId)
 
         # Sanity check all jobs.
         for jobId in jobIds.itervalues():
@@ -274,6 +294,22 @@ class Builder(object):
 
         return troves
 
+    @jobInfoExceptionHandler
+    def _getJob(self, jobId, retry=None):
+        """
+        Get a job instance from the rMake helper, catching several common
+        exceptions.
+        @param jobId: id of an rMake job
+        @type jobId: integer
+        @param retry: information about retrying the get job, if retry is None
+                      then retry forever, if retry is an integer retry n times.
+        @type retry: None
+        @type retry: integet
+        @return rmake job instance
+        """
+
+        return self._helper.getJob(jobId)
+
     def _startJob(self, troveSpecs):
         """
         Create and start a rMake build.
@@ -290,6 +326,20 @@ class Builder(object):
 
         return jobId
 
+    def _wait(self, jobId):
+        """
+        Wait for a job to complete.
+        @param jobId: rMake job ID
+        @type jobId: integer
+        """
+
+        log.info('waiting for job [%s] to complete' % jobId)
+        job = self._getJob(jobId)
+        while not job.isFinished() and not job.isFailed():
+            time.sleep(5)
+            job = self._getJob(jobId)
+
+    @jobInfoExceptionHandler
     def _monitorJob(self, jobId):
         """
         Monitor job status, block until complete.
@@ -309,7 +359,7 @@ class Builder(object):
         """
 
         # Check for errors
-        job = self._helper.getJob(jobId)
+        job = self._getJob(jobId)
         if job.isFailed():
             log.error('Job %d failed', jobId)
             raise JobFailedError(jobId=jobId, why=job.status)
@@ -337,7 +387,7 @@ class Builder(object):
 
         # Do the commit
         startTime = time.time()
-        jobs = [ self._helper.getJob(x) for x in jobIds ]
+        jobs = [ self._getJob(x) for x in jobIds ]
         log.info('Starting commit of job %s', jobIdsStr)
 
         self._helper.client.startCommit(jobIds)
@@ -488,10 +538,9 @@ class BuildWorker(Thread):
     def _doBuild(self):
         self.jobId = self.builder.start([self.trv, ])
 
-        done, job = self._watch()
-        while not done:
-            done, job = self._watch()
+        self.builder._wait(self.jobId)
 
+        job = self.builder._getJob(self.jobId)
         if job.isFailed():
             self.error('job failed')
 
@@ -501,18 +550,6 @@ class BuildWorker(Thread):
                 self.results(res)
             except JobFailedError:
                 self.error('job failed')
-
-    def _watch(self):
-        try:
-            job = self.builder._helper.getJob(self.jobId)
-            while not job.isFinished() and not job.isFailed():
-                time.sleep(20 + self.offset)
-                job = self.builder._helper.getJob(self.jobId)
-        except xml.parsers.expat.ExpatError, e:
-            return False, None
-        except Exception, e:
-            return False, None
-        return True, job
 
     def _status(self, msg, type=0):
         msg = StatusMessage(self.name, self.trv, self.jobId, msg, type)
