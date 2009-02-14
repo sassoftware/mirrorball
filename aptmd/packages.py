@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -49,7 +49,8 @@ class PackagesParser(BaseParser):
             'sha1'                  : self._keyval,
             'sha256'                : self._keyval,
             'description'           : self._description,
-            'bugs'                  : self._bugs,
+            '_description'          : self._descriptionbucket,
+            'bugs'                  : self._keyval,
             'origin'                : self._keyval,
             'task'                  : self._keyval,
         })
@@ -116,12 +117,17 @@ class PackagesParser(BaseParser):
         # pylint: disable-msg=W0201
 
         self._curObj.summary = self._getLine()
+        self._bucketState = '_description'
 
-    def _bugs(self):
+    def _descriptionbucket(self):
         """
-        Parse the bugs line.
+        Handle adding lines of a description.
         """
 
-        self._curObj.description = self._text
-        self._text = ''
-        self._keyval()
+        prefix = '\n'
+        if self._curObj.description is None:
+            self._curObj.description = ''
+            prefix = ''
+
+        self._curObj.description += prefix
+        self._curObj.description += ' '.join(self._line)

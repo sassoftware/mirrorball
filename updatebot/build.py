@@ -527,6 +527,7 @@ class BuildWorker(Thread):
                     self._doBuild()
                 except Exception, e:
                     built = False
+                    self.log('traceback while building %s, retrying' % e)
                     continue
                 built = True
 
