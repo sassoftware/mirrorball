@@ -211,8 +211,7 @@ class ConaryHelper(object):
         if not os.path.exists(manifestFileName):
             raise NoManifestFoundError(pkgname=pkgname, dir=recipeDir)
 
-        manifest = [ x.strip() for x in open(manifestFileName).readlines() ]
-        #util.rmtree(recipeDir)
+        manifest = [ x.strip() for x in open(manifestFileName) ]
         return manifest
 
     def setManifest(self, pkgname, manifest):
@@ -286,6 +285,47 @@ class ConaryHelper(object):
 
         # Make sure metadata file has been added.
         self._addFile(recipeDir, 'metadata.xml')
+
+    def getBuildRequires(self, pkgname):
+        """
+        Get the build requires defined in the buildrequires file.
+        @param pkgname: name of the package to retrieve
+        @type pkgname: string
+        @return list of build requires
+        """
+
+        log.info('retrieving buildrequires for %s' % pkgname)
+        recipeDir = self._edit(pkgname)
+        buildRequiresFileName = util.join(recipeDir, 'buildrequires')
+
+        if not os.path.exists(buildRequiresFileName):
+            return []
+
+        buildRequires = [ x.strip() for x in open(buildRequiresFileName) ]
+        return buildRequires
+
+    def setBuildRequires(self, pkgname, buildrequires):
+        """
+        Set the contents of the build requires file in the repository.
+        @param pkgname: name of hte package to edit
+        @type pkgname: string
+        @param buildrequires: list of build requires
+        @type buildrequires: list
+        """
+
+        log.info('setting buildrequires for %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+        buildRequiresFileName = util.join(recipeDir, 'buildrequires')
+
+        # generate buildrequires file
+        buildRequiresfh = open(buildRequiresFileName, 'w')
+        buildRequiresfh.write('\n'.join(buildrequires))
+        buildRequiresfh.write('\n')
+        buildRequiresfh.close()
+
+        # add file to the source compoent
+        self._addFile(recipeDir, 'buildrequires')
 
     def commit(self, pkgname, commitMessage=''):
         """

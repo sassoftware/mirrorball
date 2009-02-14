@@ -354,6 +354,10 @@ class Updater(object):
             metadata = self._getMetadataFromPkgSource(srcPkg)
             self._conaryhelper.setMetadata(nvf[0], metadata)
 
+        if self._cfg.repositoryFormat == 'yum' and self._cfg.generateBuildRequires:
+            buildrequires = self._getBuildRequiresFromPkgSource(srcPkg)
+            self._conaryhelper.setBuildRequires(nvf[0], buildrequires)
+
         newVersion = self._conaryhelper.commit(nvf[0],
                                     commitMessage=self._cfg.commitMessage)
         return newVersion
@@ -392,6 +396,31 @@ class Updater(object):
         """
 
         return self._conaryhelper.getMetadata(pkgName)
+
+    def _getBuildRequiresFromPkgSource(self, srcPkg):
+        """
+        Get the buildrequires for a given srcPkg.
+        @param srcPkg: source package object
+        @return list of build requires
+        """
+
+        reqs = []
+        for reqType in srcPkg.format:
+            if reqType.getName() == 'rpm:requires':
+                reqs.extend([ x.name for x in reqType.iterChildren() ])
+
+        reqs = list(set(reqs))
+        return reqs
+
+    def _getBuildRequiresFromConaryRepository(self, pkgName):
+        """
+        Get the contents of the build requires file from the repository.
+        @param pkgName: name of the package
+        @type pkgName: string
+        @return list of build requires
+        """
+
+        return self._conaryhelper.getBuildRequires(pkgName)
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """
