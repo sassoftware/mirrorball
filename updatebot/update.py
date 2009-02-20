@@ -372,7 +372,7 @@ class Updater(object):
         manifest = []
 
         if self._cfg.repositoryFormat == 'yum' and self._cfg.buildFromSource:
-            manifest.append(pkg.location)
+            manifest.append(srcPkg.location)
         else:
             manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
             for pkg in self._getLatestOfAvailableArches(manifestPkgs):
@@ -411,7 +411,21 @@ class Updater(object):
         reqs = []
         for reqType in srcPkg.format:
             if reqType.getName() == 'rpm:requires':
-                reqs.extend([ x.name for x in reqType.iterChildren() ])
+                names = [ x.name.split('(')[0] for x in reqType.iterChildren()
+                          if not (hasattr(x, 'isspace') and x.isspace()) ]
+
+                for name in names:
+                    if name in self._pkgSource.binNameMap:
+                        latest = self._getLatestBinary(name)
+                        if latest not in self._pkgSource.binPkgMap:
+                            log.warn('%s not found in binPkgMap' % latest)
+                            continue
+                        src = self._pkgSource.binPkgMap[latest]
+                        srcname = src.name
+                    else:
+                        log.warn('found virtual requires %s in pkg %s' % (name, srcPkg.name))
+                        srcname = 'virtual'
+                    reqs.append((name, srcname))
 
         reqs = list(set(reqs))
         return reqs
