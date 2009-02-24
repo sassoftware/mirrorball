@@ -309,8 +309,8 @@ class ConaryHelper(object):
         Set the contents of the build requires file in the repository.
         @param pkgname: name of hte package to edit
         @type pkgname: string
-        @param buildrequires: list of build requires
-        @type buildrequires: list
+        @param buildrequires: list of build requires, source names tuples
+        @type buildrequires: list of two tuples
         """
 
         log.info('setting buildrequires for %s' % pkgname)
@@ -320,8 +320,9 @@ class ConaryHelper(object):
 
         # generate buildrequires file
         buildRequiresfh = open(buildRequiresFileName, 'w')
-        buildRequiresfh.write('\n'.join(buildrequires))
-        buildRequiresfh.write('\n')
+        for buildreq in buildrequires:
+            buildRequiresfh.write(' '.join(buildreq))
+            buildRequiresfh.write('\n')
         buildRequiresfh.close()
 
         # add file to the source compoent
