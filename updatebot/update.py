@@ -350,7 +350,8 @@ class Updater(object):
         # FIXME: This is apt specific for now. Once repomd has been rewritten
         #        to use something other than rpath-xmllib we should be able to
         #        convert this to xobj.
-        if self._cfg.repositoryFormat == 'apt':
+        if (self._cfg.repositoryFormat == 'apt' or
+            self._cfg.writePackageMetadata):
             metadata = self._getMetadataFromPkgSource(srcPkg)
             self._conaryhelper.setMetadata(nvf[0], metadata)
 
