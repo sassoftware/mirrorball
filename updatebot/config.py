@@ -180,7 +180,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     satisUrl            = CfgString
 
     # Try to build from source rpms
-    buildFromSource = (CfgBool, False)
+    buildFromSource     = (CfgBool, False)
+
+    # Write package metadata to the source trove no matter the source
+    # package format.
+    writePackageMetadata = (CfgBool, False)
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
