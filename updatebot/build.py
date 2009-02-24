@@ -44,8 +44,10 @@ def jobInfoExceptionHandler(func):
                 ret = func(self, *args, **kwargs)
                 return ret
             except xml.parsers.expat.ExpatError, e:
-                exception = e
+                exception = None
             except Exception, e:
+                if retry is True:
+                    raise
                 exception = e
 
             if type(retry) == int:
@@ -107,7 +109,7 @@ class Builder(object):
 
         troves = self._formatInput(troveSpecs)
         jobId = self._startJob(troves)
-        self._monitorJob(jobId)
+        self._monitorJob(jobId, retry=2)
         self._sanityCheckJob(jobId)
         trvMap = self._commitJob(jobId)
         ret = self._formatOutput(trvMap)
