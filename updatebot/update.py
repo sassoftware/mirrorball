@@ -245,17 +245,19 @@ class Updater(object):
         # Update all of the unique sources.
         fail = set()
         toBuild = set()
+        verCache = self._conaryhelper.getLatestVersions()
         for pkg in toUpdate:
-            log.info('attempting to import %s' % pkg)
+            #log.info('attempting to import %s' % pkg)
 
             try:
                 # Only import packages that haven't been imported before
-                version = self._conaryhelper.getLatestSourceVersion(pkg.name)
+                #version = self._conaryhelper.getLatestSourceVersion(pkg.name)
+                version = verCache.get('%s:source' % pkg.name)
                 if not version:
+                    log.info('attempting to import %s' % pkg)
                     version = self.update((pkg.name, None, None), pkg)
 
-                if (not self._conaryhelper._getVersionsByName(pkg.name) or
-                    buildAll):
+                if not verCache.get(pkg.name) or buildAll:
                     toBuild.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
