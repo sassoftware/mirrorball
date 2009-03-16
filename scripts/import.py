@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python
 #
 # Copyright (c) 2008 rPath, Inc.
 #
@@ -16,12 +16,14 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rpath-xmllib')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
+sys.path.insert(0, os.environ['HOME'] + '/hg/xobj/py')
+
+#sys.path.insert(0, os.environ['HOME'] + '/hg/26/rpath-xmllib')
+#sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
 sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
+#sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
+#sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
+#sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
