@@ -1,6 +1,6 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -17,11 +17,10 @@ import os
 import sys
 import logging
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/xobj/py')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/mirrorball')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/conary')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/rmake')
-sys.path.insert(0, os.environ['HOME'] + '/hg/26/epdb')
+sys.path.insert(0, os.environ['HOME'] + '/hg/xobj/py')
+sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
+sys.path.insert(0, os.environ['HOME'] + '/hg/rmake')
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -36,7 +35,7 @@ logger.addRootLogger()
 log = logging.getLogger('verifymanifest')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/26/mirrorball/config/ubuntu/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/ubuntu/updatebotrc')
 b = bot.Bot(cfg)
 
 b._pkgSource.load()
