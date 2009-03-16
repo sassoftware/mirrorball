@@ -26,7 +26,7 @@ class InvalidBackendError(Exception):
     Raised when an unsupported backend is used.
     """
 
-__supportedBackends = ('sles', 'centos', 'ubuntu', 'fedora')
+__supportedBackends = ('sles', 'centos', 'ubuntu', 'fedora', 'scientific')
 
 def __getBackend(backend):
     if backend not in __supportedBackends:
