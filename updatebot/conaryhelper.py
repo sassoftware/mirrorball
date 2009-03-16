@@ -514,6 +514,28 @@ class ConaryHelper(object):
 
         return None
 
+    def getLatestVersions(self):
+        """
+        Find all of the versions on the buildLabel.
+        @return {trvName: trvVersion}
+        """
+
+        label = self._ccfg.buildLabel
+
+        trvMap = self._repos.getTroveLeavesByLabel({None: {label: None}})
+
+        verMap = {}
+        for name, verDict in trvMap.iteritems():
+            if len(verDict) > 1:
+                vers = verDict.keys()
+                vers.sort()
+                ver = vers[-1]
+            else:
+                ver = verDict.keys()[0]
+            verMap[name] = ver
+
+        return verMap
+
     def promote(self, trvLst, expected, sourceLabels, targetLabel,
                 checkPackageList=True, extraPromoteTroves=None,
                 commit=True):
