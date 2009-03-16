@@ -47,7 +47,7 @@ class CommitFailedError(UpdateBotError):
     """
 
     _params = ['jobId', 'why']
-    _template = 'rMake job %(jobId)d failed to commit: %(why)s'
+    _template = 'rMake job %(jobId)s failed to commit: %(why)s'
 
 
 class JobFailedError(UpdateBotError):

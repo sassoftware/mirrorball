@@ -70,9 +70,26 @@ class Bot(object):
 
         # Build list of packages
         if self._cfg.packageAll:
-            toPackage = set([ x.name for x in
-                self._pkgSource.binPkgMap.iterkeys() if x.arch != 'src' ])
-            toPackage = toPackage.difference(set(self._cfg.package))
+            toPackage = set()
+            for srcName, srcSet in self._pkgSource.srcNameMap.iteritems():
+                if len(srcSet) == 0:
+                    continue
+
+                srcList = list(srcSet)
+                srcList.sort()
+                latestSrc = srcList[-1]
+
+                if latestSrc not in self._pkgSource.srcPkgMap:
+                    log.warn('not packaging %s, not found in srcPkgMap' % latestSrc.name)
+                    continue
+
+                if latestSrc.name in self._cfg.package:
+                    log.warn('ignoring %s due to exclude rule' % latestSrc.name)
+                    continue
+
+                for binPkg in self._pkgSource.srcPkgMap[latestSrc]:
+                    toPackage.add(binPkg.name)
+
         else:
             toPackage = set(self._cfg.package)
 

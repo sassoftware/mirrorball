@@ -36,7 +36,7 @@ log = logging.getLogger('updateBot.build')
 
 def jobInfoExceptionHandler(func):
     def deco(self, *args, **kwargs):
-        retry = kwargs.pop('retry', True)
+        retry = kwargs.pop('retry', 100)
 
         exception = None
         while retry:
@@ -44,8 +44,10 @@ def jobInfoExceptionHandler(func):
                 ret = func(self, *args, **kwargs)
                 return ret
             except xml.parsers.expat.ExpatError, e:
-                exception = e
+                exception = None
             except Exception, e:
+                if retry is True:
+                    raise
                 exception = e
 
             if type(retry) == int:
@@ -107,7 +109,7 @@ class Builder(object):
 
         troves = self._formatInput(troveSpecs)
         jobId = self._startJob(troves)
-        self._monitorJob(jobId)
+        self._monitorJob(jobId, retry=2)
         self._sanityCheckJob(jobId)
         trvMap = self._commitJob(jobId)
         ret = self._formatOutput(trvMap)
@@ -138,7 +140,7 @@ class Builder(object):
 
             jobs[index].append(trv)
 
-            if i % 50 == 0:
+            if i % 20 == 0:
                 index += 1
 
         failed = set()
@@ -185,7 +187,15 @@ class Builder(object):
         return results, failed
 
     def buildmany2(self, troveSpecs):
-        dispatcher = Dispatcher(self._cfg, 20)
+        dispatcher = Dispatcher(self._cfg, 100)
+        return dispatcher.buildmany(troveSpecs)
+
+    def buildmany3(self, troveSpecs):
+        dispatcher = Dispatcher2(self._cfg, 50)
+        return dispatcher.buildmany(troveSpecs)
+
+    def buildmany4(self, troveSpecs):
+        dispatcher = Dispatcher3(self._cfg, 50)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
@@ -642,3 +652,133 @@ class Dispatcher(object):
             elif msg.type == MESSAGE_TYPES['results']:
                 results.add(msg.message)
         return results, errors
+
+
+class Dispatcher2(object):
+    builderClass = Builder
+
+    def __init__(self, cfg, workerCount):
+        self._cfg = cfg
+        self._workerCount = workerCount
+
+        self._builder = self.builderClass(self._cfg)
+
+        self._activeJobs = []
+        self._commitJobs = []
+        self._failedJobs = set()
+        self._completedJobs = []
+
+        self._results = {}
+
+    def buildmany(self, troveSpecs):
+        troveSpecs = list(troveSpecs)
+
+        while len(troveSpecs):
+            # Wait for some amount of jobs to complete.
+            while len(self._activeJobs) >= self._workerCount:
+                time.sleep(5)
+                self._checkStatus()
+
+            # Populate build queue.
+            while len(self._activeJobs) < self._workerCount:
+                trvSpec = troveSpecs.pop()
+                self._start(trvSpec)
+
+            # Commit completed jobs.
+            self._commit()
+
+        return self._results, self._failedJobs
+
+    @jobInfoExceptionHandler
+    def _start(self, troveSpec):
+        jobId = self._builder.start([troveSpec, ])
+        self._activeJobs.append((troveSpec, jobId))
+
+    def _checkStatus(self):
+        for troveSpec, jobId in self._activeJobs:
+            log.info('Checking status of %s' % jobId)
+            job = self._builder._getJob(jobId, retry=10)
+            if job is None:
+                log.warn('Failed to retrieve job information for %s' % jobId)
+                import epdb; epdb.st()
+            elif job.isFailed():
+                self._failedJobs.add((troveSpec, jobId))
+                self._activeJobs.remove((troveSpec, jobId))
+            elif job.isFinished():
+                self._commitJobs.append((troveSpec, jobId))
+                self._activeJobs.remove((troveSpec, jobId))
+
+            # Wait between each status check.
+            #time.sleep(1)
+
+    def _commit(self):
+        for troveSpec, jobId in self._commitJobs:
+            try:
+                res = self._builder.commit(jobId)
+                self._results.update(res)
+                self._completedJobs.append(jobId)
+            except JobFailedError:
+                self._failedJobs.add((troveSpec, jobId))
+            self._commitJobs.remove((troveSpec, jobId))
+
+
+class CommitWorker(Thread):
+    BuilderClass = Builder
+
+    def __init__(self, cfg, toCommit, results, name=None):
+        Thread.__init__(self, name=name)
+
+        self.name = name
+        self.toCommit = toCommit
+        self.results = results
+        self.builder = self.BuilderClass(cfg)
+
+        self.setDaemon(True)
+
+    def run(self):
+        while True:
+            trvSpec, jobId = self.toCommit.get()
+            try:
+                res = self.builder.commit(jobId)
+                self.msg(0, trvSpec, jobId, res)
+            except JobFailedError:
+                self.msg(1, trvSpec, jobId)
+            except Exception, e:
+                log.critical('%s received exception: %s' % (self.name, e))
+
+    def msg(self, rc, trvSpec, jobId, data=None):
+        self.results.put((rc, ((trvSpec, jobId), data)))
+
+
+class Dispatcher3(Dispatcher2):
+    workerClass = CommitWorker
+
+    def __init__(self, cfg, workerCount):
+        Dispatcher2.__init__(self, cfg, workerCount)
+
+        self._commitQueue = Queue()
+        self._resultQueue = Queue()
+
+        self._workers = []
+        for i in range(10):
+            worker = self.workerClass(self._cfg, self._commitQueue,
+                self._resultQueue, name='Commit Worker %s' % i)
+            worker.start()
+            self._workers.append(worker)
+
+    def _commit(self):
+        for trvSpec, jobId in self._commitJobs:
+            self._commitQueue.put((trvSpec, jobId))
+
+        try:
+            msg = self._resultQueue.get(False)
+            while msg:
+                rc, ((trvSpec, jobId), data) = msg
+                if rc == 0:
+                    self._results.update(data)
+                    self._completedJobs.append(jobId)
+                elif rc == 1:
+                    self._failedJobs.add((trvSpec, jobId))
+                msg = self._resultQueue.get(False)
+        except Empty:
+            pass

@@ -166,15 +166,15 @@ class _RpmRequires(xmllib.BaseNode):
         """
 
         if child.getName() in ('rpm:entry', 'suse:entry'):
-            for attr, value in child.iterAttributes():
-                child.kind = None
-                child.name = None
-                child.epoch = None
-                child.version = None
-                child.release = None
-                child.flags = None
-                child.pre = None
+            child.kind = None
+            child.name = None
+            child.epoch = None
+            child.version = None
+            child.release = None
+            child.flags = None
+            child.pre = None
 
+            for attr, value in child.iterAttributes():
                 if attr == 'kind':
                     child.kind = value
                 elif attr == 'name':

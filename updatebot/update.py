@@ -245,17 +245,19 @@ class Updater(object):
         # Update all of the unique sources.
         fail = set()
         toBuild = set()
+        verCache = self._conaryhelper.getLatestVersions()
         for pkg in toUpdate:
-            log.info('attempting to import %s' % pkg)
+            #log.info('attempting to import %s' % pkg)
 
             try:
                 # Only import packages that haven't been imported before
-                version = self._conaryhelper.getLatestSourceVersion(pkg.name)
+                #version = self._conaryhelper.getLatestSourceVersion(pkg.name)
+                version = verCache.get('%s:source' % pkg.name)
                 if not version:
+                    log.info('attempting to import %s' % pkg)
                     version = self.update((pkg.name, None, None), pkg)
 
-                if (not self._conaryhelper._getVersionsByName(pkg.name) or
-                    buildAll):
+                if not verCache.get(pkg.name) or buildAll:
                     toBuild.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
@@ -350,9 +352,14 @@ class Updater(object):
         # FIXME: This is apt specific for now. Once repomd has been rewritten
         #        to use something other than rpath-xmllib we should be able to
         #        convert this to xobj.
-        if self._cfg.repositoryFormat == 'apt':
+        if (self._cfg.repositoryFormat == 'apt' or
+            self._cfg.writePackageMetadata):
             metadata = self._getMetadataFromPkgSource(srcPkg)
             self._conaryhelper.setMetadata(nvf[0], metadata)
+
+        if self._cfg.repositoryFormat == 'yum' and self._cfg.buildFromSource:
+            buildrequires = self._getBuildRequiresFromPkgSource(srcPkg)
+            self._conaryhelper.setBuildRequires(nvf[0], buildrequires)
 
         newVersion = self._conaryhelper.commit(nvf[0],
                                     commitMessage=self._cfg.commitMessage)
@@ -366,12 +373,16 @@ class Updater(object):
         """
 
         manifest = []
-        manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
-        for pkg in self._getLatestOfAvailableArches(manifestPkgs):
-            if hasattr(pkg, 'location'):
-                manifest.append(pkg.location)
-            elif hasattr(pkg, 'files'):
-                manifest.extend(pkg.files)
+
+        if self._cfg.repositoryFormat == 'yum' and self._cfg.buildFromSource:
+            manifest.append(srcPkg.location)
+        else:
+            manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
+            for pkg in self._getLatestOfAvailableArches(manifestPkgs):
+                if hasattr(pkg, 'location'):
+                    manifest.append(pkg.location)
+                elif hasattr(pkg, 'files'):
+                    manifest.extend(pkg.files)
         return manifest
 
     def _getMetadataFromPkgSource(self, srcPkg):
@@ -392,6 +403,45 @@ class Updater(object):
         """
 
         return self._conaryhelper.getMetadata(pkgName)
+
+    def _getBuildRequiresFromPkgSource(self, srcPkg):
+        """
+        Get the buildrequires for a given srcPkg.
+        @param srcPkg: source package object
+        @return list of build requires
+        """
+
+        reqs = []
+        for reqType in srcPkg.format:
+            if reqType.getName() == 'rpm:requires':
+                names = [ x.name.split('(')[0] for x in reqType.iterChildren()
+                          if not (hasattr(x, 'isspace') and x.isspace()) ]
+
+                for name in names:
+                    if name in self._pkgSource.binNameMap:
+                        latest = self._getLatestBinary(name)
+                        if latest not in self._pkgSource.binPkgMap:
+                            log.warn('%s not found in binPkgMap' % latest)
+                            continue
+                        src = self._pkgSource.binPkgMap[latest]
+                        srcname = src.name
+                    else:
+                        log.warn('found virtual requires %s in pkg %s' % (name, srcPkg.name))
+                        srcname = 'virtual'
+                    reqs.append((name, srcname))
+
+        reqs = list(set(reqs))
+        return reqs
+
+    def _getBuildRequiresFromConaryRepository(self, pkgName):
+        """
+        Get the contents of the build requires file from the repository.
+        @param pkgName: name of the package
+        @type pkgName: string
+        @return list of build requires
+        """
+
+        return self._conaryhelper.getBuildRequires(pkgName)
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """
