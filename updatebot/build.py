@@ -99,7 +99,7 @@ class Builder(object):
 
         # Use default tmpDir when building with rMake since the specified
         # tmpDir may not exist in the build root.
-        self._rmakeCfg.tmpDir = conarycfg.ConaryConfiguration.tmpDir[1]
+        self._rmakeCfg.tmpDir = conarycfg.ConaryContext.tmpDir[1]
 
         self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
 
