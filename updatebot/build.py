@@ -97,6 +97,10 @@ class Builder(object):
         self._rmakeCfg.copyInConfig = False
         self._rmakeCfg.strictMode = True
 
+        # Use default tmpDir when building with rMake since the specified
+        # tmpDir may not exist in the build root.
+        self._rmakeCfg.tmpDir = conarycfg.ConaryConfiguration.tmpDir[1]
+
         self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
 
     def build(self, troveSpecs):
@@ -187,7 +191,7 @@ class Builder(object):
         return results, failed
 
     def buildmany2(self, troveSpecs):
-        dispatcher = Dispatcher(self._cfg, 100)
+        dispatcher = Dispatcher(self._cfg, 30)
         return dispatcher.buildmany(troveSpecs)
 
     def buildmany3(self, troveSpecs):
