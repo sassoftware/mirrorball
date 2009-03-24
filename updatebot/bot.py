@@ -102,10 +102,10 @@ class Bot(object):
 
         if not rebuild:
             # Build all newly imported packages.
-            trvMap, failed = self._builder.buildmany(toBuild)
+            trvMap, failed = self._builder.buildmany2(sorted(toBuild))
         else:
             # ReBuild all packages.
-            trvMap = self._builder.buildsplitarch(toBuild)
+            trvMap = self._builder.buildsplitarch(sorted(toBuild))
 
         log.info('import completed successfully')
         log.info('imported %s source packages' % (len(toBuild), ))
