@@ -247,11 +247,8 @@ class Updater(object):
         toBuild = set()
         verCache = self._conaryhelper.getLatestVersions()
         for pkg in toUpdate:
-            #log.info('attempting to import %s' % pkg)
-
             try:
                 # Only import packages that haven't been imported before
-                #version = self._conaryhelper.getLatestSourceVersion(pkg.name)
                 version = verCache.get('%s:source' % pkg.name)
                 if not version:
                     log.info('attempting to import %s' % pkg)
