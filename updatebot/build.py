@@ -648,13 +648,13 @@ class Dispatcher(object):
 
     def _getResultsAndErrors(self):
         errors = set()
-        results = set()
+        results = []
         for trv, msgs in self._trvs.iteritems():
             msg = msgs[-1]
             if msg.type == MESSAGE_TYPES['error']:
                 errors.add((trv, msg.jobId))
             elif msg.type == MESSAGE_TYPES['results']:
-                results.add(msg.message)
+                results.append(msg.message)
         return results, errors
 
 
