@@ -37,3 +37,5 @@ def addRootLogger():
     conaryLog = logging.getLogger('conary')
     for handler in conaryLog.handlers:
         conaryLog.removeHandler(handler)
+
+    return rootLog

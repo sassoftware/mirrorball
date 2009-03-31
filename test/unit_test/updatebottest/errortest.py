@@ -14,7 +14,6 @@
 
 import testsetup
 
-import mock
 import slehelp
 
 from updatebot import errors

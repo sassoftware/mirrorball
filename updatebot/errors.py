@@ -131,6 +131,14 @@ class PromoteMismatchError(PromoteFailedError):
     _template = ('Expected to promote %(expected)s, actually tried to promote'
                  ' %(actual)s.')
 
+class MirrorFailedError(UnhandledUpdateError):
+    """
+    MirrorFailedError, raised when the mirror process fails.
+    """
+
+    _params = ['rc', ]
+    _template = 'Mirror process exited with code %(rc)s'
+
 class AdvisoryError(UnhandledUpdateError):
     """
     Base error for other advisory errors to inherit from.
@@ -195,6 +203,16 @@ class NoPackagesFoundForAdvisory(AdvisoryError):
 
     _params = ['what', ]
     _template = 'Could not find binary packages for %(what)s'
+
+class ExtraPackagesFoundInUpdateError(AdvisoryError):
+    """
+    ExtraPackagesFoundInUpdateError, raised when packages are found for an
+    update that are not mentioned in the advisory.
+    """
+
+    _params = ['pkg', 'src', 'advisory']
+    _template = ('At least one (%(pkg)s) was found that is not mentioned in the'
+                 ' advisory for %(src)s, %(advisory)s')
 
 class MultipleAdvisoriesFoundError(AdvisoryError):
     """

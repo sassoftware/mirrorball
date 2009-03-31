@@ -40,32 +40,33 @@ class _Patch(SlotNode):
         # R0912 - Too many branches
         # pylint: disable-msg=R0912
 
-        if child.getName() == 'yum:name':
+        n = child.getName()
+        if n == 'yum:name':
             self.name = child.finalize()
-        elif child.getName() == 'summary':
+        elif n == 'summary':
             if child.getAttribute('lang') == 'en':
                 self.summary = child.finalize()
-        elif child.getName() == 'description':
+        elif n == 'description':
             if child.getAttribute('lang') == 'en':
                 self.description = child.finalize()
-        elif child.getName() == 'yum:version':
+        elif n == 'yum:version':
             self.version = child.getAttribute('ver')
             self.release = child.getAttribute('rel')
-        elif child.getName() == 'rpm:requires':
+        elif n == 'rpm:requires':
             self.requires = child.getChildren('entry', namespace='rpm')
-        elif child.getName() == 'rpm:recommends':
+        elif n == 'rpm:recommends':
             self.recommends = child.getChildren('entry', namespace='rpm')
-        elif child.getName() == 'rpm:obsoletes':
+        elif n == 'rpm:obsoletes':
             self.obsoletes = child.getChildren('entry', namespace='rpm')
-        elif child.getName() == 'reboot-needed':
+        elif n == 'reboot-needed':
             self.rebootNeeded = True
-        elif child.getName() == 'license-to-confirm':
+        elif n == 'license-to-confirm':
             self.licenseToConfirm = child.finalize()
-        elif child.getName() == 'package-manager':
+        elif n == 'package-manager':
             self.packageManager = True
-        elif child.getName() == 'category':
+        elif n == 'category':
             self.category = child.finalize()
-        elif child.getName() == 'atoms':
+        elif n == 'atoms':
             self.packages = child.getChildren('package')
         else:
             raise UnknownElementError(child)
@@ -108,12 +109,13 @@ class _Atoms(xmllib.BaseNode):
         Parse children of atoms element.
         """
 
-        if child.getName() == 'package':
+        n = child.getName()
+        if n == 'package':
             child.type = child.getAttribute('type')
             xmllib.BaseNode.addChild(self, child)
-        elif child.getName() == 'message':
+        elif n == 'message':
             pass
-        elif child.getName() == 'script':
+        elif n == 'script':
             pass
         else:
             raise UnknownElementError(child)
@@ -123,9 +125,6 @@ class PatchXml(XmlFileParser, PackageXmlMixIn):
     """
     Handle registering all types for parsing patch-*.xml files.
     """
-
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
 
     def _registerTypes(self):
         """

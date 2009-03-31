@@ -20,39 +20,42 @@ Module for interacting with packages in multiple yum repositories.
 import logging
 
 import repomd
+from updatebot import util
+from updatebot.pkgsource.common import BasePackageSource
 
-log = logging.getLogger('rpmimport.rpmsource')
+log = logging.getLogger('updatebot.pkgsource')
 
-class RpmSource(object):
+class RpmSource(BasePackageSource):
     """
     Class that builds maps of packages from multiple yum repositories.
     """
 
     def __init__(self, cfg):
-        self._excludeArch = cfg.excludeArch
+        BasePackageSource.__init__(self, cfg)
 
-        # {srpm: {rpm: path}
+        # {srcTup: srpm}
+        self._srcMap = dict()
+
+        # {srcTup: {rpm: path}
         self._rpmMap = dict()
 
         # set of all src pkg objects
         self._srcPkgs = set()
 
-        # {location: srpm}
-        self.locationMap = dict()
+    def load(self):
+        """
+        Load package source based on config data.
+        """
 
-        # {srcPkg: [binPkg, ... ] }
-        self.srcPkgMap = dict()
+        for repo in self._cfg.repositoryPaths:
+            log.info('loading repository data %s' % repo)
+            client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
+            self.loadFromClient(client, repo)
+            self._clients[repo] = client
 
-        # {binPkg: srcPkg}
-        self.binPkgMap = dict()
+        self.finalize()
 
-        # {srcName: [srcPkg, ... ] }
-        self.srcNameMap = dict()
-
-        # {binName: [binPkg, ... ] }
-        self.binNameMap = dict()
-
-    def load(self, url, basePath=''):
+    def loadFromUrl(self, url, basePath=''):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -90,6 +93,10 @@ class RpmSource(object):
 
             pkg.location = basePath + '/' + pkg.location
 
+            # ignore 32bit rpms in a 64bit repo.
+            if pkg.arch in ('i386', 'i586', 'i686') and 'x86_64' in pkg.location:
+                continue
+
             if pkg.sourcerpm == '':
                 self._procSrc(pkg)
             else:
@@ -109,6 +116,7 @@ class RpmSource(object):
         self.locationMap[package.location] = package
 
         self._srcPkgs.add(package)
+        self._srcMap[(package.name, package.epoch, package.version, package.release, package.arch)] = package
 
     def _procBin(self, package):
         """
@@ -145,6 +153,7 @@ class RpmSource(object):
         # Now that we have processed all of the rpms, build some more data
         # structures.
         count = 0
+        toDelete = set()
         for pkg in self._srcPkgs:
             key = (pkg.name, pkg.epoch, pkg.version, pkg.release, pkg.arch)
             if pkg in self.srcPkgMap:
@@ -162,8 +171,41 @@ class RpmSource(object):
 
             self.srcPkgMap[pkg] = self._rpmMap[key]
             self.srcPkgMap[pkg].add(pkg)
+            toDelete.add(key)
 
             for binPkg in self.srcPkgMap[pkg]:
                 self.binPkgMap[binPkg] = pkg
 
-        log.warn('found %s source rpms without matching binary rpms' % count)
+        if count > 0:
+            log.warn('found %s source rpms without matching binary rpms' % count)
+
+        # Defer deletes, contents of rpmMap are used more than once.
+        for key in toDelete:
+            del self._rpmMap[key]
+
+        # Attempt to match up remaining binaries with srpms.
+        for srcTup in self._rpmMap.keys():
+            srcKey = list(srcTup)
+            epoch = int(srcKey[1])
+            while epoch >= 0:
+                srcKey[1] = str(epoch)
+                key = tuple(srcKey)
+                if key in self._srcMap:
+                    srcPkg = self._srcMap[key]
+                    for binPkg in self._rpmMap[srcTup]:
+                        self.srcPkgMap[srcPkg].add(binPkg)
+                        self.binPkgMap[binPkg] = srcPkg
+                    del self._rpmMap[srcTup]
+                    break
+                epoch -= 1
+
+        if self._rpmMap:
+            count = sum([ len(x) for x in self._rpmMap.itervalues() ])
+            log.warn('found %s binary rpms without matching srpms' % count)
+
+    def loadFileLists(self, client, basePath):
+        for pkg in client.getFileLists():
+            for binPkg in self.binPkgMap.iterkeys():
+                if util.packageCompare(pkg, binPkg) == 0:
+                    binPkg.files = pkg.files
+                    break

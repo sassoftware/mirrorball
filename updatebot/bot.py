@@ -19,13 +19,10 @@ Module for driving the update process.
 import time
 import logging
 
-import repomd
-
 from updatebot import build
 from updatebot import update
-from updatebot import advise
-from updatebot import rpmsource
-from updatebot import patchsource
+from updatebot import pkgsource
+from updatebot import advisories
 
 log = logging.getLogger('updatebot.bot')
 
@@ -37,49 +34,14 @@ class Bot(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self._rpmSourcePopulated = False
         self._patchSourcePopulated = False
 
         self._clients = {}
-        self._rpmSource = rpmsource.RpmSource(self._cfg)
-        self._patchSource = patchsource.PatchSource(self._cfg)
-        self._updater = update.Updater(self._cfg, self._rpmSource)
-        self._advisor = advise.Advisor(self._cfg, self._rpmSource,
-                                       self._patchSource)
+        self._pkgSource = pkgsource.PackageSource(self._cfg)
+        self._updater = update.Updater(self._cfg, self._pkgSource)
+        self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
+                                           self._cfg.platformName)
         self._builder = build.Builder(self._cfg)
-
-    def _populateRpmSource(self):
-        """
-        Populate the rpm source data structures.
-        """
-
-        if self._rpmSourcePopulated:
-            return
-
-        for repo in self._cfg.repositoryPaths:
-            log.info('loading repository data %s/%s'
-                     % (self._cfg.repositoryUrl, repo))
-            client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-            self._rpmSource.loadFromClient(client, repo)
-            self._clients[repo] = client
-        self._rpmSource.finalize()
-
-        self._rpmSourcePopulated = True
-
-    def _populatePatchSource(self):
-        """
-        Populate the patch source data structures.
-        """
-
-        if self._patchSourcePopulated:
-            return
-
-        for path, client in self._clients.iteritems():
-            log.info('loading patch information %s/%s'
-                     % (self._cfg.repositoryUrl, path))
-            self._patchSource.loadFromClient(client, path)
-
-        self._patchSourcePopulated = True
 
     @staticmethod
     def _flattenSetDict(setDict):
@@ -104,46 +66,97 @@ class Bot(object):
         log.info('starting import')
 
         # Populate rpm source object from yum metadata.
-        self._populateRpmSource()
-
-        import epdb; epdb.st()
+        self._pkgSource.load()
 
         # Import sources into repository.
-        toBuild, fail = self._updater.create(self._cfg.package)
-
-        import epdb; epdb.st()
+        toBuild, fail = self._updater.create(self._cfg.package, buildAll=False)
 
         # Build all newly imported packages.
-        trvMap = self._builder.build(toBuild)
+        trvMap, failed = self._builder.buildmany(toBuild)
 
-        for trv in self._flattenSetDict(trvMap):
-            log.info('built: %s' % trv)
+#        import epdb; epdb.st()
+
+##        trvMap = self._builder.build(toBuild)
+        #import epdb; epdb.st()
+
+        #trvs = self._builder._formatInput(toBuild)
+        #jobs = {}
+        #for trv in trvs:
+        #    key = 'other'
+        #    if len(trv) == 4:
+        #        key = trv[3]
+
+        #    if key not in jobs:
+        #        jobs[key] = []
+
+        #    jobs[key].append(trv)
+
+        #ids = {}
+        #for job in jobs:
+        #    if job == 'other':
+        #        continue
+
+        #    ids[job] = self._builder._startJob(jobs[job])
+
+        #for job in ids:
+        #    self._builder._monitorJob(ids[job])
+
+        #log.info('completed jobs %s' % (' '.join(ids.values()), ))
+
+        #import epdb; epdb.st()
+
+        #for trv in self._flattenSetDict(trvMap):
+        #    log.info('built: %s' % trv)
+
+        #import epdb; epdb.st()
 
         log.info('import completed successfully')
         log.info('imported %s source packages' % (len(toBuild), ))
         log.info('elapsed time %s' % (time.time() - start, ))
 
-    def update(self):
+        return trvMap
+
+    def update(self, force=None):
         """
         Update the conary repository from the yum repositories.
+        @param force: list of packages to update without exception
+        @type force: list(pkgName, pkgName, ...)
         """
+
+        if force is not None:
+            self._cfg.disableUpdateSanity = True
+            assert isinstance(force, list)
 
         start = time.time()
         log.info('starting update')
 
         # Populate rpm source object from yum metadata.
-        self._populateRpmSource()
+        self._pkgSource.load()
 
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates()
+
+        # If forcing an update, make sure that all packages are listed in
+        # toAdvise and toUpdate as needed.
+        if force:
+            advise = list()
+            updates = list()
+            for pkg in toAdvise:
+                if pkg[1].name in force:
+                    advise.append(pkg)
+            for pkg in toUpdate:
+                if pkg[1].name in force:
+                    updates.append(pkg)
+            toAdvise = advise
+            toUpdate = updates
 
         if len(toAdvise) == 0:
             log.info('no updates available')
             return
 
-        # Populate patch source not that we know that there are updates
+        # Populate patch source now that we know that there are updates
         # available.
-        self._populatePatchSource()
+        self._advisor.load()
 
         # Check to see if advisories exist for all required packages.
         self._advisor.check(toAdvise)
@@ -173,6 +186,9 @@ class Bot(object):
         toPublish = self._flattenSetDict(grpTrvMap)
         newTroves = self._updater.publish(toPublish, expected,
                                           self._cfg.targetLabel)
+
+        # Mirror out content
+        self._updater.mirror()
 
         # Send advisories.
         self._advisor.send(toAdvise, newTroves)

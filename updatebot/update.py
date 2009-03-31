@@ -33,9 +33,9 @@ class Updater(object):
     Class for finding and updating packages.
     """
 
-    def __init__(self, cfg, rpmSource):
+    def __init__(self, cfg, pkgSource):
         self._cfg = cfg
-        self._rpmSource = rpmSource
+        self._pkgSource = pkgSource
 
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
@@ -55,10 +55,17 @@ class Updater(object):
             # Will raise exception if any errors are found, halting execution.
             if self._sanitizeTrove(nvf, srpm):
                 toUpdate.append((nvf, srpm))
+                toAdvise.append((nvf, srpm))
 
-            # Make sure to send advisories for any packages that didn't get
-            # sent out last time.
-            toAdvise.append((nvf, srpm))
+
+            # Update versions for things that are already in the repository.
+            # The binary version from the group will not be the latest.
+            else:
+                # Make sure to send advisories for any packages that didn't get
+                # sent out last time.
+                version = self._conaryhelper.getLatestSourceVersion(nvf[0])
+                toAdvise.append(((nvf[0], version, nvf[2]), srpm))
+
 
         log.info('found %s troves to update, and %s troves to send advisories'
                  % (len(toUpdate), len(toAdvise)))
@@ -74,12 +81,14 @@ class Updater(object):
 
         # ((name, version, flavor), srpm)
         troves = []
-        for name, version, flavor in self._conaryhelper.getSourceTroves(group):
+        for name, version, flavor in \
+          self._conaryhelper.getSourceTroves(group).iterkeys():
             name = name.split(':')[0]
 
             # skip special packages
             if (name.startswith('info-') or
                 name.startswith('group-') or
+                name.startswith('factory-') or
                 name in self._cfg.excludePackages):
                 continue
 
@@ -105,7 +114,7 @@ class Updater(object):
         @return src package object
         """
 
-        srpms = list(self._rpmSource.srcNameMap[name])
+        srpms = list(self._pkgSource.srcNameMap[name])
         srpms.sort(util.packagevercmp)
         return srpms[-1]
 
@@ -129,11 +138,11 @@ class Updater(object):
         """
 
         needsUpdate = False
-        newNames = [ (x.name, x.arch) for x in self._rpmSource.srcPkgMap[srpm] ]
+        newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
         manifest = self._conaryhelper.getManifest(nvf[0])
         for line in manifest:
-            binPkg = self._rpmSource.locationMap[line]
-            srcPkg = self._rpmSource.binPkgMap[binPkg]
+            binPkg = self._pkgSource.locationMap[line]
+            srcPkg = self._pkgSource.binPkgMap[binPkg]
 
             # set needsUpdate if version changes
             if util.packagevercmp(srpm, srcPkg) == 1:
@@ -144,11 +153,12 @@ class Updater(object):
                 raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
-            if (binPkg.name, binPkg.arch) not in newNames:
+            if ((binPkg.name, binPkg.arch) not in newNames and
+                not self._cfg.disableUpdateSanity):
                 # Novell releases updates to only the binary rpms of a package
                 # that have chnaged. We have to use binaries from the old srpm.
                 # Get the last version of the pkg and add it to the srcPkgMap.
-                pkgs = list(self._rpmSource.binNameMap[binPkg.name])
+                pkgs = list(self._pkgSource.binNameMap[binPkg.name])
 
                 # get the correct arch
                 pkg = [ x for x in self._getLatestOfAvailableArches(pkgs)
@@ -163,7 +173,7 @@ class Updater(object):
                             'to add %s' % (pkg, ))
 
                 log.warn('using old version of package %s' % (pkg, ))
-                self._rpmSource.srcPkgMap[srpm].add(pkg)
+                self._pkgSource.srcPkgMap[srpm].add(pkg)
 
         return needsUpdate
 
@@ -185,8 +195,8 @@ class Updater(object):
                 pkgMap[key] = pkg
                 continue
 
-            # check if newer, last wins
-            if util.packagevercmp(pkg, pkgMap[key]) in (0, 1):
+            # check if newer, first wins
+            if util.packagevercmp(pkg, pkgMap[key]) in (1, ):
                 pkgMap[key] = pkg
 
         ret = pkgMap.values()
@@ -194,36 +204,58 @@ class Updater(object):
 
         return ret
 
-    def create(self, pkgNames):
+    def create(self, pkgNames, buildAll=False):
         """
         Import a new package into the repository.
         @param pkgNames: list of packages to import
         @type pkgNames: list
+        @param buildAll: return a list of all troves found rather than just the new ones.
+        @type buildAll: boolean
         @return new source [(name, version, flavor), ... ]
         """
 
         log.info('getting existing packages')
         pkgs = self._getExistingPackageNames()
 
-        toBuild = set()
-        fail = set()
+        # Find all of the source to update.
+        toUpdate = set()
         for pkg in pkgNames:
-            if pkg not in self._rpmSource.binNameMap:
-                log.warn('no package named %s found in rpm source' % pkg)
+            if pkg not in self._pkgSource.binNameMap:
+                log.warn('no package named %s found in package source' % pkg)
                 continue
 
-            if pkg not in pkgs:
-                log.info('importing %s' % pkg)
+            srcPkg = self._getPackagesToImport(pkg)
 
-                try:
-                    srcPkg = self._getPackagesToImport(pkg)
-                    version = self.update((pkg, None, None), srcPkg)
+            if srcPkg.name not in pkgs:
+                toUpdate.add(srcPkg)
 
-                    toBuild.add((pkg, version, None))
-                except Exception, e:
-                    log.error('failed to import %s: %s' % (pkg, e))
-                    fail.add((pkg, e))
-#                    raise
+        # Update all of the unique sources.
+        fail = set()
+        toBuild = set()
+        for pkg in toUpdate:
+            log.info('attempting to import %s' % pkg)
+
+            try:
+                # Only import packages that haven't been imported before
+                version = self._conaryhelper.getLatestSourceVersion(pkg.name)
+                if not version:
+                    version = self.update((pkg.name, None, None), pkg)
+
+                if (not self._conaryhelper._getVersionsByName(pkg.name) or
+                    buildAll):
+                    toBuild.add((pkg.name, version, None))
+                else:
+                    log.info('not building %s' % pkg.name)
+            except Exception, e:
+                log.error('failed to import %s: %s' % (pkg, e))
+                fail.add((pkg, e))
+
+        if buildAll and pkgs:
+            toBuild.update(
+                [ (x, self._conaryhelper.getLatestSourceVersion(x), None)
+                  for x in pkgs if not x.startswith('info-')
+                            and x not in self._cfg.excludePackages ]
+            )
 
         return toBuild, fail
 
@@ -237,7 +269,7 @@ class Updater(object):
 
         try:
             return [ n.split(':')[0] for n, v, f in
-                     self._conaryhelper.getSourceTroves(self._cfg.topGroup) ]
+            self._conaryhelper.getSourceTroves(self._cfg.topGroup).iterkeys() ]
         except GroupNotFound:
             return []
 
@@ -250,20 +282,31 @@ class Updater(object):
         """
 
         latestRpm = self._getLatestBinary(name)
-        latestSrpm = self._rpmSource.binPkgMap[latestRpm]
+        latestSrpm = self._pkgSource.binPkgMap[latestRpm]
 
         pkgs = {}
-        for pkg in self._rpmSource.srcPkgMap[latestSrpm]:
+        pkgNames = set()
+        for pkg in self._pkgSource.srcPkgMap[latestSrpm]:
+            pkgNames.add(pkg.name)
             pkgs[(pkg.name, pkg.arch)] = pkg
 
-        for srpm in self._rpmSource.srcNameMap[latestSrpm.name]:
+        for srpm in self._pkgSource.srcNameMap[latestSrpm.name]:
             if latestSrpm.epoch == srpm.epoch and \
                latestSrpm.version == srpm.version:
-                for pkg in self._rpmSource.srcPkgMap[srpm]:
+                for pkg in self._pkgSource.srcPkgMap[srpm]:
+                    # Add special handling for packages that have versions in
+                    # the names.
+                    # FIXME: This is specific to non rpm based platforms right
+                    #        now. It needs to be tested on rpm platforms to
+                    #        make nothing breaks.
+                    if (self._cfg.repositoryFormat != 'rpm'
+                        and pkg.name not in pkgNames
+                        and pkg.version in pkg.name):
+                        continue
                     if (pkg.name, pkg.arch) not in pkgs:
                         pkgs[(pkg.name, pkg.arch)] = pkg
 
-        self._rpmSource.srcPkgMap[latestSrpm] = set(pkgs.values())
+        self._pkgSource.srcPkgMap[latestSrpm] = set(pkgs.values())
 
         return latestSrpm
 
@@ -274,7 +317,7 @@ class Updater(object):
         @type name: string
         """
 
-        rpms = list(self._rpmSource.binNameMap[name])
+        rpms = list(self._pkgSource.binNameMap[name])
         rpms.sort(util.packagevercmp)
         return rpms[-1]
 
@@ -288,23 +331,28 @@ class Updater(object):
         @return version of the updated source trove
         """
 
-        manifest = self._getManifestFromRpmSource(srcPkg)
+        manifest = self._getManifestFromPkgSource(srcPkg)
         newVersion = self._conaryhelper.setManifest(nvf[0], manifest,
                         commitMessage=self._cfg.commitMessage)
         return newVersion
 
-    def _getManifestFromRpmSource(self, srcPkg):
+    def _getManifestFromPkgSource(self, srcPkg):
         """
-        Get the contents of the a manifest file from the rpmSource object.
+        Get the contents of the a manifest file from the pkgSource object.
         @param srcPkg: source rpm package object
         @type srcPkg: repomd.packagexml._Package
         """
 
-        manifestPkgs = list(self._rpmSource.srcPkgMap[srcPkg])
-        pkgs = self._getLatestOfAvailableArches(manifestPkgs)
-        return [ x.location for x in pkgs ]
+        manifest = []
+        manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
+        for pkg in self._getLatestOfAvailableArches(manifestPkgs):
+            if hasattr(pkg, 'location'):
+                manifest.append(pkg.location)
+            elif hasattr(pkg, 'files'):
+                manifest.extend(pkg.files)
+        return manifest
 
-    def publish(self, trvLst, expected, targetLabel):
+    def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
         """
         Publish a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -313,7 +361,22 @@ class Updater(object):
         @type expected: [(name, version, flavor), ...]
         @param targetLabel: table to publish to
         @type targetLabel: conary Label object
+        @param checkPackageList: verify list of packages being promoted or not.
+        @type checkPackageList: boolean
         """
 
-        return self._conaryhelper.promote(trvLst, expected,
-                                          self._cfg.sourceLabel, targetLabel)
+        return self._conaryhelper.promote(
+            trvLst,
+            expected,
+            self._cfg.sourceLabel,
+            targetLabel,
+            checkPackageList=checkPackageList,
+            extraPromoteTroves=self._cfg.extraPromoteTroves
+        )
+
+    def mirror(self):
+        """
+        If a mirror is configured, mirror out any changes.
+        """
+
+        return self._conaryhelper.mirror()

@@ -16,13 +16,51 @@
 Configuration module for updatebot.
 """
 
+import os
+
 from conary.lib import cfg
+from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool
+from conary.lib.cfgtypes import ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
 
-class UpdateBotConfig(cfg.SectionedConfigFile):
+class CfgBranch(CfgLabel):
+    """
+    Class for representing conary branches.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config string.
+        """
+
+        try:
+            return versions.VersionFromString(val)
+        except versions.ParseError, e:
+            raise ParseError, e
+
+
+class CfgContextFlavor(CfgFlavor):
+    """
+    Class for representing both a flavor context name and a build flavor.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config string.
+        """
+
+        try:
+            context, flavorStr = val.split()
+            flavor = CfgFlavor.parseString(self, flavorStr)
+            return context, flavor
+        except versions.ParseError, e:
+            raise ParseError, e
+
+
+class UpdateBotConfigSection(cfg.ConfigSection):
     """
     Config class for updatebot.
     """
@@ -33,8 +71,19 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # name of the product to use in advisories
     productName         = CfgString
 
-    # path to configuration files (conaryrc, rmakerc)
-    configPath          = CfgString
+    # platform short name
+    platformName        = CfgString
+
+    # disables checks for update completeness, this should only be enabled if
+    # you know what you are doing and have a good reason.
+    disableUpdateSanity = CfgBool
+
+    # path to configuration files relative to updatebotrc (conaryrc, rmakerc)
+    configPath          = (CfgString, './')
+
+    # type of upstream repostory to pull packages from, supported are apt
+    # and yum.
+    repositoryFormat    = (CfgString, 'yum')
 
     # Default commit message to use when committing to the repository.
     commitMessage       = (CfgString, 'Automated commit by updateBot')
@@ -53,10 +102,13 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
     # Other labels that are referenced in the group that need to be flattend
     # onto the targetLabel.
-    sourceLabel         = (CfgList(CfgLabel), [])
+    sourceLabel         = (CfgList(CfgBranch), [])
 
     # Label to promote to
-    targetLabel         = CfgLabel
+    targetLabel         = CfgBranch
+
+    # Packages other than the topGroup that need to be promoted.
+    extraPromoteTroves  = (CfgList(CfgTroveSpec), [])
 
     # Packages to import
     package             = (CfgList(CfgString), [])
@@ -79,14 +131,51 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     # Filter out patches with matching descriptions or summaries.
     patchFilter         = (CfgList(CfgRegExp), [])
 
+    # url to base archive searchs off of
+    listArchiveBaseUrl  = CfgString
+
+    # date to start querying archives
+    listArchiveStartDate = CfgString
+
     # list of contexts that all packages are built in.
     archContexts        = CfgList(CfgString)
 
     # flavors to build the source group.
     groupFlavors        = (CfgList(CfgFlavor), [])
 
+    # flavors to build kernels.
+    kernelFlavors       = (CfgList(CfgContextFlavor), [])
+
     # email information for sending advisories
+    emailFromName       = CfgString
     emailFrom           = CfgString
     emailTo             = (CfgList(CfgString), [])
     emailBcc            = (CfgList(CfgString), [])
     smtpServer          = CfgString
+
+
+class UpdateBotConfig(cfg.SectionedConfigFile):
+    """
+    Config object for UpdateBot.
+    """
+
+    _defaultSectionType = UpdateBotConfigSection
+
+    def __init__(self):
+        cfg.SectionedConfigFile.__init__(self)
+        for info in self._defaultSectionType._getConfigOptions():
+            if info[0] not in self:
+                self.addConfigOption(*info)
+
+    def read(self, *args, **kwargs):
+        """
+        Read specified file.
+        """
+
+        ret = cfg.SectionedConfigFile.read(self, *args, **kwargs)
+        if not self.configPath.startswith(os.sep):
+            # configPath is relative
+            dirname = os.path.dirname(args[0])
+            self.configPath = os.path.normpath(os.path.join(dirname,
+                                                            self.configPath))
+        return ret

@@ -23,8 +23,13 @@ import logging
 import tempfile
 
 import conary
+from conary import trove
+from conary import checkin
 from conary.build import use
-from conary import conaryclient, conarycfg, trove, checkin
+from conary import conarycfg
+from conary import conaryclient
+from conary.lib import log as clog
+from conary.conaryclient import mirror
 
 from updatebot import util
 from updatebot.errors import GroupNotFound
@@ -32,6 +37,7 @@ from updatebot.errors import TooManyFlavorsFoundError
 from updatebot.errors import NoManifestFoundError
 from updatebot.errors import PromoteFailedError
 from updatebot.errors import PromoteMismatchError
+from updatebot.errors import MirrorFailedError
 
 log = logging.getLogger('updatebot.conaryhelper')
 
@@ -41,11 +47,19 @@ class ConaryHelper(object):
     """
 
     def __init__(self, cfg):
+        self._groupFlavorCount = len(cfg.groupFlavors)
+
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
         self._ccfg.read(util.join(cfg.configPath, 'conaryrc'))
         self._ccfg.dbPath = ':memory:'
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
+
+        self._mcfg = None
+        mcfgfn = util.join(cfg.configPath, 'mirror.conf')
+        if os.path.exists(mcfgfn):
+            self._mcfg = mirror.MirrorFileConfiguration()
+            self._mcfg.read(mcfgfn)
 
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
@@ -66,7 +80,7 @@ class ConaryHelper(object):
         the top level group config option.
         @param group: group to query
         @type group: None or troveTuple (name, versionStr, flavorStr)
-        @return set of source trove specs
+        @return dict of source trove specs to list of binary trove specs
         """
 
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
@@ -79,17 +93,21 @@ class ConaryHelper(object):
 
         latest = self._findLatest(trvlst)
 
-        # Magic number should probably be a config option.
-        # 2 here is the number of flavors expected.
-        if len(latest) != 2:
+        if len(latest) != self._groupFlavorCount:
             raise TooManyFlavorsFoundError(why=latest)
 
-        srcTrvs = set()
+        d = {}
         for trv in latest:
             log.info('querying %s for source troves' % (trv, ))
-            srcTrvs.update(self._getSourceTroves(trv))
+            srcTrvs = self._getSourceTroves(trv)
+            for src, binLst in srcTrvs.iteritems():
+                s = set(binLst)
+                if src in d:
+                    d[src].update(s)
+                else:
+                    d[src] = s
 
-        return srcTrvs
+        return d
 
     @staticmethod
     def _findLatest(trvlst):
@@ -119,7 +137,7 @@ class ConaryHelper(object):
         refrenced by that trove.
         @param troveSpec: trove to walk.
         @type troveSpec: (name, versionObj, flavorObj)
-        @return set([(trvSpec, trvSpec, ...])
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
         """
 
         # W0212 - Access to a protected member _TROVEINFO_TAG_SOURCENAME of a
@@ -136,13 +154,16 @@ class ConaryHelper(object):
 
         # Iterate over both strong and weak refs because msw said it was a
         # good idea.
-        srcTrvs = set()
+        srcTrvs = {}
         sources = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME,
                     list(topTrove.iterTroveList(weakRefs=True,
                                                 strongRefs=True)))
-        for i, (_, v, _) in enumerate(topTrove.iterTroveList(weakRefs=True,
+        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True,
                                                             strongRefs=True)):
-            srcTrvs.add((sources[i](), v.getSourceVersion(), None))
+            src = (sources[i](), v.getSourceVersion(), None)
+            if src not in srcTrvs:
+                srcTrvs[src] = set()
+            srcTrvs[src].add((n, v, f))
 
         return srcTrvs
 
@@ -201,7 +222,7 @@ class ConaryHelper(object):
         log.info('setting manifest for %s' % pkgname)
 
         # Figure out if we should create or update.
-        if not self._getVersionsByName('%s:source' % pkgname):
+        if not self.getLatestSourceVersion(pkgname):
             recipeDir = self._newpkg(pkgname)
         else:
             recipeDir = self._checkout(pkgname)
@@ -225,9 +246,9 @@ class ConaryHelper(object):
         util.rmtree(recipeDir)
 
         # Get new version of the source trove.
-        versions = self._getVersionsByName('%s:source' % pkgname)
-        assert len(versions) == 1
-        return versions[0]
+        version = self.getLatestSourceVersion(pkgname)
+        assert version is not None
+        return version
 
     def _checkout(self, pkgname):
         """
@@ -303,6 +324,25 @@ class ConaryHelper(object):
         finally:
             os.chdir(cwd)
 
+    @staticmethod
+    def _removeFile(pkgDir, fileName):
+        """
+        Remove a file from a source component.
+        @param pkgDir: directory where package is checked out to.
+        @type pkgDir: string
+        @param fileName: file name to add.
+        @type fileName: string
+        """
+
+        log.info('removing file: %s' % fileName)
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(pkgDir)
+            checkin.removeFile(fileName)
+        finally:
+            os.chdir(cwd)
+
     def _getVersionsByName(self, pkgname):
         """
         Figure out if a trove exists in the repository.
@@ -320,7 +360,31 @@ class ConaryHelper(object):
         versions = verMap.keys()
         return versions
 
-    def promote(self, trvLst, expected, sourceLabels, targetLabel):
+    def getLatestSourceVersion(self, pkgname):
+        """
+        Finds the latest version of pkgname:source.
+        @param pkgname: name of package to look for
+        @type pkgname: string
+        """
+
+        versions = self._getVersionsByName('%s:source' % pkgname)
+
+        # FIXME: This is a hack to work around the fact that ubuntu has some
+        #        shadows and packages that overlap on the label,
+        #        _getVersionsByName needs to be smarter.
+        if len(versions) > 1:
+            versions = [ x for x in versions if not x.isShadow() ]
+
+        assert len(versions) in (0, 1)
+
+        if len(versions) == 1:
+            return versions[0]
+
+        return None
+
+    def promote(self, trvLst, expected, sourceLabels, targetLabel,
+                checkPackageList=True, extraPromoteTroves=None,
+                commit=True):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -332,11 +396,23 @@ class ConaryHelper(object):
         @type sourceLabels: [labelObject, ... ]
         @param targetLabel: table to publish to
         @type targetLabel: conary Label object
+        @param checkPackageList: verify the list of packages being promoted or
+                                 not.
+        @type checkPackageList: boolean
+        @param extraPromoteTroves: troves to promote in addition to the troves
+                                   that have been built.
+        @type extraPromoteTroves: list of trove specs.
+        @param commit: commit the promote changeset or just return it.
+        @type commit: boolean
         """
 
         start = time.time()
         log.info('starting promote')
         log.info('creating changeset')
+
+        # make extraPromoteTroves a list if it was not specified.
+        if extraPromoteTroves is None:
+            extraPromoteTroves = []
 
         # Get the label that the group is on.
         fromLabel = trvLst[0][1].trailingLabel()
@@ -344,7 +420,19 @@ class ConaryHelper(object):
         # Build the label map.
         labelMap = {fromLabel: targetLabel}
         for label in sourceLabels:
+            assert(label is not None)
             labelMap[label] = targetLabel
+
+        # mix in the extra troves
+        for n, v, f in extraPromoteTroves:
+            trvs = self._repos.findTrove(fromLabel, (n, v, f))
+            latestVer = trvs[0][1]
+            for name, version, flavor in trvs:
+                if version > latestVer:
+                    latestVer = version
+            for name, version, flavor in trvs:
+                if version == latestVer:
+                    trvLst.append((name, version, flavor))
 
         success, cs = self._client.createSiblingCloneChangeSet(
                             labelMap,
@@ -359,17 +447,25 @@ class ConaryHelper(object):
         packageList = [ x.getNewNameVersionFlavor()
                         for x in cs.iterNewTroveList() ]
 
-        oldPkgs = set([ (x[0], x[2]) for x in expected if not x[0].endswith(':source') ])
-        newPkgs = set([ (x[0], x[2]) for x in packageList if not x[0].endswith(':source') ])
+        oldPkgs = set([ (x[0], x[2]) for x in expected
+                        if not x[0].endswith(':source') ])
+        newPkgs = set([ (x[0], x[2]) for x in packageList
+                        if not x[0].endswith(':source') ])
 
         # Make sure that all packages being promoted are in the set of packages
         # that we think should be available to promote. Note that all packages
         # in expected will not be promoted because not all packages are
         # included in the groups.
-        difference = newPkgs.difference(oldPkgs)
-        grpTrvs = set([ (x[0], x[2]) for x in trvLst if not x[0].endswith(':source') ])
-        if difference != grpTrvs:
+        trvDiff = newPkgs.difference(oldPkgs)
+        grpTrvs = set([ (x[0], x[2]) for x in trvLst
+                        if not x[0].endswith(':source') ])
+        grpDiff = set([ x[0] for x in trvDiff.difference(grpTrvs) ])
+        extraTroves = set([ x[0] for x in extraPromoteTroves ])
+        if checkPackageList and grpDiff.difference(extraTroves):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
+
+        if not commit:
+            return cs, packageList
 
         log.info('committing changeset')
 
@@ -379,3 +475,33 @@ class ConaryHelper(object):
         log.info('promote complete, elapsed time %s' % (time.time() - start, ))
 
         return packageList
+
+    def mirror(self):
+        """
+        Mirror the current platform to the external repository if a
+        mirror.conf exists.
+        """
+
+        if self._mcfg is None:
+            log.info('mirroring disabled, no mirror.conf found for this '
+                     'platform')
+            return
+
+        log.info('starting mirror')
+
+        # Always use DEBUG logging when mirroring
+        curLevel = clog.fmtLogger.level
+        clog.setVerbosity(clog.DEBUG)
+
+        callback = mirror.ChangesetCallback()
+        rc = mirror.mainWorkflow(cfg=self._mcfg, callback=callback)
+
+        if rc is not None and rc != 0:
+            raise MirrorFailedError(rc=rc)
+
+        # Reset loglevel
+        clog.setVerbosity(curLevel)
+
+        log.info('mirror complete')
+
+        return rc

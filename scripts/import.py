@@ -27,8 +27,12 @@ from updatebot import bot, config, log
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/opensuse/updatebotrc')
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/centos/updatebotrc')
 obj = bot.Bot(cfg)
-obj.create()
+trvMap = obj.create()
 
 import epdb ; epdb.st()
+
+for source in trvMap:
+    for bin in trvMap[source]:
+        print '%s=%s[%s]' % bin

@@ -42,7 +42,7 @@ class _Package(SlotNode):
                  'installedSize', 'archiveSize', 'location', 'format',
                  'license', 'vendor', 'group', 'buildhost',
                  'sourcerpm', 'headerStart', 'headerEnd',
-                 'licenseToConfirm')
+                 'licenseToConfirm', 'files')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -61,63 +61,73 @@ class _Package(SlotNode):
         # R0915 - Too many statements
         # pylint: disable-msg=R0915
 
-        if child.getName() == 'name':
+        # E0203 - Access to member 'files' before its definition line 84
+        # files is set to None by the superclasses __init__
+        # pylint: disable-msg=E0203
+
+        n = child.getName()
+        if n == 'name':
             self.name = child.finalize()
-        elif child.getName() == 'arch':
+        elif n == 'arch':
             self.arch = child.finalize()
-        elif child.getName() == 'version':
+        elif n == 'version':
             self.epoch = child.getAttribute('epoch')
             self.version = child.getAttribute('ver')
             self.release = child.getAttribute('rel')
-        elif child.getName() == 'checksum':
+        elif n == 'checksum':
             self.checksum = child.finalize()
             self.checksumType = child.getAttribute('type')
-        elif child.getName() == 'summary':
+        elif n == 'summary':
             self.summary = child.finalize()
-        elif child.getName() == 'description':
+        elif n == 'description':
             self.description = child.finalize()
-        elif child.getName() == 'packager':
+        elif n == 'packager':
             self.packager = child.finalize()
-        elif child.getName() == 'url':
+        elif n == 'url':
             self.url = child.finalize()
-        elif child.getName() == 'time':
+        elif n == 'time':
             self.fileTimestamp = child.getAttribute('file')
             self.buildTimestamp = child.getAttribute('build')
-        elif child.getName() == 'size':
+        elif n == 'size':
             self.packageSize = child.getAttribute('package')
             self.installedSize = child.getAttribute('installed')
             self.archiveSize = child.getAttribute('archive')
-        elif child.getName() == 'location':
+        elif n == 'location':
             self.location = child.getAttribute('href')
+        elif n == 'file':
+            if self.files is None:
+                self.files = []
+            self.files.append(child.finalize())
         elif child.getName() == 'format':
             self.format = []
             for node in child.iterChildren():
-                if node.getName() == 'rpm:license':
+                nn = node.getName()
+                if nn == 'rpm:license':
                     self.license = node.getText()
-                elif node.getName() == 'rpm:vendor':
+                elif nn == 'rpm:vendor':
                     self.vendor = node.getText()
-                elif node.getName() == 'rpm:group':
+                elif nn == 'rpm:group':
                     self.group = node.getText()
-                elif node.getName() == 'rpm:buildhost':
+                elif nn == 'rpm:buildhost':
                     self.buildhost = node.getText()
-                elif node.getName() == 'rpm:sourcerpm':
+                elif nn == 'rpm:sourcerpm':
                     self.sourcerpm = node.getText()
-                elif node.getName() == 'rpm:header-range':
+                elif nn == 'rpm:header-range':
                     self.headerStart = node.getAttribute('start')
                     self.headerEnd = node.getAttribute('end')
-                elif node.getName() in ('rpm:provides', 'rpm:requires',
+                elif nn in ('rpm:provides', 'rpm:requires',
                                         'rpm:obsoletes', 'rpm:recommends',
                                         'rpm:conflicts', 'suse:freshens',
                                         'rpm:enhances', 'rpm:supplements',
                                         'rpm:suggests', ):
                     self.format.append(node)
-                elif node.getName() == 'file':
+                elif nn == 'file':
                     pass
                 else:
                     raise UnknownElementError(node)
-        elif child.getName() == 'pkgfiles':
+        elif n == 'pkgfiles':
             pass
-        elif child.getName() == 'suse:license-to-confirm':
+        elif n == 'suse:license-to-confirm':
             self.licenseToConfirm = child.finalize()
         else:
             raise UnknownElementError(child)
@@ -238,9 +248,6 @@ class PackageXmlMixIn(object):
     """
     Handle registering all types for parsing package elements.
     """
-
-    # R0903 - Too few public methods
-    # pylint: disable-msg=R0903
 
     def _registerTypes(self):
         """
