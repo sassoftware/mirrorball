@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) 2008 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -13,10 +13,10 @@
 # full details.
 #
 
-SOURCE=rsync://rsync.scientificlinux.org/scientific/53
+SOURCE=rsync://rsync.scientificlinux.org/scientific/
 DEST=/l/scientific/
 
 date
-rsync -arv --progress --bwlimit=1024 --exclude iso $SOURCE $DEST
+rsync -arv --progress --bwlimit=600 --exclude iso --exclude 3* --exclude 4* --exclude RHAPS* --exclude livecd --exclude mirrorlist --exclude obsolete --exclude virtual-images $SOURCE $DEST
 
 ./hardlink.py $DEST

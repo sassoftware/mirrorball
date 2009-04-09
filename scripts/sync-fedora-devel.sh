@@ -13,10 +13,14 @@
 # full details.
 #
 
-SOURCE=rsync://mirrors.kernel.org/fedora/development
-DEST=/l/fedora/
+SOURCE=rsync://mirror.linux.ncsu.edu/fedora-linux-development
+DEST=/l/fedora/development/
 
 date
-rsync -arv --progress --bwlimit=800 --exclude ppc --export ppc64 $SOURCE $DEST
+CMD="rsync -arv --progress --bwlimit=800 --exclude ppc --exclude ppc64"
+
+$CMD --exclude repodata $SOURCE $DEST
+$CMD $SOURCE $DEST 
+$CMD --delete $SOURCE $DEST 
 
 ./hardlink.py $DEST
