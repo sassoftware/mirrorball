@@ -659,3 +659,27 @@ class ConaryHelper(object):
         log.info('mirror complete')
 
         return rc
+
+    def setTroveMetadata(self, trvSpecs, license=None, desc=None, shortDesc=None):
+        """
+        Set metadata on a given trove spec.
+        """
+
+        if not license and not dec and not shortDesc:
+            log.warn('no metadata found for %s' % trvSpecs[-1][0])
+            return
+
+        enc = 'utf-8'
+        mi = trove.MetadataItem()
+
+        if license:
+            mi.licenses.set(license.encode(enc))
+        if desc:
+            mi.longDesc.set(desc.encode(enc))
+        if shortDesc:
+            mi.shortDesc.set(shortDesc.encode(enc))
+
+        log.info('setting metadata for %s' % trvSpecs[-1][0].split(':')[0])
+
+        metadata = [ (x, mi) for x in trvSpecs ]
+        self._repos.addMetadataItems(metadata)

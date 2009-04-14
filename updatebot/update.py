@@ -468,3 +468,27 @@ class Updater(object):
         """
 
         return self._conaryhelper.mirror(fullTroveSync=fullTroveSync)
+
+    def setTroveMetadata(self, srcTrvSpec, binTrvSet):
+        """
+        Add metadata from a pkgsource to the specified troves.
+        @param srcTrvSpec: source to use to find srcPkg
+        @type srcTrvSpec: (name:source, conary.versions.Version, None)
+        @param binTrvSet: set of binaries built from the given source.
+        @type binTrvSet: set((n, v, f), ...)
+        """
+
+        srcName = srcTrvSpec[0].split(':')[0]
+        srcPkg = self._getLatestSource(srcName)
+
+        trvSpecs = list(binTrvSet)
+
+        # FIXME: figure out why conary does't let you set metadata on
+        #        source troves.
+        #trvSpecs.append(srcTrvSpec)
+
+        self._conaryhelper.setTroveMetadata(trvSpecs,
+            license=srcPkg.license,
+            desc=srcPkg.description,
+            shortDesc=srcPkg.summary,
+        )
