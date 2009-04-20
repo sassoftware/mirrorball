@@ -206,18 +206,26 @@ class RpmSource(BasePackageSource):
             count = sum([ len(x) for x in self._rpmMap.itervalues() ])
             log.warn('found %s binary rpms without matching srpms' % count)
 
-            #srcs = {}
-            #for x in self._rpmMap.itervalues():
-            #    for y in x:
-            #        if y.sourcerpm not in srcs:
-            #            srcs[y.sourcerpm] = set()
-            #        srcs[y.sourcerpm].add(y.location)
+            srcs = {}
+            for x in self._rpmMap.itervalues():
+                for y in x:
+                    # skip debuginfo rpms
+                    if 'debuginfo' in y.location or 'debugsource' in y.location:
+                        continue
 
-            #for src, locs in srcs.iteritems():
-            #    log.warn('missing srpm: %s' % src)
-            #    log.warn('for rpm(s):')
-            #    for loc in sorted(locs):
-            #        log.warn('\t%s' % loc)
+                    # skip rpms built from nosrc rpms
+                    if 'nosrc' in y.sourcerpm:
+                        continue
+
+                    if y.sourcerpm not in srcs:
+                        srcs[y.sourcerpm] = set()
+                    srcs[y.sourcerpm].add(y.location)
+
+            for src, locs in srcs.iteritems():
+                log.warn('missing srpm: %s' % src)
+                log.warn('for rpm(s):')
+                for loc in sorted(locs):
+                    log.warn('\t%s' % loc)
 
 
     def loadFileLists(self, client, basePath):
