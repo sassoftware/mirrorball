@@ -93,6 +93,7 @@ class Bot(object):
         else:
             toPackage = set(self._cfg.package)
 
+
         # Import sources into repository.
         toBuild, fail = self._updater.create(toPackage,
                                              buildAll=rebuild)
@@ -100,15 +101,18 @@ class Bot(object):
         log.info('failed to create %s packages' % len(fail))
         log.info('found %s packages to build' % len(toBuild))
 
-        if not rebuild:
-            # Build all newly imported packages.
-            trvMap, failed = self._builder.buildmany2(sorted(toBuild))
+        if len(toBuild):
+            if not rebuild:
+                # Build all newly imported packages.
+                trvMap, failed = self._builder.buildmany2(sorted(toBuild))
+            else:
+                # ReBuild all packages.
+                trvMap = self._builder.buildsplitarch(sorted(toBuild))
+            log.info('import completed successfully')
+            log.info('imported %s source packages' % (len(toBuild), ))
         else:
-            # ReBuild all packages.
-            trvMap = self._builder.buildsplitarch(sorted(toBuild))
+            log.info('no packages found to build')
 
-        log.info('import completed successfully')
-        log.info('imported %s source packages' % (len(toBuild), ))
         log.info('elapsed time %s' % (time.time() - start, ))
 
         return trvMap
