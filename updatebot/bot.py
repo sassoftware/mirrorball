@@ -101,6 +101,7 @@ class Bot(object):
         log.info('failed to create %s packages' % len(fail))
         log.info('found %s packages to build' % len(toBuild))
 
+        trvMap = []
         if len(toBuild):
             if not rebuild:
                 # Build all newly imported packages.
