@@ -31,6 +31,7 @@ trvMap = obj.create()
 
 import epdb ; epdb.st()
 
-for source in trvMap:
-    for bin in trvMap[source]:
-        print '%s=%s[%s]' % bin
+for job in trvMap:
+    for source in job:
+        for bin in trvMap[source]:
+            print '%s=%s[%s]' % bin
