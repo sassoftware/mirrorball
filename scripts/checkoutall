@@ -23,6 +23,6 @@ cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
 helper = conaryhelper.ConaryHelper(cfg)
 
-pkgs = [ name for name, version, flavor in helper.getSourceTroves(cfg.topGroup)
-         if version.trailingLabel().asString() == cfg.topGroup[1] ]
+pkgs = [ x.split(':')[0] for x in helper.getLatestVersions() if x.endswith(':source') ]
+
 checkin.checkout(helper._repos, helper._ccfg, None, pkgs)
