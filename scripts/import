@@ -32,6 +32,7 @@ trvMap = obj.create()
 import epdb ; epdb.st()
 
 for job in trvMap:
-    for source in job:
-        for bin in trvMap[source]:
-            print '%s=%s[%s]' % bin
+    for source in sorted(job):
+        for bin in job[source]:
+            if ':' not in bin[0]:
+                print '%s=%s[%s]' % bin
