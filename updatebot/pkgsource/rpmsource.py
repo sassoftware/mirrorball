@@ -152,6 +152,11 @@ class RpmSource(BasePackageSource):
         Make some final datastructures now that we are done populating object.
         """
 
+        # Build source structures from binaries if no sources are available from
+        # the repository.
+        if not self._cfg.sourcesAvailable:
+            self._createSrcMap()
+
         # Now that we have processed all of the rpms, build some more data
         # structures.
         count = 0
@@ -227,7 +232,6 @@ class RpmSource(BasePackageSource):
                 for loc in sorted(locs):
                     log.warn('\t%s' % loc)
 
-
     def loadFileLists(self, client, basePath):
         """
         Parse file information.
@@ -238,3 +242,33 @@ class RpmSource(BasePackageSource):
                 if util.packageCompare(pkg, binPkg) == 0:
                     binPkg.files = pkg.files
                     break
+
+    def _createSrcMap(self):
+        """
+        Create a source map from the binary map if no sources are available.
+        """
+
+        # Return if sources should be available in repos.
+        if self._cfg.sourcesAvailable:
+            return
+
+        PkgClass = repomd.packagexml._Package
+
+        # Create a fake source rpm object for each key in the rpmMap.
+        for (name, epoch, version, release, arch), bins in self._rpmMap.iteritems():
+            srcPkg = PkgClass()
+            srcPkg.name = name
+            srcPkg.epoch = epoch
+            srcPkg.version = version
+            srcPkg.release = release
+            srcPkg.arch = arch
+
+            # grab the first binary package
+            pkg = sorted(bins)[0]
+
+            # Set the location of the fake source package to just be the name
+            # of the file. The factory will take care of the rest.
+            srcPkg.location = pkg.sourcerpm
+
+            # add source to structures
+            self._procSrc(srcPkg)
