@@ -246,7 +246,7 @@ class Updater(object):
         fail = set()
         toBuild = set()
         verCache = self._conaryhelper.getLatestVersions()
-        for pkg in toUpdate:
+        for pkg in sorted(toUpdate):
             try:
                 # Only import packages that haven't been imported before
                 version = verCache.get('%s:source' % pkg.name)
