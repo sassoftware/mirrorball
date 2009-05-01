@@ -21,17 +21,33 @@ from imputil import imp
 
 log = logging.getLogger('updatebot.advisories')
 
+_supportedBackends = ('sles', 'centos', 'ubuntu', )
+
 class InvalidBackendError(Exception):
     """
     Raised when an unsupported backend is used.
     """
 
-__supportedBackends = ('sles', 'centos', 'ubuntu', 'fedora', 'scientific')
+
+class _UnsupportedAdivsor(object):
+    """
+    Stub object to raise exception on access rather than instantiation.
+    """
+
+    class Advisor(object):
+        def __init__(self, cfg, backend):
+            self.backend = backend
+
+        def __getattr__(self, name):
+            if name == 'backend':
+                return getattr(self, name)
+            raise InvalidBackendError('%s is not a supported backend, please '
+                'choose from %s' % (self.backend, ','.join(_supportedBackends)))
+
 
 def __getBackend(backend):
-    if backend not in __supportedBackends:
-        raise InvalidBackendError('%s is not a supported backend, please '
-            'choose from %s' % (backend, ','.join(__supportedBackends)))
+    if backend not in _supportedBackends:
+        return _UnsupportedAdivsor
 
     try:
         updatebotPath = [imp.find_module('updatebot')[1], ]

@@ -186,6 +186,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # package format.
     writePackageMetadata = (CfgBool, False)
 
+    # If sources are not available pkgSource will attempt to build artificial
+    # source information if this is set to False.
+    sourcesAvailable = (CfgBool, True)
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
