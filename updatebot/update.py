@@ -217,13 +217,15 @@ class Updater(object):
 
         return ret
 
-    def create(self, pkgNames, buildAll=False):
+    def create(self, pkgNames, buildAll=False, recreate=False):
         """
         Import a new package into the repository.
         @param pkgNames: list of packages to import
         @type pkgNames: list
         @param buildAll: return a list of all troves found rather than just the new ones.
         @type buildAll: boolean
+        @param recreate: a package manifest even if it already exists.
+        @type recreate: boolean
         @return new source [(name, version, flavor), ... ]
         """
 
@@ -250,11 +252,11 @@ class Updater(object):
             try:
                 # Only import packages that haven't been imported before
                 version = verCache.get('%s:source' % pkg.name)
-                if not version:
+                if not version or recreate:
                     log.info('attempting to import %s' % pkg)
                     version = self.update((pkg.name, None, None), pkg)
 
-                if not verCache.get(pkg.name) or buildAll:
+                if not verCache.get(pkg.name) or buildAll or recreate:
                     toBuild.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)

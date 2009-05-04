@@ -57,7 +57,7 @@ class Bot(object):
             lst.extend(list(trvSet))
         return lst
 
-    def create(self, rebuild=False):
+    def create(self, rebuild=False, recreate=None):
         """
         Do initial imports.
         """
@@ -69,7 +69,9 @@ class Bot(object):
         self._pkgSource.load()
 
         # Build list of packages
-        if self._cfg.packageAll:
+        if recreate:
+            toPackage = set(recreate)
+        elif self._cfg.packageAll:
             toPackage = set()
             for srcName, srcSet in self._pkgSource.srcNameMap.iteritems():
                 if len(srcSet) == 0:
@@ -96,7 +98,8 @@ class Bot(object):
 
         # Import sources into repository.
         toBuild, fail = self._updater.create(toPackage,
-                                             buildAll=rebuild)
+                                             buildAll=rebuild,
+                                             recreate=bool(recreate))
 
         log.info('failed to create %s packages' % len(fail))
         log.info('found %s packages to build' % len(toBuild))
