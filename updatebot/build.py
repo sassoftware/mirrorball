@@ -518,6 +518,8 @@ class BuildWorker(Thread):
     def __init__(self, cfg, toBuild, status, name=None, offset=0):
         Thread.__init__(self, name=name)
 
+        self.setDaemon(True)
+
         self.name = name
         self.offset = offset
         self.toBuild = toBuild
