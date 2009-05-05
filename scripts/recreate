@@ -31,4 +31,8 @@ obj = bot.Bot(cfg)
 
 pkgs = sys.argv[2:]
 
+# Recreate everything if no packages are specified.
+if not pkgs:
+    pkgs = True
+
 obj.create(recreate=pkgs)
