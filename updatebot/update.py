@@ -241,7 +241,7 @@ class Updater(object):
 
             srcPkg = self._getPackagesToImport(pkg)
 
-            if srcPkg.name not in pkgs:
+            if srcPkg.name not in pkgs or recreate:
                 toUpdate.add(srcPkg)
 
         # Update all of the unique sources.
