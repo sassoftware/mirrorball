@@ -69,7 +69,7 @@ class Bot(object):
         self._pkgSource.load()
 
         # Build list of packages
-        if recreate:
+        if type(recreate) == list:
             toPackage = set(recreate)
         elif self._cfg.packageAll:
             toPackage = set()
