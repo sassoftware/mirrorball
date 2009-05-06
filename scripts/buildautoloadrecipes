@@ -30,7 +30,10 @@ if [ ! -f $platformConfig ] ; then
     exit 1
 fi
 
-buildLabel=$(conary config --config-file $platformConfig | grep buildLabel | awk '{print $2}')
+buildLabel=$(conary config \
+    --skip-default-config \
+    --config-file $platformConfig \
+    | grep buildLabel | awk '{print $2}')
 
 autoLoad=""
 autoLoadPackages="
@@ -49,6 +52,7 @@ autoLoadPackages="
 
 for pkg in $autoLoadPackages ; do
     eval cvc cook \
+        --skip-default-config \
         --config-file $platformConfig \
         --context $context \
         --no-deps \
