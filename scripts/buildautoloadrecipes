@@ -30,6 +30,8 @@ if [ ! -f $platformConfig ] ; then
     exit 1
 fi
 
+buildLabel=$(conary config --config-file $platformConfig | grep buildLabel | awk '{print $2}')
+
 autoLoad=""
 autoLoadPackages="
     baserequires
@@ -46,11 +48,11 @@ autoLoadPackages="
 "
 
 for pkg in $autoLoadPackages ; do
-    cvc cook \
+    eval cvc cook \
         --config-file $platformConfig \
         --context $context \
         --no-deps \
         $autoLoad \
-        $pkg
-    autoLoad="$autoLoad --config 'autoLoadRecipes $pkg'"
+        $pkg --debug-all
+    autoLoad="$autoLoad --config \"autoLoadRecipes $pkg=$buildLabel\""
 done
