@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# Copyright (c) 2009 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+platform=$1
+shift
+
+if [ "$2" != "" ] ; then
+    context=$2
+else
+    context="x86"
+fi
+
+mirrorballpath="$HOME/hg/mirrorball"
+platformConfig="$mirrorballpath/config/$platform/conaryrc"
+
+if [ ! -f $platformConfig ] ; then
+    echo "No conaryrc found for platform $platform in checkout $mirrorballpath"
+    exit 1
+fi
+
+autoLoad=""
+autoLoadPackages="
+    baserequires
+    package
+    buildpackage
+    cpackage
+    autopackage
+    derived
+    fileset
+    group
+    groupinfo
+    redirect
+    userinfo
+"
+
+for pkg in $autoLoadPackages ; do
+    cvc cook \
+        --config-file $platformConfig \
+        --context $context \
+        --no-deps \
+        $autoLoad \
+        $pkg
+    autoLoad="$autoLoad --config 'autoLoadRecipes $pkg'"
+done
