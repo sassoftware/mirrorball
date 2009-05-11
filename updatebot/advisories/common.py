@@ -225,6 +225,9 @@ class BaseAdvisor(object):
                 if binPkg in self._pkgMap:
                     patches.update(self._pkgMap[binPkg])
 
+            if len(patches) == 0:
+                raise NoAdvisoryFoundError(why=srcPkg)
+
             if self._checkForDuplicates(patches):
                 patches = set([patches.pop()])
 
@@ -307,7 +310,7 @@ class BaseAdvisor(object):
         """
 
         log.error('The %s backend does not implement %s'
-            % (self.__class__.__name__, '_isUpdateRepo'))
+            % (self.__class__.__name__, '_isUpdatesRepo'))
         raise NotImplementedError
 
     def _checkForDuplicates(self, patchSet):
@@ -321,7 +324,7 @@ class BaseAdvisor(object):
         """
 
         log.error('The %s backend does not implement %s'
-            % (self.__class__.__name__, '_isUpdateRepo'))
+            % (self.__class__.__name__, '_checkForDuplicates'))
         raise NotImplementedError
 
     def _filterPatch(self, patch):
