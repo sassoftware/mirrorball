@@ -225,9 +225,6 @@ class BaseAdvisor(object):
                 if binPkg in self._pkgMap:
                     patches.update(self._pkgMap[binPkg])
 
-            if len(patches) == 0:
-                raise NoAdvisoryFoundError(why=srcPkg)
-
             if self._checkForDuplicates(patches):
                 patches = set([patches.pop()])
 
