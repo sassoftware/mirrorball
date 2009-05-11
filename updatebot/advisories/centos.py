@@ -137,6 +137,9 @@ class Advisor(BaseAdvisor):
         return True, otherwise return False.
         """
 
+        if not len(patchSet):
+            return False
+
         primary = list(patchSet)[0]
         for patch in patchSet:
             if patch is primary:
