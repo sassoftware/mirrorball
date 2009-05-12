@@ -16,7 +16,7 @@ import os
 import sys
 
 mirrorballDir = os.environ['HOME'] + '/hg/mirrorball'
-sys.path.insert(0, sleestckDir)
+sys.path.insert(0, mirrorballDir)
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
