@@ -21,7 +21,7 @@ import os
 from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict, CfgInt
 from conary.lib.cfgtypes import ParseError
 
 from rmake.build.buildcfg import CfgTroveSpec
@@ -189,6 +189,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # If sources are not available pkgSource will attempt to build artificial
     # source information if this is set to False.
     sourcesAvailable = (CfgBool, True)
+
+    # Number of troves at which to switch to a splitarch build. This is mostly
+    # a magic number, but at least it is configurable?
+    maxBuildSize = (CfgInt, 10)
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):

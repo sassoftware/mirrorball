@@ -179,7 +179,14 @@ class Bot(object):
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
         buildTroves = set([ x[0] for x in toAdvise ])
-        trvMap = self._builder.build(buildTroves)
+
+        # Switch to splitarch if a build is larger than maxBuildSize. This
+        # number is kinda arbitrary. Builds tend to break when architectures
+        # are combind if the build is significantly large
+        if len(buildTroves) < self._cfg.maxBuildSize:
+            trvMap = self._builder.build(buildTroves)
+        else:
+            trvMap = self._builder.buildsplitarch(buildTroves)
 
         # Build group.
         grpTrvs = set()
