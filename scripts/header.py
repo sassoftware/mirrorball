@@ -15,7 +15,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+mirrorballDir = os.environ['HOME'] + '/hg/mirrorball'
+sys.path.insert(0, sleestckDir)
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -28,12 +29,12 @@ def usage():
     print 'usage: %s <platform> [pkg1, pkg2, ...]' % sys.argv[0]
     sys.exit(1)
 
-if len(sys.argv) < 2 or sys.argv[1] not in os.listdir(os.environ['HOME'] + '/hg/mirrorball/config'):
+if len(sys.argv) < 2 or sys.argv[1] not in os.listdir(mirrorballDir + '/config'):
     usage()
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
 builder = build.Builder(cfg)
 
