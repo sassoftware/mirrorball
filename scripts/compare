@@ -1,0 +1,91 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2009 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+"""
+Compare source components between two platforms to help fill in modifications
+for new versions of a platform.
+
+Usage:
+
+compare sles10 sles11
+
+"""
+
+import os
+import sys
+
+sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
+from updatebot import log
+from updatebot import config
+from updatebot import conaryhelper
+
+log.addRootLogger()
+
+import logging
+slog = logging.getLogger('script')
+
+pfma = sys.argv[1]
+pfmb = sys.argv[2]
+
+pfmPath = os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc'
+
+cfga = config.UpdateBotConfig()
+cfga.read(pfmPath % pfma)
+
+cfgb = config.UpdateBotConfig()
+cfgb.read(pfmPath % pfmb)
+
+helpera = conaryhelper.ConaryHelper(cfga)
+helperb = conaryhelper.ConaryHelper(cfgb)
+
+slog.info('getting latest versions for %s' % pfma)
+versionsa = helpera.getLatestVersions()
+
+slog.info('getting latest versions for %s' % pfmb)
+versionsb = helperb.getLatestVersions()
+
+sourceNames = set()
+for pkgname in versionsa.iterkeys():
+    if pkgname.endswith(':source') and pkgname in versionsb:
+        name = pkgname.split(':')[0]
+        sourceNames.add(name)
+
+def checkPackage(name):
+    slog.info('comparing %s' % name)
+    coa = helpera._edit(name)
+    cob = helperb._edit(name)
+
+    lsa = set(os.listdir(coa))
+    lsb = set(os.listdir(cob))
+
+    if len(lsa) == len(lsb):
+        return
+
+    for fn in lsa.difference(lsb):
+        slog.info('found new file %s in %s' % (fn, name))
+
+    return lsa.difference(lsb)
+
+res = {}
+for source in sourceNames:
+    diffSet = checkPackage(source)
+    if diffSet:
+        res[source] = diffSet
+
+import epdb; epdb.st()
