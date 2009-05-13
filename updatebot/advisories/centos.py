@@ -16,6 +16,7 @@
 Advisory module for CentOS.
 """
 
+import re
 import os
 import pmap
 import logging
@@ -114,6 +115,11 @@ class Advisor(BaseAdvisor):
 
         # W0613 - Unused argument binPkg
         # pylint: disable-msg=W0613
+
+        for fltr in self._cfg.advisoryException:
+            path, exp = fltr[0].split()
+            if path in binPkg.location and re.match(exp, binPkg.name):
+                return True
 
         return False
 
