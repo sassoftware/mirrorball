@@ -73,6 +73,8 @@ class ConaryHelper(object):
         self._newPkgFactory = cfg.newPackageFactory
 
         self._checkoutCache = {}
+        self._cacheDir = tempfile.mkdtemp(
+            prefix='conaryhelper-%s-' % cfg.platformName)
 
     def getConaryConfig(self):
         """
@@ -377,6 +379,16 @@ class ConaryHelper(object):
 
         return recipeDir
 
+    def _getRecipeDir(self, pkgname):
+        """
+        Make a temporary directory to create or checkout a package in.
+        @param pkgname: name of the package to checkout
+        @type pkgname: string
+        @return checkout directory
+        """
+
+        return tempfile.mkdtemp(prefix='%s-' % pkgname, dir=self._cacheDir)
+
     def _checkout(self, pkgname):
         """
         Checkout a source component from the repository.
@@ -387,7 +399,7 @@ class ConaryHelper(object):
 
         log.info('checking out %s' % pkgname)
 
-        recipeDir = tempfile.mkdtemp(prefix='conaryhelper-')
+        recipeDir = self._getRecipeDir(pkgname)
         checkin.checkout(self._repos, self._ccfg, recipeDir, [pkgname, ])
 
         return recipeDir
@@ -402,8 +414,7 @@ class ConaryHelper(object):
 
         log.info('creating new package %s' % pkgname)
 
-        recipeDir = tempfile.mkdtemp(prefix='conaryhelper-')
-
+        recipeDir = self._getRecipeDir(pkgname)
         cwd = os.getcwd()
         try:
             os.chdir(recipeDir)
