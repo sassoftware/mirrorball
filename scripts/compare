@@ -25,67 +25,221 @@ compare sles10 sles11
 
 import os
 import sys
+import shutil
+import tempfile
 
 sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
 
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
+from conary.lib import util as cutil
+sys.excepthook = cutil.genExcepthook()
+
+from conary import checkin
 
 from updatebot import log
 from updatebot import config
+from updatebot import build
 from updatebot import conaryhelper
+from updatebot.lib import util
 
 log.addRootLogger()
 
 import logging
 slog = logging.getLogger('script')
 
-pfma = sys.argv[1]
-pfmb = sys.argv[2]
+class Platform(object):
+    def __init__(self, cfgPath, workdir):
+        self._cfgPath = cfgPath
+        self._workDir = workdir
 
-pfmPath = os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc'
+        self._cfg = config.UpdateBotConfig()
+        self._cfg.read(self._cfgPath)
 
-cfga = config.UpdateBotConfig()
-cfga.read(pfmPath % pfma)
+        self._helper = conaryhelper.ConaryHelper(self._cfg)
+        self._builder = build.Builder(self._cfg)
 
-cfgb = config.UpdateBotConfig()
-cfgb.read(pfmPath % pfmb)
+        self._checkoutdir = tempfile.mkdtemp(prefix='%s-' % self._cfg.platformName, dir=self._workDir)
+        self._helper._cacheDir = self._checkoutdir
 
-helpera = conaryhelper.ConaryHelper(cfga)
-helperb = conaryhelper.ConaryHelper(cfgb)
+        self._checkoutCache = {}
+        self._helper._checkoutCache = self._checkoutCache
 
-slog.info('getting latest versions for %s' % pfma)
-versionsa = helpera.getLatestVersions()
+    def getSources(self):
+        """
+        Gets a set of the latest source names.
+        """
 
-slog.info('getting latest versions for %s' % pfmb)
-versionsb = helperb.getLatestVersions()
+        slog.info('getting sources for %s' % self._cfg.platformName)
 
-sourceNames = set()
-for pkgname in versionsa.iterkeys():
-    if pkgname.endswith(':source') and pkgname in versionsb:
-        name = pkgname.split(':')[0]
-        sourceNames.add(name)
+        res = set()
+        for pkgname in self._helper.getLatestVersions():
+            if pkgname.endswith(':source'):
+                name = pkgname.split(':')[0]
+                res.add(name)
 
-def checkPackage(name):
-    slog.info('comparing %s' % name)
-    coa = helpera._edit(name)
-    cob = helperb._edit(name)
+        return res
 
-    lsa = set(os.listdir(coa))
-    lsb = set(os.listdir(cob))
+    def checkout(self, pkgname):
+        """
+        Get the directory where a package is checked out, will checkout package if needed.
+        """
 
-    if len(lsa) == len(lsb):
-        return
+        if pkgname in self._checkoutCache:
+            return self._checkoutCache[pkgname]
 
-    for fn in lsa.difference(lsb):
-        slog.info('found new file %s in %s' % (fn, name))
+        cdir = util.join(self._checkoutdir, pkgname)
+        if not os.path.exists(cdir):
+            self._checkoutCache[pkgname] = self._helper._edit(pkgname)
 
-    return lsa.difference(lsb)
+        return self._checkoutCache[pkgname]
 
-res = {}
-for source in sourceNames:
-    diffSet = checkPackage(source)
-    if diffSet:
-        res[source] = diffSet
+    def checkoutAll(self, pkgnames):
+        """
+        checkout a list of sources.
+        """
 
-import epdb; epdb.st()
+        # ignore packages that are already checked out
+        names = [ x for x in pkgnames if x not in self._checkoutCache ]
+
+        if not names:
+            return
+
+        slog.info('checking out sources for %s' % self._cfg.platformName)
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(self._checkoutdir)
+            checkin.checkout(self._helper._repos, self._helper._ccfg, None, names)
+        finally:
+            os.chdir(cwd)
+
+        # Fixup checkout cache
+        for d in os.listdir(self._checkoutdir):
+            if os.path.isdir(util.join(self._checkoutdir, d)):
+                self._checkoutCache[d] = util.join(self._checkoutdir, d)
+
+    def addFile(self, pkgdir, filename):
+        """
+        add a file to a source component
+        """
+
+        return self._helper._addFile(pkgdir, filename)
+
+    def commit(self, pkgname, commitMessage=''):
+        """
+        commit changes to a source component
+        """
+
+        if not commitMessage:
+            commitMessage = self._cfg.commitMessage
+
+        return self._helper.commit(pkgname, commitMessage=commitMessage)
+
+    def build(self, toBuild):
+        """
+        build packages
+        """
+
+        jobSet = []
+        for source in sorted(toBuild):
+            jobSet.append((source, None, None))
+
+        return self._builder.buildmany2(jobSet)
+
+
+class CompareAndCopy(object):
+    _ignoreFiles = ('CONARY', 'manifest', )
+
+    def __init__(self, platformA, platformB):
+        self.platformA = platformA
+        self.platformB = platformB
+
+        self._sources = None
+        self._changed = set()
+
+    def _findCommonSources(self):
+        """
+        get the sources that are in both platforms
+        """
+
+        sourcesA = self.platformA.getSources()
+        sourcesB = self.platformB.getSources()
+
+        self._sources = set(sourcesA).intersection(set(sourcesB))
+
+    def checkout(self):
+        """
+        checkout all common sources.
+        """
+
+        self._findCommonSources()
+        self.platformA.checkoutAll(self._sources)
+        self.platformB.checkoutAll(self._sources)
+
+    def compare(self, copy=False):
+        """
+        compare all sources in self._sources.
+        """
+
+        for source in self._sources:
+            self._compare(source, copy=copy)
+
+    def _compare(self, source, copy=False):
+        """
+        compare one source
+        """
+
+        adir = self.platformA.checkout(source)
+        bdir = self.platformB.checkout(source)
+
+        afiles = os.listdir(adir)
+        bfiles = os.listdir(bdir)
+
+        if len(afiles) != len(bfiles):
+            slog.info('found differences in %s' % source)
+
+            if copy:
+                self._copy(adir, bdir)
+                self.platformB.commit(source)
+                self._changed.add(source)
+
+    def _copy(self, adir, bdir):
+        """
+        move changes from a to b.
+        """
+
+        for f in os.listdir(adir):
+            if f in self._ignoreFiles:
+                continue
+            src = util.join(adir, f)
+            dest = util.join(bdir, f)
+            slog.info('copying %s to %s' % (src, dest))
+            shutil.copy(src, dest)
+
+            self.platformB.addFile(bdir, f)
+
+    def build(self):
+        """
+        build all modified sources
+        """
+
+        return self.platformB.build(self._changed)
+
+
+if __name__ == '__main__':
+    pfma = sys.argv[1]
+    pfmb = sys.argv[2]
+
+    pfmPath = os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc'
+
+    workdir = tempfile.mkdtemp(prefix='updatebot-common-')
+
+    platformA = Platform(pfmPath % pfma, workdir)
+    platformB = Platform(pfmPath % pfmb, workdir)
+
+    compare = CompareAndCopy(platformA, platformB)
+
+    compare.checkout()
+    compare.compare(copy=True)
+    compare.build()
+
+    import epdb; epdb.st()
