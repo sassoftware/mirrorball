@@ -154,7 +154,7 @@ class RpmSource(BasePackageSource):
 
         # Build source structures from binaries if no sources are available from
         # the repository.
-        if not self._cfg.sourcesAvailable:
+        if self._cfg.synthesizeSources:
             self._createSrcMap()
 
         # Now that we have processed all of the rpms, build some more data
@@ -249,7 +249,7 @@ class RpmSource(BasePackageSource):
         """
 
         # Return if sources should be available in repos.
-        if self._cfg.sourcesAvailable:
+        if not self._cfg.synthesizeSources:
             return
 
         PkgClass = repomd.packagexml._Package
@@ -271,4 +271,6 @@ class RpmSource(BasePackageSource):
             srcPkg.location = pkg.sourcerpm
 
             # add source to structures
-            self._procSrc(srcPkg)
+            if (name, epoch, version, release, arch) not in self._srcMap:
+                log.warn('synthesizing source package %s' % srcPkg)
+                self._procSrc(srcPkg)

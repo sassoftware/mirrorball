@@ -187,8 +187,8 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     writePackageMetadata = (CfgBool, False)
 
     # If sources are not available pkgSource will attempt to build artificial
-    # source information if this is set to False.
-    sourcesAvailable = (CfgBool, True)
+    # source information if this is set to True.
+    synthesizeSources = (CfgBool, False)
 
     # Number of troves at which to switch to a splitarch build. This is mostly
     # a magic number, but at least it is configurable?
