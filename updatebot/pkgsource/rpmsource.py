@@ -270,6 +270,17 @@ class RpmSource(BasePackageSource):
             # of the file. The factory will take care of the rest.
             srcPkg.location = pkg.sourcerpm
 
+            # Handle sub packages with different epochs that should be taken
+            # care of with the epoch fuzzing that happens in finalize. This
+            # should only happen with differently named packages.
+            if name not in [ x.name for x in bins ]:
+                # Find sources that match on all cases except epoch.
+                sources = [ x for x in self._srcMap.iterkeys()
+                    if (name, version, release, arch) == (x[0], x[2], x[3], x[4]) ]
+
+                # leave it up to fuzzing
+                if sources: continue
+
             # add source to structures
             if (name, epoch, version, release, arch) not in self._srcMap:
                 log.warn('synthesizing source package %s' % srcPkg)
