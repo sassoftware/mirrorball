@@ -87,3 +87,17 @@ class Client(object):
         """
         node = self._repomd.getRepoData('filelists')
         return node.parseChildren().getPackages()
+
+    def getUpdateInfo(self):
+        """
+        Get a list of instances representing the advisory infomration for
+        all updates.
+        @return [ repomd.userinfoxml._Update ]
+        """
+
+        node = self._repomd.getRepoData('updateinfo')
+
+        if not node:
+            return []
+
+        return node.parseChildren().getUpdateInfo()
