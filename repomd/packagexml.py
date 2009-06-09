@@ -16,7 +16,7 @@
 Module for parsing package sections of xml files from the repository metadata.
 """
 
-__all__ = ('PackageXmlMixIn', )
+__all__ = ('PackageXmlMixIn', 'PackageCompare', )
 
 import os
 
@@ -27,7 +27,22 @@ from updatebot.lib import util
 from repomd.errors import UnknownElementError, UnknownAttributeError
 from repomd.xmlcommon import SlotNode
 
-class _Package(SlotNode):
+class PackageCompare(object):
+    def __str__(self):
+        return '-'.join([self.name, self.epoch, self.version, self.release,
+                         self.arch])
+
+    def __hash__(self):
+        # NOTE: We do not hash on epoch, because not all package objects will
+        #       have epoch set. This will cause hash collisions that should be
+        #       handled in __cmp__.
+        return hash((self.name, self.version, self.release, self.arch))
+
+    def __cmp__(self, other):
+        return util.packageCompare(self, other)
+
+
+class _Package(SlotNode, PackageCompare):
     """
     Python representation of package section of xml files from the repository
     metadata.
@@ -132,25 +147,13 @@ class _Package(SlotNode):
         else:
             raise UnknownElementError(child)
 
-    def __str__(self):
-        return '-'.join([self.name, self.epoch, self.version, self.release,
-                         self.arch])
-
     def __repr__(self):
         return os.path.basename(self.location)
 
-    def __hash__(self):
-        return hash((self.name, self.epoch, self.version, self.release,
-                     self.arch))
-
     def __cmp__(self, other):
-        pkgvercmp = util.packagevercmp(self, other)
-        if pkgvercmp != 0:
-            return pkgvercmp
-
-        archcmp = cmp(self.arch, other.arch)
-        if archcmp != 0:
-            return archcmp
+        pkgcmp = PackageCompare.__cmp__(self, other)
+        if pkgcmp != 0:
+            return pkgcmp
 
         return cmp(self.location, other.location)
 
