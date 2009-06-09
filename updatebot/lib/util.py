@@ -58,9 +58,12 @@ def packagevercmp(a, b):
     @type b: repomd.packagexml._Package
     """
 
-    epochcmp = rpmvercmp(a.epoch, b.epoch)
-    if epochcmp != 0:
-        return epochcmp
+    # Not all "packages" have epoch set. If comparing between two packages, at
+    # least one without an epoch specified, ignore epoch.
+    if a.epoch is not None and b.epoch is not None:
+        epochcmp = rpmvercmp(a.epoch, b.epoch)
+        if epochcmp != 0:
+            return epochcmp
 
     vercmp = rpmvercmp(a.version, b.version)
     if vercmp != 0:
