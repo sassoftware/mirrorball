@@ -39,7 +39,7 @@ class PackageCompare(object):
         return hash((self.name, self.version, self.release, self.arch))
 
     def __cmp__(self, other):
-        return util.packageCompare(self, other)
+        return util.packageCompareByName(self, other)
 
 
 class _Package(SlotNode, PackageCompare):
