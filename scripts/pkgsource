@@ -37,3 +37,10 @@ pkgSource = pkgsource.PackageSource(cfg)
 pkgSource.load()
 
 import epdb; epdb.st()
+
+updates = []
+for path, client in pkgSource._clients.iteritems():
+    if 'Updates' in path:
+        updates.extend(client.getUpdateInfo())
+
+import epdb; epdb.st()
