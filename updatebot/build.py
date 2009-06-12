@@ -23,6 +23,7 @@ import xml
 from Queue import Queue, Empty
 from threading import Thread, RLock
 
+from conary.deps import deps
 from conary import conarycfg, conaryclient
 
 from rmake import plugins
@@ -295,8 +296,16 @@ class Builder(object):
             # correct flavors.
             if name.startswith('group-'):
                 troves.append((name, version, flavor))
-            elif name == 'kernel' and self._cfg.kernelFlavors:
+            elif ((name == 'kernel' or name in self._cfg.kernelModules)
+                  and self._cfg.kernelFlavors):
                 for context, flavor in self._cfg.kernelFlavors:
+                    # Replace flag name to match package
+                    if name != 'kernel':
+                        flavor = deps.parseFlavor(str(flavor).replace('kernel', name))
+                        # Don't build kernel modules with a .debug flag, that
+                        # is only for kernels.
+                        if flavor.stronglySatisfies(deps.parseFlavor('%s.debug' % name)):
+                            continue
                     troves.append((name, version, flavor, context))
             elif name in self._cfg.packageFlavors:
                 for context, flavor in self._cfg.packageFlavors[name]:

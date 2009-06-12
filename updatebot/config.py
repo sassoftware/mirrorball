@@ -160,6 +160,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # flavors to build kernels.
     kernelFlavors       = (CfgList(CfgContextFlavor), [])
 
+    # packages other than "kernel" to be built in kernelFlavers
+    kernelModules       = (CfgList(CfgString), [])
+
     # flavors to build packages in for packages that need specific flavoring.
     packageFlavors      = (CfgDict(CfgList(CfgContextFlavor)), {})
 
