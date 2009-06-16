@@ -174,7 +174,7 @@ class _UpdateInfoPackage(SlotNode, PackageCompare):
 
     __slots__ = ('filename', 'name', 'arch', 'version', 'release',
         'reboot_suggested', 'restart_suggested',  'epoch', 'location',
-        'summary')
+        'summary', 'relogin_suggested')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -193,6 +193,8 @@ class _UpdateInfoPackage(SlotNode, PackageCompare):
             self.reboot_suggested = child.finalize()
         elif n == 'restart_suggested':
             self.restart_suggested = child.finalize()
+        elif n == 'relogin_suggested':
+            self.relogin_suggested = child.finalize()
         else:
             raise UnknownElementError(child)
 
