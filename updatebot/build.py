@@ -311,7 +311,7 @@ class Builder(object):
                         # is only for kernels.
                         if flavor.stronglySatisfies(deps.parseFlavor('kernel.debug')):
                             continue
-                        flavor = deps.parseFlavor(str(flavor).replace('kernel', name)
+                        flavor = deps.parseFlavor(str(flavor).replace('kernel', name))
                     troves.append((name, version, flavor, context))
 
             # Handle special package flavors when specified.
