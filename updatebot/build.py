@@ -292,24 +292,34 @@ class Builder(object):
         # Build all troves in defined contexts.
         troves = []
         for name, version, flavor in troveSpecs:
+            # Make sure name is not an unicode string, it causes breakage in
+            # the deps modules in conary.
+            name = name.encode()
+
             # Don't set context for groups, they will already have the
             # correct flavors.
             if name.startswith('group-'):
                 troves.append((name, version, flavor))
+
+            # Kernels are special.
             elif ((name == 'kernel' or name in self._cfg.kernelModules)
                   and self._cfg.kernelFlavors):
                 for context, flavor in self._cfg.kernelFlavors:
                     # Replace flag name to match package
                     if name != 'kernel':
-                        flavor = deps.parseFlavor(str(flavor).replace('kernel', name))
                         # Don't build kernel modules with a .debug flag, that
                         # is only for kernels.
-                        if flavor.stronglySatisfies(deps.parseFlavor('%s.debug' % name)):
+                        if flavor.stronglySatisfies(deps.parseFlavor('kernel.debug')):
                             continue
+                        flavor = deps.parseFlavor(str(flavor).replace('kernel', name)
                     troves.append((name, version, flavor, context))
+
+            # Handle special package flavors when specified.
             elif name in self._cfg.packageFlavors:
                 for context, flavor in self._cfg.packageFlavors[name]:
                     troves.append((name, version, flavor, context))
+
+            # All other packages.
             else:
                 # Build all packages as x86 and x86_64.
                 for context in self._cfg.archContexts:
