@@ -72,6 +72,19 @@ class Updater(object):
                  % (len(toUpdate), len(toAdvise)))
         return toAdvise, toUpdate
 
+    def _fltrPkg(self, pkgname):
+        """
+        Return True if this is a package that should be filtered out.
+        """
+
+        if (name.startswith('info-') or
+            name.startswith('group-') or
+            name.startswith('factory-') or
+            name in self._cfg.excludePackages):
+            return True
+
+        return False
+
     def _findUpdatableTroves(self, group):
         """
         Query a group to find packages that need to be updated.
@@ -87,10 +100,7 @@ class Updater(object):
             name = name.split(':')[0]
 
             # skip special packages
-            if (name.startswith('info-') or
-                name.startswith('group-') or
-                name.startswith('factory-') or
-                name in self._cfg.excludePackages):
+            if self._fltrPkg(name):
                 continue
 
             latestSrpm = self._getLatestSource(name)
@@ -267,8 +277,7 @@ class Updater(object):
         if buildAll and pkgs:
             toBuild.update(
                 [ (x, self._conaryhelper.getLatestSourceVersion(x), None)
-                  for x in pkgs if not x.startswith('info-')
-                            and x not in self._cfg.excludePackages ]
+                  for x in pkgs if not self._fltrPkg(x) ]
             )
 
         return toBuild, fail
