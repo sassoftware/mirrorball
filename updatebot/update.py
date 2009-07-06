@@ -77,10 +77,10 @@ class Updater(object):
         Return True if this is a package that should be filtered out.
         """
 
-        if (name.startswith('info-') or
-            name.startswith('group-') or
-            name.startswith('factory-') or
-            name in self._cfg.excludePackages):
+        if (pkgname.startswith('info-') or
+            pkgname.startswith('group-') or
+            pkgname.startswith('factory-') or
+            pkgname in self._cfg.excludePackages):
             return True
 
         return False
