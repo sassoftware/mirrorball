@@ -16,6 +16,7 @@
 Module for finding packages to update and updating them.
 """
 
+import os
 import logging
 
 from rpmutils import rpmvercmp
@@ -153,6 +154,9 @@ class Updater(object):
         metadata = None
         manifest = self._conaryhelper.getManifest(nvf[0])
         for line in manifest:
+            # Some manifests were created with double slashes, need to
+            # normalize the path to work around this problem.
+            line = os.path.normpath(line)
             if line in self._pkgSource.locationMap:
                 binPkg = self._pkgSource.locationMap[line]
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
