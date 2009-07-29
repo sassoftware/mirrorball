@@ -27,7 +27,7 @@ import tempfile
 from imputil import imp
 
 __all__ = ('InvalidBackendError', 'ArchiveNotFoundError', 'parse')
-__supportedBackends = ('ubuntu', 'centos')
+__supportedBackends = ('ubuntu', 'centos', 'scientific')
 
 class InvalidBackendError(Exception):
     """
@@ -83,12 +83,12 @@ def _getBackend(backend):
         raise InvalidBackendError('Could not load %s backend: %s'
                                   % (backend, e))
 
-def parse(url, backend='centos'):
+def parse(url, backend='centos', productVersion=None):
     """
     Parse a mbox archive pointed to by url.
     """
 
     fh = _getFileObjFromUrl(url)
     backend = _getBackend(backend)
-    parser = backend.Parser()
+    parser = backend.Parser(productVersion=productVersion)
     return parser.parse(fh)
