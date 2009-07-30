@@ -24,7 +24,7 @@ class ScientificLinuxAdvisory(BaseContainer):
     Container class for Scientific Linux advisories.
     """
 
-    _slots = ('cve', 'pkgs', )
+    _slots = ('pkgs', )
 
     def finalize(self):
         """
@@ -46,8 +46,6 @@ class Parser(BaseParser):
         self._states.update({
             'synopsis'  : self._synopsis,
             'Issue'     : None,
-            'CVE'       : self._cveNames,
-            'MultiCVE'  : self._cveMultiLine,
             'SLVersion' : self._slVersion,
             'Arch'      : self._arch,
             'End'       : self._end,
@@ -56,8 +54,6 @@ class Parser(BaseParser):
         self._supportedArch = ('SRPM', 'SRPMS', 'i386', 'x86_64', )
 
         self._filterLine('^Issue date:.*', 'Issue')
-        self._filterLine('^CVE Names:.*', 'CVE')
-        self._filter('^cve-[0-9]{4}-[0-9]{4}', 'MultiCVE')
         self._filter('^sl[0-9]\.x', 'SLVersion')
         self._filterLine('^SL [0-9]\.x', 'SLVersion')
         self._filterLine('^\s*(%s).*' % '|'.join(self._supportedArch), 'Arch')
@@ -130,38 +126,6 @@ class Parser(BaseParser):
         """
 
         self._curObj.summary = self._getLine()
-
-    def _addCVE(self, cve):
-        """
-        Add a cve to curObj.
-        """
-
-        if self._curObj.cve is None:
-            self._curObj.cve = {}
-
-        splt = cve.split()
-        cve = splt[0].strip(',')
-        desc = ''
-        if len(splt) > 1:
-            desc = ' '.join(splt[1:])
-        if cve not in self._curObj.cve:
-            self._curObj.cve[cve] = desc
-
-    def _cveNames(self):
-        """
-        Parse CVE Names line.
-        """
-
-        for cve in self._getLine().split():
-            if cve.startswith('CVE-'):
-                self._addCVE(cve)
-
-    def _cveMultiLine(self):
-        """
-        Parse multiline CVEs.
-        """
-
-        self._addCVE(self._getFullLine())
 
     def _slVersion(self):
         """
