@@ -83,12 +83,14 @@ def _getBackend(backend):
         raise InvalidBackendError('Could not load %s backend: %s'
                                   % (backend, e))
 
-def parse(url, backend='centos', productVersion=None):
+def parse(url, **kwargs):
     """
     Parse a mbox archive pointed to by url.
     """
 
+    backend = kwargs.pop('backend')
+
     fh = _getFileObjFromUrl(url)
     backend = _getBackend(backend)
-    parser = backend.Parser(productVersion=productVersion)
+    parser = backend.Parser(**kwargs)
     return parser.parse(fh)

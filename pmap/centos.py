@@ -54,7 +54,7 @@ class Parser(BaseParser):
     Parse for CentOS mail archives.
     """
 
-    def __init__(self):
+    def __init__(self, productVersion=None):
         BaseParser.__init__(self)
 
         self._containerClass = CentOSAdvisory
