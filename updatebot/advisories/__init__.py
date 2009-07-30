@@ -21,7 +21,7 @@ from imputil import imp
 
 log = logging.getLogger('updatebot.advisories')
 
-_supportedBackends = ('sles', 'sles11', 'centos', 'ubuntu', )
+_supportedBackends = ('sles', 'sles11', 'centos', 'ubuntu', 'scientific', )
 
 class InvalidBackendError(Exception):
     """
