@@ -62,7 +62,7 @@ class Parser(BaseParser):
         self._productVersion = productVersion
         if productVersion:
             self._checkSubject = True
-            self._subjectVersionRE = re.compile('.*SL%s\.x.*' % productVersion)
+            self._subjectVersionRE = re.compile('.*SL[ ]{0,1}%s\.x.*' % productVersion)
         else:
             self._checkSubject = False
 
