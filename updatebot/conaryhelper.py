@@ -41,6 +41,8 @@ from updatebot.errors import PromoteFailedError
 from updatebot.errors import PromoteMismatchError
 from updatebot.errors import MirrorFailedError
 
+from updatebot.lib.conarycallbacks import UpdateBotCloneCallback
+
 log = logging.getLogger('updatebot.conaryhelper')
 
 class ConaryHelper(object):
@@ -599,10 +601,13 @@ class ConaryHelper(object):
                 if version == latestVer:
                     trvLst.append((name, version, flavor))
 
+        callback = UpdateBotCloneCallback(self._ccfg, 'test', log=log)
+
         success, cs = self._client.createSiblingCloneChangeSet(
                             labelMap,
                             trvLst,
-                            cloneSources=True)
+                            cloneSources=True,
+                            callback=callback)
 
         log.info('changeset created in %s' % (time.time() - start, ))
 
@@ -634,7 +639,7 @@ class ConaryHelper(object):
 
         log.info('committing changeset')
 
-        self._repos.commitChangeSet(cs)
+        self._repos.commitChangeSet(cs, callback=callback)
 
         log.info('changeset committed')
         log.info('promote complete, elapsed time %s' % (time.time() - start, ))
