@@ -65,3 +65,50 @@ class XMetadataDoc(XDocManager):
                     self.data.sourcePackage = pkg
                 else:
                     self.data.binaryPackages.append(pkg)
+
+
+class XDictItem(object):
+    """
+    Object to represent key/value pairs.
+    """
+
+    key = str
+    value = str
+
+    def __init__(self, key=None, value=None):
+        self.key = key
+        self.value = value
+
+    def __hash__(self):
+        return hash(self.key)
+
+    def __cmp__(self, other):
+        return cmp(self.key, other.key)
+
+
+class XDict(object):
+    """
+    String based xobj dict implementation.
+    """
+
+    items = [ XDictItem ]
+
+    def __init__(self):
+        self.items = []
+
+    def __setitem__(self, key, value):
+        item = XDictItem(key, value)
+        if item in self.items:
+            idx = self.items.index(item)
+            self.items[idx] = item
+        else:
+            self.items.append(item)
+
+    def __getitem__(self, key):
+        if key in self.items:
+            idx = self.items.index(key)
+            return self.items[idx].value
+        raise KeyError, key
+
+    def __contains__(self, key):
+        return key in self.items
