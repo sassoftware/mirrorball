@@ -83,7 +83,10 @@ class XDictItem(object):
         return hash(self.key)
 
     def __cmp__(self, other):
-        return cmp(self.key, other.key)
+        if type(other) in (str, unicode):
+            return cmp(self.key, other)
+        else:
+            return cmp(self.key, other.key)
 
 
 class XDict(object):
