@@ -15,6 +15,8 @@
 
 from header import *
 
+import tempfile
+
 from updatebot import conaryhelper
 helper = conaryhelper.ConaryHelper(cfg)
 
@@ -24,9 +26,14 @@ from conary.deps import deps
 import logging
 slog = logging.getLogger('script')
 
+#import cProfile
+#prof = cProfile.Profile()
+#prof.enable()
+
 trvLst = helper._repos.findTrove(helper._ccfg.buildLabel, cfg.topGroup)
 trvLst = helper._findLatest(trvLst)
 
+slog.info('creating changeset')
 cs, packages = helper.promote(
     trvLst,
     [],
@@ -36,6 +43,11 @@ cs, packages = helper.promote(
     extraPromoteTroves=cfg.extraPromoteTroves,
     commit=False
 )
+slog.info('changeset created')
+
+#prof.disable()
+#prof.dump_stats('promote.lsprof')
+#prof.print_stats()
 
 newPkgs = set([ (x[0].split(':')[0], x[1].getSourceVersion(), x[2]) for x in packages])
 
@@ -55,6 +67,10 @@ for pkg in pkgs:
         if len(pkgMap[pkg]) > 1 and flv == deps.Flavor():
             continue
         slog.info('promoting %s=%s[%s]' % (pkg[0], pkg[1], flv))
+
+#csFileName = tempfile.mktemp()
+#slog.info('writing changeset to %s' % csFileName)
+#cs.writeToFile(csFileName)
 
 slog.info('committing')
 
