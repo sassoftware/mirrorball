@@ -15,7 +15,7 @@
 import os
 import sys
 
-mirrorballDir = os.environ['HOME'] + '/hg/mirrorball'
+mirrorballDir = os.path.abspath('../')
 sys.path.insert(0, mirrorballDir)
 
 if 'CONARY_PATH' in os.environ:
