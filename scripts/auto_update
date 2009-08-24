@@ -28,7 +28,7 @@ def usage(argv):
     print 'usage: %s <platform name>' % argv[0]
     return 1
 
-def main(argv, configDir='/etc/updatebot'):
+def main(argv, configDir='/etc/mirrorball'):
     if len(argv) != 2:
         return usage(argv)
 
