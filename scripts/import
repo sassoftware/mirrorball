@@ -16,7 +16,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+sys.path.insert(0, os.path.abspath('../'))
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -25,7 +25,7 @@ from updatebot import bot, config, log
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(os.path.abspath('../') + '/config/%s/updatebotrc' % sys.argv[1])
 obj = bot.Bot(cfg)
 trvMap = obj.create()
 
