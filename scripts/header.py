@@ -14,6 +14,7 @@
 
 import os
 import sys
+import tempfile
 
 mirrorballDir = os.path.abspath('../')
 sys.path.insert(0, mirrorballDir)
@@ -45,7 +46,7 @@ log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
-builder = build.Builder(cfg)
+builder = build.Builder(cfg, saveChangeSets=tempfile.mkdtemp(), sanityCheckCommit=True)
 
 def displayTrove(nvf):
     flavor = ''
