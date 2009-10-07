@@ -16,7 +16,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
 
 from updatebot import log
 from updatebot import bot
@@ -25,7 +26,7 @@ from updatebot import config
 log.addRootLogger()
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
 obj = bot.Bot(cfg)
 
