@@ -19,7 +19,7 @@ Module for parsing patches.xml from the repository metadata.
 __all__ = ('PatchesXml', )
 
 # import stable api
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 from repomd.patchxml import PatchXml
 from repomd.xmlcommon import XmlFileParser, SlotNode

@@ -20,7 +20,7 @@ __all__ = ('PackageXmlMixIn', 'PackageCompare', )
 
 import os
 
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 from updatebot.lib import util
 

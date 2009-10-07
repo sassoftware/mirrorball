@@ -18,7 +18,7 @@ Base module for common super classes for repomd.
 
 __all__ = ('XmlFileParser', 'SlotNode')
 
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 class XmlFileParser(object):
     """

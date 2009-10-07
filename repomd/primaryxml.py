@@ -8,7 +8,7 @@ Module for parsing primary.xml.gz from the repository metadata.
 
 __all__ = ('PrimaryXml', )
 
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 from repomd.xmlcommon import XmlFileParser
 from repomd.packagexml import PackageXmlMixIn

@@ -19,7 +19,7 @@ Module for parsing repomd.xml files from the repository metadata.
 __all__ = ('RepoMdXml', )
 
 # use stable api
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 from repomd.primaryxml import PrimaryXml
 from repomd.patchesxml import PatchesXml

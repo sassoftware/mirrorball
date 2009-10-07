@@ -8,7 +8,7 @@ Module for parsing patch-*.xml files from the repository metadata.
 
 __all__ = ('PatchXml', )
 
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.packagexml import PackageXmlMixIn

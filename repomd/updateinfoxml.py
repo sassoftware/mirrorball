@@ -19,7 +19,7 @@ Refer to patchxml.py for previous versions.
 
 __all__ = ('UpdateInfoXml', )
 
-from rpath_common.xmllib import api1 as xmllib
+from rpath_xmllib import api1 as xmllib
 
 from repomd.packagexml import PackageCompare
 from repomd.xmlcommon import XmlFileParser, SlotNode
