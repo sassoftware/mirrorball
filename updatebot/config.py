@@ -166,6 +166,13 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # flavors to build packages in for packages that need specific flavoring.
     packageFlavors      = (CfgDict(CfgList(CfgContextFlavor)), {})
 
+    # After committing a rMake job to the repository pull the changeset back out
+    # to make sure all of the contents made it into the repository.
+    sanityCheckCommits   = (CfgBool, False)
+
+    # Save all binary changesets to disk before committing them.
+    saveChangeSets      = (CfgBool, False)
+
     # email information for sending advisories
     emailFromName       = CfgString
     emailFrom           = CfgString

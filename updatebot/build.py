@@ -18,6 +18,7 @@ Builder object implementation.
 
 import time
 import logging
+import tempfile
 
 import xml
 from Queue import Queue, Empty
@@ -63,15 +64,40 @@ def jobInfoExceptionHandler(func):
     return deco
 
 
+class _ErrorEvent(object):
+    def __init__(self):
+        self.exception = None
+        self.error = None
+
+    def setError(self, exception, error):
+        self.exception = exception
+        self.error = error
+
+    def raiseError(self):
+        raise self.exception, self.error
+
+    def isSet(self):
+        return self.exception is not None
+
+
 class Builder(object):
     """
     Class for wrapping the rMake api until we can switch to using rBuild.
 
     @param cfg: updateBot configuration object
     @type cfg: config.UpdateBotConfig
+    @param saveChangeSets: directory to save changesets to
+    @type saveChangeSets: str
+    @param errorEvent: object for storing error states.
+    @type errorEvent: _ErrorEvent
+    @param sanityCheckCommits: get the changeset that was just committed from the
+                              repository to verify everything made it into the
+                              repository.
+    @type sanityCheckCommits: boolean
     """
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, saveChangeSets=None, errorEvent=None,
+                 sanityCheckCommits=False):
         self._cfg = cfg
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
@@ -80,6 +106,21 @@ class Builder(object):
         self._ccfg.initializeFlavors()
 
         self._client = conaryclient.ConaryClient(self._ccfg)
+
+        if saveChangeSets is None and self._cfg.saveChangeSets:
+            self._saveChangeSets=tempfile.mkdtemp(prefix=self._cfg.platformName,
+                                                  suffix='-import-changesets')
+        else:
+            self._saveChangeSets = saveChangeSets
+
+        self._sanityCheckCommits = self._cfg.sanityCheckCommits
+
+        if errorEvent:
+            self._errorEvent = errorEvent
+            self._topLevel = False
+        else:
+            self._errorEvent = _ErrorEvent()
+            self._topLevel = True
 
         # Get default pluginDirs from the rmake cfg object, setup the plugin
         # manager, then create a new rmake config object so that rmakeUser
@@ -192,15 +233,24 @@ class Builder(object):
         return results, failed
 
     def buildmany2(self, troveSpecs):
-        dispatcher = Dispatcher(self._cfg, 30)
+        dispatcher = Dispatcher(self._cfg, 10,
+                                saveChangeSets=self._saveChangeSets,
+                                errorEvent=self._errorEvent,
+                                sanityCheckCommits=self._sanityCheckCommits)
         return dispatcher.buildmany(troveSpecs)
 
     def buildmany3(self, troveSpecs):
-        dispatcher = Dispatcher2(self._cfg, 50)
+        dispatcher = Dispatcher2(self._cfg, 50,
+                                 saveChangeSets=self._saveChangeSets,
+                                 errorEvent=self._errorEvent,
+                                 sanityCheckCommits=self._sanityCheckCommits)
         return dispatcher.buildmany(troveSpecs)
 
     def buildmany4(self, troveSpecs):
-        dispatcher = Dispatcher3(self._cfg, 50)
+        dispatcher = Dispatcher3(self._cfg, 50,
+                                 saveChangeSets=self._saveChangeSets,
+                                 errorEvent=self._errorEvent,
+                                 sanityCheckCommits=self._sanityCheckCommits)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
@@ -423,15 +473,43 @@ class Builder(object):
         jobs = [ self._getJob(x) for x in jobIds ]
         log.info('Starting commit of job %s', jobIdsStr)
 
+        if self._saveChangeSets:
+            csfn = tempfile.mktemp(dir=self._saveChangeSets, suffix='.ccs')
+
+        writeToFile = self._saveChangeSets and csfn or None
+
         self._helper.client.startCommit(jobIds)
         succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
                                             jobs,
                                             self._rmakeCfg.reposName,
-                                            self._cfg.commitMessage)
+                                            self._cfg.commitMessage,
+                                            writeToFile=writeToFile)
 
         if not succeeded:
             self._helper.client.commitFailed(jobIds, data)
             raise CommitFailedError(jobId=jobIdsStr, why=data)
+
+        if writeToFile:
+            log.info('changeset saved to %s' % writeToFile)
+            log.info('committing changeset to repository')
+            self._client.repos.commitChangeSetFile(writeToFile)
+
+        if self._sanityCheckCommits:
+            # sanity check repository
+            log.info('checking repository for sanity')
+            jobList = []
+            for job in data.itervalues():
+                for arch in job.itervalues():
+                    for n, v, f in arch:
+                        if n.startswith('group-'): continue
+                        jobList.append((n, (None, None), (v, f), True))
+            try:
+                cs = self._client.repos.createChangeSet(jobList, withFiles=True,
+                                                        withFileContents=False)
+            except Exception, e:
+                self._errorEvent.setError(Exception, e)
+                if self._topLevel:
+                    self._errorEvent.raiseError()
 
         log.info('Commit of job %s completed in %.02f seconds',
                  jobIdsStr, time.time() - startTime)
@@ -534,7 +612,9 @@ class StatusMessage(object):
 class BuildWorker(Thread):
     BuilderClass = Builder
 
-    def __init__(self, cfg, toBuild, status, name=None, offset=0):
+    def __init__(self, cfg, toBuild, status, name=None, offset=0,
+                 saveChangeSets=None, errorEvent=None,
+                 sanityCheckCommits=False):
         Thread.__init__(self, name=name)
 
         self.setDaemon(True)
@@ -543,7 +623,9 @@ class BuildWorker(Thread):
         self.offset = offset
         self.toBuild = toBuild
         self.status = status
-        self.builder = self.BuilderClass(cfg)
+        self.builder = self.BuilderClass(cfg, saveChangeSets=saveChangeSets,
+                                         errorEvent=errorEvent,
+                                         sanityCheckCommits=sanityCheckCommits)
 
         self.trv = None
         self.jobId = None
@@ -603,9 +685,14 @@ class BuildWorker(Thread):
 class Dispatcher(object):
     workerClass = BuildWorker
 
-    def __init__(self, cfg, workerCount):
+    def __init__(self, cfg, workerCount, saveChangeSets=None, errorEvent=None,
+                 sanityCheckCommits=False):
         self._cfg = cfg
         self._workerCount = workerCount
+
+        self._saveChangeSets = saveChangeSets
+        self._errorEvent = errorEvent
+        self._sanityCheckCommits = sanityCheckCommits
 
         self._workers = []
         self._started = False
@@ -618,7 +705,10 @@ class Dispatcher(object):
     def provisionWorkers(self):
         for i in range(self._workerCount):
             worker = self.workerClass(self._cfg, self._toBuild, self._status,
-                                 name='Build Worker %s' % i, offset=i)
+                                 name='Build Worker %s' % i, offset=i,
+                                 saveChangeSets=self._saveChangeSets,
+                                 errorEvent=self._errorEvent,
+                                 sanityCheckCommits=self._sanityCheckCommits)
             self._workers.append(worker)
 
     def start(self):
@@ -648,6 +738,9 @@ class Dispatcher(object):
                 msg = self._status.get(timeout=5)
             except Empty:
                 continue
+
+            if self._errorEvent.isSet():
+                self._errorEvent.raiseError()
 
             self._processMessage(msg)
             done = self._buildDone()
@@ -682,11 +775,15 @@ class Dispatcher(object):
 class Dispatcher2(object):
     builderClass = Builder
 
-    def __init__(self, cfg, workerCount):
+    def __init__(self, cfg, workerCount, saveChangeSets=None, errorEvent=None,
+                 sanityCheckCommits=False):
         self._cfg = cfg
         self._workerCount = workerCount
 
-        self._builder = self.builderClass(self._cfg)
+        self._builder = self.builderClass(self._cfg,
+                                          saveChangeSets=saveChangeSets,
+                                          errorEvent=errorEvent,
+                                          sanityCheckCommits=sanityCheckCommits)
 
         self._activeJobs = []
         self._commitJobs = []
@@ -740,6 +837,8 @@ class Dispatcher2(object):
         for troveSpec, jobId in self._commitJobs:
             try:
                 res = self._builder.commit(jobId)
+                if self._errorEvent.isSet():
+                    self._errorEvent.raiseError()
                 self._results.update(res)
                 self._completedJobs.append(jobId)
             except JobFailedError:
@@ -750,13 +849,16 @@ class Dispatcher2(object):
 class CommitWorker(Thread):
     BuilderClass = Builder
 
-    def __init__(self, cfg, toCommit, results, name=None):
+    def __init__(self, cfg, toCommit, results, name=None, saveChangeSets=None,
+                 errorEvent=None, sanityCheckCommits=False):
         Thread.__init__(self, name=name)
 
         self.name = name
         self.toCommit = toCommit
         self.results = results
-        self.builder = self.BuilderClass(cfg)
+        self.builder = self.BuilderClass(cfg, saveChangeSets=saveChangeSets,
+                                         errorEvent=errorEvent,
+                                         sanityCheckCommits=sanityCheckCommits)
 
         self.setDaemon(True)
 
@@ -778,8 +880,12 @@ class CommitWorker(Thread):
 class Dispatcher3(Dispatcher2):
     workerClass = CommitWorker
 
-    def __init__(self, cfg, workerCount):
-        Dispatcher2.__init__(self, cfg, workerCount)
+    def __init__(self, cfg, workerCount, saveChangeSets=None, errorEvent=None,
+                 sanityCheckCommits=False):
+        Dispatcher2.__init__(self, cfg, workerCount,
+                             saveChangeSets=saveChangeSets,
+                             errorEvent=errorEvent,
+                             sanityCheckCommits=sanityCheckCommits)
 
         self._commitQueue = Queue()
         self._resultQueue = Queue()
@@ -787,7 +893,10 @@ class Dispatcher3(Dispatcher2):
         self._workers = []
         for i in range(10):
             worker = self.workerClass(self._cfg, self._commitQueue,
-                self._resultQueue, name='Commit Worker %s' % i)
+                self._resultQueue, name='Commit Worker %s' % i,
+                saveChangeSets=saveChangeSets,
+                errorEvent=errorEvent,
+                sanityCheckCommits=sanityCheckCommits)
             worker.start()
             self._workers.append(worker)
 
