@@ -18,7 +18,6 @@ monitoring.
 """
 
 import copy
-import time
 import logging
 from threading import Thread
 from Queue import Queue, Empty
