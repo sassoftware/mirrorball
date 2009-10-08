@@ -17,19 +17,35 @@ Module of logging related functions.
 """
 
 import sys
+import time
 import logging
+import tempfile
 
-def addRootLogger():
+def addRootLogger(logFile=None):
     """
     Setup the root logger that should be inherited by all other loggers.
     """
 
+    logSize = 1024 * 1024 * 50
+    logFile = logFile and logFile or tempfile.mktemp(prefix='updatebot-log-%s-'
+                                                            % int(time.time()))
+
     rootLog = logging.getLogger('')
-    handler = logging.StreamHandler(sys.stdout)
+
+    streamHandler = logging.StreamHandler(sys.stdout)
+    logFileHandler = logging.handlers.RotatingFileHandler(logFile,
+                                                          maxBytes=logSize,
+                                                          backupCount=5)
+
     formatter = logging.Formatter('%(asctime)s %(levelname)s '
         '%(name)s %(message)s')
-    handler.setFormatter(formatter)
-    rootLog.addHandler(handler)
+
+    streamHandler.setFormatter(formatter)
+    logFileHandler.setFormatter(formatter)
+
+    rootLog.addHandler(streamHandler)
+    rootLog.addHandler(logFileHandler)
+
     rootLog.setLevel(logging.INFO)
 
     # Delete conary's log handler since it puts things on stderr and without
