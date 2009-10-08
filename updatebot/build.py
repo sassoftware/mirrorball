@@ -32,6 +32,7 @@ from rmake.build import buildcfg
 from rmake.cmdline import helper, monitor, commit
 
 from updatebot.lib import util
+from updatebot import subscriber
 from updatebot.errors import JobFailedError, CommitFailedError
 
 log = logging.getLogger('updateBot.build')
@@ -64,22 +65,6 @@ def jobInfoExceptionHandler(func):
     return deco
 
 
-class _ErrorEvent(object):
-    def __init__(self):
-        self.exception = None
-        self.error = None
-
-    def setError(self, exception, error):
-        self.exception = exception
-        self.error = error
-
-    def raiseError(self):
-        raise self.exception, self.error
-
-    def isSet(self):
-        return self.exception is not None
-
-
 class Builder(object):
     """
     Class for wrapping the rMake api until we can switch to using rBuild.
@@ -88,16 +73,13 @@ class Builder(object):
     @type cfg: config.UpdateBotConfig
     @param saveChangeSets: directory to save changesets to
     @type saveChangeSets: str
-    @param errorEvent: object for storing error states.
-    @type errorEvent: _ErrorEvent
     @param sanityCheckCommits: get the changeset that was just committed from the
                               repository to verify everything made it into the
                               repository.
     @type sanityCheckCommits: boolean
     """
 
-    def __init__(self, cfg, saveChangeSets=None, errorEvent=None,
-                 sanityCheckCommits=False):
+    def __init__(self, cfg, saveChangeSets=None, sanityCheckCommits=False):
         self._cfg = cfg
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
@@ -114,13 +96,6 @@ class Builder(object):
             self._saveChangeSets = saveChangeSets
 
         self._sanityCheckCommits = self._cfg.sanityCheckCommits
-
-        if errorEvent:
-            self._errorEvent = errorEvent
-            self._topLevel = False
-        else:
-            self._errorEvent = _ErrorEvent()
-            self._topLevel = True
 
         # Get default pluginDirs from the rmake cfg object, setup the plugin
         # manager, then create a new rmake config object so that rmakeUser
@@ -163,94 +138,13 @@ class Builder(object):
 
     def buildmany(self, troveSpecs):
         """
-        Build all packages in troveSpecs, 10 at a time, one per job.
+        Build many troves in separate jobs.
         @param troveSpecs: list of trove specs
         @type troveSpecs: [(name, versionObj, flavorObj), ...]
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        troveSpecs = list(troveSpecs)
-        def trvSort(a, b):
-            """
-            Sort troves tuples based on the first element.
-            """
-
-            return cmp(a[0], b[0])
-        troveSpecs.sort(trvSort)
-
-        index = 0
-        jobs = {}
-        for i, trv in enumerate(troveSpecs):
-            if index not in jobs:
-                jobs[index] = []
-
-            jobs[index].append(trv)
-
-            if i % 20 == 0:
-                index += 1
-
-        failed = set()
-        results = {}
-        for job in jobs.itervalues():
-            res, fail = self._buildmany(job)
-            failed.update(fail)
-            results.update(res)
-
-        return results, failed
-
-    def _buildmany(self, troveSpecs):
-        """
-        Build a list of packages, one per job.
-        @param troveSpecs: list of trove specs
-        @type troveSpecs: [(name, versionObj, flavorObj), ...]
-        @return troveMap: dictionary of troveSpecs to built troves
-        """
-
-        jobs = {}
-        jobkeys = []
-        for trv in troveSpecs:
-            jobkeys.append(trv)
-            jobs[trv] = self.start([trv, ])
-
-        for trv in jobkeys:
-            jobId = jobs[trv]
-            job = self._getJob(jobId)
-            self._wait(jobId)
-
-        failed = set()
-        results = {}
-        for trv, jobId in jobs.iteritems():
-            job = self._getJob(jobId)
-            if job.isFailed():
-                failed.add((trv, jobId))
-            elif job.isFinished():
-                try:
-                    res = self.commit(jobId)
-                    results.update(res)
-                except JobFailedError:
-                    failed.add((trv, jobId))
-
-        return results, failed
-
-    def buildmany2(self, troveSpecs):
-        dispatcher = Dispatcher(self._cfg, 10,
-                                saveChangeSets=self._saveChangeSets,
-                                errorEvent=self._errorEvent,
-                                sanityCheckCommits=self._sanityCheckCommits)
-        return dispatcher.buildmany(troveSpecs)
-
-    def buildmany3(self, troveSpecs):
-        dispatcher = Dispatcher2(self._cfg, 50,
-                                 saveChangeSets=self._saveChangeSets,
-                                 errorEvent=self._errorEvent,
-                                 sanityCheckCommits=self._sanityCheckCommits)
-        return dispatcher.buildmany(troveSpecs)
-
-    def buildmany4(self, troveSpecs):
-        dispatcher = Dispatcher3(self._cfg, 50,
-                                 saveChangeSets=self._saveChangeSets,
-                                 errorEvent=self._errorEvent,
-                                 sanityCheckCommits=self._sanityCheckCommits)
+        dispatcher = subscriber.Dispatcher(self, 30)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
@@ -284,7 +178,7 @@ class Builder(object):
         # Wait for the jobs to finish.
         log.info('Waiting for jobs to complete')
         for jobId in jobIds.itervalues():
-            self._wait(jobId)
+            self._monitorJob(jobId)
 
         # Sanity check all jobs.
         for jobId in jobIds.itervalues():
@@ -408,19 +302,6 @@ class Builder(object):
         log.info('Started jobId: %s' % jobId)
 
         return jobId
-
-    def _wait(self, jobId):
-        """
-        Wait for a job to complete.
-        @param jobId: rMake job ID
-        @type jobId: integer
-        """
-
-        log.info('waiting for job [%s] to complete' % jobId)
-        job = self._getJob(jobId)
-        while not job.isFinished() and not job.isFailed():
-            time.sleep(5)
-            job = self._getJob(jobId)
 
     @jobInfoExceptionHandler
     def _monitorJob(self, jobId):
@@ -578,341 +459,3 @@ class _StatusOnlyDisplay(monitor.JobLogDisplay):
         """
         Don't care about the build log
         """
-
-##
-# Experimental threaded builder, beware of dragons
-##
-
-MESSAGE_TYPES = {
-    0: 'log',
-    'log': 0,
-    1: 'results',
-    'results': 1,
-    2: 'error',
-    'error': 2,
-}
-
-class StatusMessage(object):
-    def __init__(self, name, trv, jobId, message, type=0):
-        assert type in MESSAGE_TYPES
-        self.name = name
-        self.trv = trv
-        self.jobId = jobId
-        self.message = message
-        self.type = type
-
-    def __str__(self):
-        msg = '%(name)s: %(trv)s [%(jobId)s] - '
-        if self.type == MESSAGE_TYPES['results']:
-            msg += 'done'
-        else:
-            msg += '%(message)s'
-        return msg % self.__dict__
-
-class BuildWorker(Thread):
-    BuilderClass = Builder
-
-    def __init__(self, cfg, toBuild, status, name=None, offset=0,
-                 saveChangeSets=None, errorEvent=None,
-                 sanityCheckCommits=False):
-        Thread.__init__(self, name=name)
-
-        self.setDaemon(True)
-
-        self.name = name
-        self.offset = offset
-        self.toBuild = toBuild
-        self.status = status
-        self.builder = self.BuilderClass(cfg, saveChangeSets=saveChangeSets,
-                                         errorEvent=errorEvent,
-                                         sanityCheckCommits=sanityCheckCommits)
-
-        self.trv = None
-        self.jobId = None
-
-    def run(self):
-        time.sleep(self.offset * 5)
-        while True:
-            self.trv = self.toBuild.get()
-            self.log('received trv')
-
-            retries = 10
-            built = False
-            while not built and retries:
-                retries -= 1
-                try:
-                    self._doBuild()
-                except Exception, e:
-                    built = False
-                    self.log('traceback while building %s, retrying' % e)
-                    continue
-                built = True
-
-            if not built:
-                self.error('job failed')
-
-            self.toBuild.task_done()
-
-    def _doBuild(self):
-        self.jobId = self.builder.start([self.trv, ])
-
-        self.builder._wait(self.jobId)
-
-        job = self.builder._getJob(self.jobId)
-        if job.isFailed():
-            self.error('job failed')
-
-        else:
-            try:
-                res = self.builder.commit(self.jobId)
-                self.results(res)
-            except JobFailedError:
-                self.error('job failed')
-
-    def _status(self, msg, type=0):
-        msg = StatusMessage(self.name, self.trv, self.jobId, msg, type)
-        self.status.put(msg)
-
-    def error(self, msg):
-        self._status(msg, type=MESSAGE_TYPES['error'])
-
-    def log(self, msg):
-        self._status(msg, type=MESSAGE_TYPES['log'])
-
-    def results(self, res):
-        self._status(res, type=MESSAGE_TYPES['results'])
-
-class Dispatcher(object):
-    workerClass = BuildWorker
-
-    def __init__(self, cfg, workerCount, saveChangeSets=None, errorEvent=None,
-                 sanityCheckCommits=False):
-        self._cfg = cfg
-        self._workerCount = workerCount
-
-        self._saveChangeSets = saveChangeSets
-        self._errorEvent = errorEvent
-        self._sanityCheckCommits = sanityCheckCommits
-
-        self._workers = []
-        self._started = False
-
-        self._toBuild = Queue()
-        self._status = Queue()
-
-        self._trvs = {}
-
-    def provisionWorkers(self):
-        for i in range(self._workerCount):
-            worker = self.workerClass(self._cfg, self._toBuild, self._status,
-                                 name='Build Worker %s' % i, offset=i,
-                                 saveChangeSets=self._saveChangeSets,
-                                 errorEvent=self._errorEvent,
-                                 sanityCheckCommits=self._sanityCheckCommits)
-            self._workers.append(worker)
-
-    def start(self):
-        if self._started:
-            return
-
-        for wkr in self._workers:
-            wkr.start()
-        self._started = True
-
-    def buildmany(self, trvSpecs):
-        self.provisionWorkers()
-        self.start()
-
-        for trv in trvSpecs:
-            self._trvs[trv] = []
-            self._toBuild.put(trv)
-
-        results, failed = self.monitorStatus()
-        return results, failed
-
-    def monitorStatus(self):
-        done = False
-        while not done:
-            try:
-                log.debug('checking for status messages')
-                msg = self._status.get(timeout=5)
-            except Empty:
-                continue
-
-            if self._errorEvent.isSet():
-                self._errorEvent.raiseError()
-
-            self._processMessage(msg)
-            done = self._buildDone()
-
-        return self._getResultsAndErrors()
-
-    def _processMessage(self, msg):
-        assert msg.trv in self._trvs
-        self._trvs[msg.trv].append(msg)
-        log.info(msg)
-
-    def _buildDone(self):
-        for trv, msgs in self._trvs.iteritems():
-            if len(msgs) == 0:
-                return False
-            elif msgs[-1].type not in (MESSAGE_TYPES['results'], MESSAGE_TYPES['error']):
-                return False
-        return True
-
-    def _getResultsAndErrors(self):
-        errors = set()
-        results = []
-        for trv, msgs in self._trvs.iteritems():
-            msg = msgs[-1]
-            if msg.type == MESSAGE_TYPES['error']:
-                errors.add((trv, msg.jobId))
-            elif msg.type == MESSAGE_TYPES['results']:
-                results.append(msg.message)
-        return results, errors
-
-
-class Dispatcher2(object):
-    builderClass = Builder
-
-    def __init__(self, cfg, workerCount, saveChangeSets=None, errorEvent=None,
-                 sanityCheckCommits=False):
-        self._cfg = cfg
-        self._workerCount = workerCount
-
-        self._builder = self.builderClass(self._cfg,
-                                          saveChangeSets=saveChangeSets,
-                                          errorEvent=errorEvent,
-                                          sanityCheckCommits=sanityCheckCommits)
-
-        self._activeJobs = []
-        self._commitJobs = []
-        self._failedJobs = set()
-        self._completedJobs = []
-
-        self._results = {}
-
-    def buildmany(self, troveSpecs):
-        troveSpecs = list(troveSpecs)
-
-        while len(troveSpecs):
-            # Wait for some amount of jobs to complete.
-            while len(self._activeJobs) >= self._workerCount:
-                time.sleep(5)
-                self._checkStatus()
-
-            # Populate build queue.
-            while len(self._activeJobs) < self._workerCount:
-                trvSpec = troveSpecs.pop()
-                self._start(trvSpec)
-
-            # Commit completed jobs.
-            self._commit()
-
-        return self._results, self._failedJobs
-
-    @jobInfoExceptionHandler
-    def _start(self, troveSpec):
-        jobId = self._builder.start([troveSpec, ])
-        self._activeJobs.append((troveSpec, jobId))
-
-    def _checkStatus(self):
-        for troveSpec, jobId in self._activeJobs:
-            log.info('Checking status of %s' % jobId)
-            job = self._builder._getJob(jobId, retry=10)
-            if job is None:
-                log.warn('Failed to retrieve job information for %s' % jobId)
-                import epdb; epdb.st()
-            elif job.isFailed():
-                self._failedJobs.add((troveSpec, jobId))
-                self._activeJobs.remove((troveSpec, jobId))
-            elif job.isFinished():
-                self._commitJobs.append((troveSpec, jobId))
-                self._activeJobs.remove((troveSpec, jobId))
-
-            # Wait between each status check.
-            #time.sleep(1)
-
-    def _commit(self):
-        for troveSpec, jobId in self._commitJobs:
-            try:
-                res = self._builder.commit(jobId)
-                if self._errorEvent.isSet():
-                    self._errorEvent.raiseError()
-                self._results.update(res)
-                self._completedJobs.append(jobId)
-            except JobFailedError:
-                self._failedJobs.add((troveSpec, jobId))
-            self._commitJobs.remove((troveSpec, jobId))
-
-
-class CommitWorker(Thread):
-    BuilderClass = Builder
-
-    def __init__(self, cfg, toCommit, results, name=None, saveChangeSets=None,
-                 errorEvent=None, sanityCheckCommits=False):
-        Thread.__init__(self, name=name)
-
-        self.name = name
-        self.toCommit = toCommit
-        self.results = results
-        self.builder = self.BuilderClass(cfg, saveChangeSets=saveChangeSets,
-                                         errorEvent=errorEvent,
-                                         sanityCheckCommits=sanityCheckCommits)
-
-        self.setDaemon(True)
-
-    def run(self):
-        while True:
-            trvSpec, jobId = self.toCommit.get()
-            try:
-                res = self.builder.commit(jobId)
-                self.msg(0, trvSpec, jobId, res)
-            except JobFailedError:
-                self.msg(1, trvSpec, jobId)
-            except Exception, e:
-                log.critical('%s received exception: %s' % (self.name, e))
-
-    def msg(self, rc, trvSpec, jobId, data=None):
-        self.results.put((rc, ((trvSpec, jobId), data)))
-
-
-class Dispatcher3(Dispatcher2):
-    workerClass = CommitWorker
-
-    def __init__(self, cfg, workerCount, saveChangeSets=None, errorEvent=None,
-                 sanityCheckCommits=False):
-        Dispatcher2.__init__(self, cfg, workerCount,
-                             saveChangeSets=saveChangeSets,
-                             errorEvent=errorEvent,
-                             sanityCheckCommits=sanityCheckCommits)
-
-        self._commitQueue = Queue()
-        self._resultQueue = Queue()
-
-        self._workers = []
-        for i in range(10):
-            worker = self.workerClass(self._cfg, self._commitQueue,
-                self._resultQueue, name='Commit Worker %s' % i,
-                saveChangeSets=saveChangeSets,
-                errorEvent=errorEvent,
-                sanityCheckCommits=sanityCheckCommits)
-            worker.start()
-            self._workers.append(worker)
-
-    def _commit(self):
-        for trvSpec, jobId in self._commitJobs:
-            self._commitQueue.put((trvSpec, jobId))
-
-        try:
-            msg = self._resultQueue.get(False)
-            while msg:
-                rc, ((trvSpec, jobId), data) = msg
-                if rc == 0:
-                    self._results.update(data)
-                    self._completedJobs.append(jobId)
-                elif rc == 1:
-                    self._failedJobs.add((trvSpec, jobId))
-                msg = self._resultQueue.get(False)
-        except Empty:
-            pass
