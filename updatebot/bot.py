@@ -108,7 +108,7 @@ class Bot(object):
         if len(toBuild):
             if not rebuild:
                 # Build all newly imported packages.
-                trvMap, failed = self._builder.buildmany2(sorted(toBuild))
+                trvMap, failed = self._builder.buildmany(sorted(toBuild))
                 log.info('failed to import %s packages' % len(failed))
                 if len(failed):
                     for pkg in failed:
