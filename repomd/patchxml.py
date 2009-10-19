@@ -25,7 +25,7 @@ class _Patch(SlotNode):
     __slots__ = ('name', 'summary', 'description', 'version',
                  'release', 'requires', 'recommends', 'rebootNeeded',
                  'licenseToConfirm', 'packageManager', 'category',
-                 'packages')
+                 'packages', 'provides', 'supplements', 'conflicts',)
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -54,10 +54,16 @@ class _Patch(SlotNode):
             self.release = child.getAttribute('rel')
         elif n == 'rpm:requires':
             self.requires = child.getChildren('entry', namespace='rpm')
+        elif n == 'rpm:provides':
+            self.provides = child.getChildren('entry', namespace='rpm')
+        elif n == 'rpm:supplements':
+            self.supplements = child.getChildren('entry', namespace='rpm')
         elif n == 'rpm:recommends':
             self.recommends = child.getChildren('entry', namespace='rpm')
         elif n == 'rpm:obsoletes':
             self.obsoletes = child.getChildren('entry', namespace='rpm')
+        elif n == 'rpm:conflicts':
+            self.conflicts = child.getChildren('entry', namespace='rpm')
         elif n == 'reboot-needed':
             self.rebootNeeded = True
         elif n == 'license-to-confirm':
