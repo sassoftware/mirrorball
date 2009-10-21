@@ -89,7 +89,8 @@ class _RepoMdDataElement(SlotNode):
     Parser for repomd.xml data elements.
     """
     __slots__ = ('location', 'checksum', 'checksumType', 'timestamp',
-                 'openChecksum', 'openChecksumType', 'databaseVersion', )
+                 'openChecksum', 'openChecksumType', 'databaseVersion',
+                 'size', 'openSize')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -114,6 +115,10 @@ class _RepoMdDataElement(SlotNode):
             self.openChecksumType = child.getAttribute('type')
         elif name == 'database_version':
             self.databaseVersion = child.finalize()
+        elif name == 'size':
+            self.size = child.finalize()
+        elif name == 'open-size':
+            self.openSize = child.finalize()
         else:
             raise UnknownElementError(child)
 
