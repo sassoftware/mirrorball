@@ -20,6 +20,7 @@ import sys
 import time
 import logging
 import tempfile
+from logging import handlers
 
 def addRootLogger(logFile=None):
     """
@@ -33,9 +34,9 @@ def addRootLogger(logFile=None):
     rootLog = logging.getLogger('')
 
     streamHandler = logging.StreamHandler(sys.stdout)
-    logFileHandler = logging.handlers.RotatingFileHandler(logFile,
-                                                          maxBytes=logSize,
-                                                          backupCount=5)
+    logFileHandler = handlers.RotatingFileHandler(logFile,
+                                                  maxBytes=logSize,
+                                                  backupCount=5)
 
     formatter = logging.Formatter('%(asctime)s %(levelname)s '
         '%(name)s %(message)s')
