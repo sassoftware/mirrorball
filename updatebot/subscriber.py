@@ -90,6 +90,9 @@ class JobMonitorCallback(monitor.JobLogDisplay):
     def _jobTrovesSet(self, jobId, troveData):
         pass
 
+    def _tailBuildLog(self, jobId, troveTuple):
+        pass
+
     def _primeOutput(self, jobId):
         # Override parents _primeOutput to avoid sending output to stdout via
         # print.
@@ -139,7 +142,7 @@ class MonitorWorker(Thread):
             self.monitorJob(self.jobId)
         except Exception, e:
             self.status.put((MessageTypes.THREAD_ERROR,
-                             (ThreadType.MONITOR, self.jobId, e)))
+                             (ThreadTypes.MONITOR, self.jobId, e)))
 
         self.status.put((MessageTypes.THREAD_DONE, self.jobId))
 
@@ -190,7 +193,7 @@ class CommitWorker(Thread):
             self.status.put((MessageTypes.DATA, (self.jobId, result)))
         except Exception, e:
             self.status.put((MessageTypes.THREAD_ERROR,
-                             (ThreadType.COMMIT, self.jobId, e)))
+                             (ThreadTypes.COMMIT, self.jobId, e)))
 
         self.status.put((MessageTypes.THREAD_DONE, self.jobId))
 
@@ -251,11 +254,11 @@ class AbstractStatusMonitor(object):
             data.append(payload)
         elif mtype == MessageTypes.THREAD_DONE:
             jobId = payload
-            assert not self._workers[jobId].isAlive()
+            #assert not self._workers[jobId].isAlive()
             del self._workers[jobId]
         elif mtype == MessageTypes.THREAD_ERROR:
             threadType, jobId, error = payload
-            assert not self._workers[jobId].isAlive()
+            #assert not self._workers[jobId].isAlive()
             raise error
 
         return data
@@ -341,6 +344,8 @@ class Dispatcher(object):
                 log.info('[%s] failed job: %s' % (jobId, trove))
             else:
                 results[trove] = result
+
+        import epdb; epdb.st()
 
         return results
 
