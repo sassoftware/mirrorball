@@ -24,6 +24,7 @@ from rpmutils import rpmvercmp
 from updatebot.lib import util
 from updatebot import conaryhelper
 from updatebot.errors import GroupNotFound
+from updatebot.errors import NoManifestFoundError
 from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
@@ -41,10 +42,12 @@ class Updater(object):
 
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
-    def getUpdates(self):
+    def getUpdates(self, updateTroves=None):
         """
         Find all packages that need updates and/or advisories from a top level
         binary group.
+        @param updateTroves: set of troves to update
+        @type updateTroves: iterable
         @return list of packages to send advisories for and list of packages
                 to update
         """
@@ -53,7 +56,13 @@ class Updater(object):
 
         toAdvise = []
         toUpdate = []
-        for nvf, srpm in self._findUpdatableTroves(self._cfg.topGroup):
+
+        # If update set is not specified get the latest versions of packages to
+        # update.
+        if not updateTroves:
+            updateTroves = self._findUpdatableTroves(self._cfg.topGroup)
+
+        for nvf, srpm in updateTroves:
             # Will raise exception if any errors are found, halting execution.
             if self._sanitizeTrove(nvf, srpm):
                 toUpdate.append((nvf, srpm))
@@ -152,7 +161,15 @@ class Updater(object):
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
         metadata = None
-        manifest = self._conaryhelper.getManifest(nvf[0])
+
+        try:
+            manifest = self._conaryhelper.getManifest(nvf[0])
+        except NoManifestFoundError, e:
+            # Create packages that do not have manifests.
+            # FIXME: might want to make this a config option?
+            log.info('no manifest found for %s, will create package' % nvf[0])
+            return True
+
         for line in manifest:
             # Some manifests were created with double slashes, need to
             # normalize the path to work around this problem.
@@ -231,7 +248,7 @@ class Updater(object):
 
         return ret
 
-    def create(self, pkgNames, buildAll=False, recreate=False):
+    def create(self, pkgNames=None, buildAll=False, recreate=False, toUpdate=None):
         """
         Import a new package into the repository.
         @param pkgNames: list of packages to import
@@ -241,13 +258,26 @@ class Updater(object):
         @param recreate: a package manifest even if it already exists.
         @type recreate: boolean
         @return new source [(name, version, flavor), ... ]
+
+        @param toUpdate: set of packages to update. If this is set all other
+                         options are ignored.
+        @type toUpdate: set of source package objects.
         """
+
+        assert pkgNames or toUpdate
+
+        if pkgNames:
+            toUpdate = set()
+        else:
+            # Import very specific versions of packages, make sure to recreate
+            # them all.
+            pkgNames = []
+            recreate = True
 
         log.info('getting existing packages')
         pkgs = self._getExistingPackageNames()
 
         # Find all of the source to update.
-        toUpdate = set()
         for pkg in pkgNames:
             if pkg not in self._pkgSource.binNameMap:
                 log.warn('no package named %s found in package source' % pkg)

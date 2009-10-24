@@ -138,6 +138,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Exclude these archs from the rpm source.
     excludeArch         = (CfgList(CfgString), [])
 
+    # Disable advisories all together.
+    disableAdvisories   = (CfgBool, False)
+
     # Packages for which there might not reasonably be advisories. Define a
     # default advisory message to send with these packages.
     advisoryException   = (CfgList(CfgList(CfgString)), [])

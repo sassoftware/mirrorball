@@ -39,9 +39,11 @@ class Bot(object):
         self._clients = {}
         self._pkgSource = pkgsource.PackageSource(self._cfg)
         self._updater = update.Updater(self._cfg, self._pkgSource)
-        self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
-                                           self._cfg.platformName)
         self._builder = build.Builder(self._cfg)
+
+        if not self._cfg.disableAdvisories:
+            self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
+                                               self._cfg.platformName)
 
     @staticmethod
     def _flattenSetDict(setDict):
@@ -57,9 +59,17 @@ class Bot(object):
             lst.extend(list(trvSet))
         return lst
 
-    def create(self, rebuild=False, recreate=None):
+    def create(self, rebuild=False, recreate=None, toCreate=None):
         """
         Do initial imports.
+
+        @param rebuild - rebuild all sources
+        @type rebuild - boolean
+        @param recreate - recreate all sources or a specific list of packages
+        @type recreate - boolean to recreate all sources or a list of specific
+                         package names
+        @param toCreate - set of source package objects to create, implies recreate.
+        @type toCrate - iterable
         """
 
         start = time.time()
@@ -69,7 +79,9 @@ class Bot(object):
         self._pkgSource.load()
 
         # Build list of packages
-        if type(recreate) == list:
+        if toCreate:
+            toPackage = None
+        elif type(recreate) == list:
             toPackage = set(recreate)
         elif self._cfg.packageAll:
             toPackage = set()
@@ -99,7 +111,8 @@ class Bot(object):
         # Import sources into repository.
         toBuild, fail = self._updater.create(toPackage,
                                              buildAll=rebuild,
-                                             recreate=bool(recreate))
+                                             recreate=bool(recreate),
+                                             toCreate=toCreate)
 
         log.info('failed to create %s packages' % len(fail))
         log.info('found %s packages to build' % len(toBuild))
@@ -125,16 +138,22 @@ class Bot(object):
 
         return trvMap
 
-    def update(self, force=None):
+    def update(self, force=None, updatePkgs=None):
         """
         Update the conary repository from the yum repositories.
         @param force: list of packages to update without exception
         @type force: list(pkgName, pkgName, ...)
+        @param updatePkgs: set of source package objects to update
+        @type updatePkgs: iterable of source package objects
         """
 
         if force is not None:
             self._cfg.disableUpdateSanity = True
             assert isinstance(force, list)
+
+        updateTroves = None
+        if updatePkgs:
+            updateTroves = set(((x.name, None, None), x) for x in updatePkgs)
 
         start = time.time()
         log.info('starting update')
@@ -143,7 +162,7 @@ class Bot(object):
         self._pkgSource.load()
 
         # Get troves to update and send advisories.
-        toAdvise, toUpdate = self._updater.getUpdates()
+        toAdvise, toUpdate = self._updater.getUpdates(updateTroves=updateTroves)
 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.
@@ -163,12 +182,13 @@ class Bot(object):
             log.info('no updates available')
             return
 
-        # Populate patch source now that we know that there are updates
-        # available.
-        self._advisor.load()
+        if not self._cfg.disableAdvisories:
+            # Populate patch source now that we know that there are updates
+            # available.
+            self._advisor.load()
 
-        # Check to see if advisories exist for all required packages.
-        self._advisor.check(toAdvise)
+            # Check to see if advisories exist for all required packages.
+            self._advisor.check(toAdvise)
 
         # Update source
         for nvf, srcPkg in toUpdate:
@@ -206,8 +226,9 @@ class Bot(object):
         # Mirror out content
         self._updater.mirror()
 
-        # Send advisories.
-        self._advisor.send(toAdvise, newTroves)
+        if not self._cfg.disableAdvisories:
+            # Send advisories.
+            self._advisor.send(toAdvise, newTroves)
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'
