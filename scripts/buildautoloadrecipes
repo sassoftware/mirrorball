@@ -22,7 +22,7 @@ else
     context="x86"
 fi
 
-mirrorballpath="$HOME/hg/mirrorball"
+mirrorballpath="$HOME/hg/mirrorball/mirrorball"
 platformConfig="$mirrorballpath/config/$platform/conaryrc"
 
 if [ ! -f $platformConfig ] ; then

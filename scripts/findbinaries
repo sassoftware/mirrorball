@@ -16,7 +16,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -35,7 +36,7 @@ log.addRootLogger()
 slog = logging.getLogger('findbinaries')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
 bot = bot.Bot(cfg)
 updater = bot._updater
