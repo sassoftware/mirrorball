@@ -13,6 +13,9 @@
 #
 
 """
-UpdateBot is a module for automated updating of a conary repository from a
-SLES yum/rpm repository.
+UpdateBot is a module for the automated creation and updating of a conary
+packages from a yum or apt repository.
 """
+
+from updatebot.bot import Bot
+from updatebot.config import UpdateBotConfig
