@@ -237,3 +237,19 @@ class MultipleAdvisoriesFoundError(AdvisoryError):
 
     _params = ['what', 'advisories']
     _template = 'Found multiple advisories for %(what)s: %(advisories)s'
+
+class ErrataError(UpdateBotError):
+    """
+    Base exception class for errata related errors.
+    """
+
+class ErrataPackageNotFoundError(ErrataError):
+    """
+    ErrataPackageNotFoundError, raised when a package can not be found in the
+    package source that matches a package in the errata source.
+    """
+
+    _params = ['pkg', ]
+    _templates = ('Could not find a matching package for %(pkg)s in the '
+        'configured repositories when attempting to map errata source to '
+        'package source.')
