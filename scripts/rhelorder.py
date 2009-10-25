@@ -17,8 +17,8 @@ sys.path.insert(0, mbdir)
 confDir = os.path.join(mbdir, 'config', 'rhel4')
 
 from updatebot import log
-from updatebot import bot
-from updatebot import config
+from updatebot import Bot
+from updatebot import UpdateBotConfig
 
 import time
 import logging
@@ -28,10 +28,10 @@ slog = logging.getLogger('script')
 import rhnmirror
 
 log.addRootLogger()
-cfg = config.UpdateBotConfig()
+cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-obj = bot.Bot(cfg)
+bot = Bot(cfg)
 
 mcfg = rhnmirror.MirrorConfig()
 mcfg.read(os.path.join(confDir, 'erratarc'))
@@ -39,7 +39,7 @@ mcfg.read(os.path.join(confDir, 'erratarc'))
 errata = rhnmirror.Errata(mcfg)
 errata.fetch()
 
-pkgSource = obj._pkgSource
+pkgSource = bot._pkgSource
 pkgSource.load()
 
 # get mapping of advisory to errata obj
