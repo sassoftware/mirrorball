@@ -248,7 +248,7 @@ class Updater(object):
 
         return ret
 
-    def create(self, pkgNames=None, buildAll=False, recreate=False, toUpdate=None):
+    def create(self, pkgNames=None, buildAll=False, recreate=False, toCreate=None):
         """
         Import a new package into the repository.
         @param pkgNames: list of packages to import
@@ -259,20 +259,20 @@ class Updater(object):
         @type recreate: boolean
         @return new source [(name, version, flavor), ... ]
 
-        @param toUpdate: set of packages to update. If this is set all other
+        @param toCreate: set of packages to update. If this is set all other
                          options are ignored.
-        @type toUpdate: set of source package objects.
+        @type toCreate: set of source package objects.
         """
 
-        assert pkgNames or toUpdate
+        assert pkgNames or toCreate
 
         if pkgNames:
-            toUpdate = set()
+            toCreate = set()
         else:
             # Import very specific versions of packages, make sure to recreate
             # them all.
             pkgNames = []
-            recreate = True
+            recreate = False
 
         log.info('getting existing packages')
         pkgs = self._getExistingPackageNames()
@@ -286,13 +286,13 @@ class Updater(object):
             srcPkg = self._getPackagesToImport(pkg)
 
             if srcPkg.name not in pkgs or recreate:
-                toUpdate.add(srcPkg)
+                toCreate.add(srcPkg)
 
         # Update all of the unique sources.
         fail = set()
         toBuild = set()
         verCache = self._conaryhelper.getLatestVersions()
-        for pkg in sorted(toUpdate):
+        for pkg in sorted(toCreate):
             try:
                 # Only import packages that haven't been imported before
                 version = verCache.get('%s:source' % pkg.name)
