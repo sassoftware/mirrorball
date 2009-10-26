@@ -47,6 +47,9 @@ class RpmSource(BasePackageSource):
         Load package source based on config data.
         """
 
+        if self._loaded:
+            return
+
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
@@ -54,6 +57,7 @@ class RpmSource(BasePackageSource):
             self._clients[repo] = client
 
         self.finalize()
+        self._loaded = True
 
     def loadFromUrl(self, url, basePath=''):
         """

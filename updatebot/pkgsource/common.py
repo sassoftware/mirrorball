@@ -29,6 +29,8 @@ class BasePackageSource(object):
         self._cfg = cfg
         self._excludeArch = self._cfg.excludeArch
 
+        self._loaded = False
+
         # {repoShortUrl: clientObj}
         self._clients = dict()
 

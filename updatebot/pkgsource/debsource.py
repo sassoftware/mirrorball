@@ -39,6 +39,9 @@ class DebSource(BasePackageSource):
         Load repository metadata from a config object.
         """
 
+        if self._loaded:
+            return
+
         client = aptmd.Client(self._cfg.repositoryUrl)
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
@@ -46,6 +49,7 @@ class DebSource(BasePackageSource):
             self._clients[repo] = client
 
         self.finalize()
+        self._loaded = True
 
     def loadFromClient(self, client, path):
         """
