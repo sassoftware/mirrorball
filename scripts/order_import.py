@@ -55,7 +55,7 @@ cfg = config.UpdateBotConfig()
 cfg.read(confDir + '/updatebotrc')
 
 mcfg = rhnmirror.MirrorConfig()
-mcfg.read(confDir + '/errata')
+mcfg.read(confDir + '/erratarc')
 
 errata = rhnmirror.Errata(mcfg)
 errata.fetch()
