@@ -19,6 +19,8 @@ Module for ordering errata.
 import time
 import logging
 
+from updatebot.errors import ErrataPackageNotFoundError
+
 log = logging.getLogger('updatebot.errata')
 
 def loadErrata(func):
@@ -139,7 +141,7 @@ class ErrataFilter(object):
             bucket = []
             allocated = []
             bucketId = None
-            slog.info('processing %s' % e.advisory)
+            log.info('processing %s' % e.advisory)
             for pkg in e.packages:
                 nevra = self._getNevra(pkg)
 
