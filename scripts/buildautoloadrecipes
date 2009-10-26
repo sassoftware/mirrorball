@@ -45,6 +45,7 @@ autoLoadPackages="
     derived
     fileset
     group
+    capsule
     groupinfo
     redirect
     userinfo
