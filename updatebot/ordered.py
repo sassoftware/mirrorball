@@ -40,6 +40,7 @@ class Bot(BotSuperClass):
         Handle initial import case.
         """
 
+        self._pkgSource.load()
         toCreate = self._errata.getInitialPackages()
         return self._create(*args, toCreate=toCreate, **kwargs)
 
@@ -53,6 +54,8 @@ class Bot(BotSuperClass):
         raise NotImplementedError
 
         current = 0
+
+        self._pkgSource.load()
 
         for updateId, updates in self._errata.iterByIssueDate(start=current):
             detail = self._errata.getUpdateDetail(updateId)
