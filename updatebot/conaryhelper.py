@@ -61,7 +61,9 @@ class ConaryHelper(object):
 
         # FIXME: CNY-3256 - use unique tmp directory for lookaside until
         #                   this issue is fixed.
-        self._ccfg.lookaside = tempfile.mkdtemp(prefix=cfg.platformName + '-')
+        self._ccfg.lookaside = tempfile.mkdtemp(
+            prefix='%s-lookaside-' % cfg.platformName)
+        log.info('using lookaside %s' % self._ccfg.lookaside)
 
         mirrorDir = util.join(cfg.configPath, 'mirrors')
         if os.path.exists(mirrorDir):
