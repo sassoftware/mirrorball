@@ -166,7 +166,7 @@ class Updater(object):
             manifest = self._conaryhelper.getManifest(nvf[0])
         except NoManifestFoundError, e:
             # Create packages that do not have manifests.
-            # FIXME: might want to make this a config option?
+            # TODO: might want to make this a config option?
             log.info('no manifest found for %s, will create package' % nvf[0])
             return True
 
