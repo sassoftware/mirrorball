@@ -135,13 +135,15 @@ class ErrataFilter(object):
         buckets = {}
         nevraMap = {}
 
+        log.info('processing errata')
+
         indexedChannels = set(self._errata.getChannels())
         arches = ('i386', 'i486', 'i586', 'i686', 'x86_64', 'noarch')
         for e in self._errata.iterByIssueDate():
             bucket = []
             allocated = []
             bucketId = None
-            log.info('processing %s' % e.advisory)
+            #log.info('processing %s' % e.advisory)
             for pkg in e.packages:
                 nevra = self._getNevra(pkg)
 
