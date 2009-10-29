@@ -246,7 +246,9 @@ class Builder(object):
                 troves.append((name, version, flavor))
 
             # Kernels are special.
-            elif ((name == 'kernel' or name in self._cfg.kernelModules)
+            elif ((name == 'kernel' or
+                   name in self._cfg.kernelModules or
+                   util.isKernelModulePackage(name))
                   and self._cfg.kernelFlavors):
                 for context, flavor in self._cfg.kernelFlavors:
                     # Replace flag name to match package

@@ -123,3 +123,18 @@ class Metadata(object):
 
         for pkg in self.pkgs:
             self.binPkgMap[pkg] = src
+
+def isKernelModulePackage(paths):
+    """
+    Check if a package file name or location is a kernel module.
+    """
+
+    if type(paths) == str:
+        paths = [ paths, ]
+
+    for path in paths:
+        basePath = os.path.basename(path)
+        if (basePath.startswith('kmod-') or
+            basePath.startswith('kernel-module')):
+            return True
+    return False
