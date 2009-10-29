@@ -59,6 +59,10 @@ class ConaryHelper(object):
         # Have to initialize flavors to commit to the repository.
         self._ccfg.initializeFlavors()
 
+        # FIXME: CNY-3256 - use unique tmp directory for lookaside until
+        #                   this issue is fixed.
+        self._ccfg.lookaside = tempfile.mkdtemp(prefix=cfg.platformName + '-')
+
         mirrorDir = util.join(cfg.configPath, 'mirrors')
         if os.path.exists(mirrorDir):
             self._ccfg.mirrorDirs.insert(0, mirrorDir)
