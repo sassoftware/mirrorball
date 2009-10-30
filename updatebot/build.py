@@ -397,10 +397,12 @@ class Builder(object):
 
                 # RPM config flag mapping
                 if rFlags & rpmhelper.RPMFILE_CONFIG:
-                    if fileObj.contents.size():
-                        fassert(fileObj.flags.isConfig(), fpath)
-                    else:
+                    if fileObj.linkGroup() or not fileObj.contents.size():
                         fassert(fileObj.flags.isInitialContents(), fpath)
+                    else:
+                        fassert(fileObj.flags.isConfig() or
+                                fileObj.flags.isInitialContents(),
+                                why='RPM config file %s is neither config file nor initialcontents' %fpath)
 
             elif isinstance(fileObj, files.Directory):
                 fassert(stat.S_ISDIR(rMode), fpath)
