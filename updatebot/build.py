@@ -73,13 +73,9 @@ class Builder(object):
     @type cfg: config.UpdateBotConfig
     @param saveChangeSets: directory to save changesets to
     @type saveChangeSets: str
-    @param sanityCheckCommits: get the changeset that was just committed from the
-                              repository to verify everything made it into the
-                              repository.
-    @type sanityCheckCommits: boolean
     """
 
-    def __init__(self, cfg, saveChangeSets=None, sanityCheckCommits=False):
+    def __init__(self, cfg, rmakeCfgFn=None, saveChangeSets=None):
         self._cfg = cfg
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
@@ -90,8 +86,9 @@ class Builder(object):
         self._client = conaryclient.ConaryClient(self._ccfg)
 
         if saveChangeSets is None and self._cfg.saveChangeSets:
-            self._saveChangeSets=tempfile.mkdtemp(prefix=self._cfg.platformName,
-                                                  suffix='-import-changesets')
+            self._saveChangeSets = tempfile.mkdtemp(
+                prefix=self._cfg.platformName,
+                suffix='-import-changesets')
         else:
             self._saveChangeSets = saveChangeSets
 
@@ -108,8 +105,16 @@ class Builder(object):
         pluginMgr.loadPlugins()
         pluginMgr.callClientHook('client_preInit', self, [])
 
+        rmakerc = 'rmakerc'
+        if rmakeCfgFn:
+            rmakeCfgPath = util.join(self._cfg.configPath, rmakeCfgFn)
+            if os.path.exists(rmakeCfgPath):
+                rmakerc = rmakeCfgFn
+            else:
+                log.warn('%s not found, falling back to rmakerc' % rmakeCfgFn)
+
         self._rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
-        self._rmakeCfg.read(util.join(self._cfg.configPath, 'rmakerc'))
+        self._rmakeCfg.read(util.join(self._cfg.configPath, rmakerc))
         self._rmakeCfg.useConaryConfig(self._ccfg)
         self._rmakeCfg.copyInConfig = False
         self._rmakeCfg.strictMode = True
