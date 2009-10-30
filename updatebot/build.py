@@ -442,7 +442,6 @@ class Builder(object):
 
             if not rVflags:
                 # %doc -- CNY-3254
-                fassert(isinstance(fileObj, files.RegularFile), fpath)
                 fassert(not fileObj.flags.isInitialContents(), fpath)
 
     def _sanityCheckChangeSet(self, csFile, jobId):
