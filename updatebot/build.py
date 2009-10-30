@@ -356,42 +356,44 @@ class Builder(object):
 
         h = rpmhelper.readHeader(rpmFile,ignoreSize=True)
         rpmFileList = dict(
-            itertools.izip( h[rpmhelper.OLDFILENAMES],
-                            itertools.izip( h[rpmhelper.FILEUSERNAME],
-                                            h[rpmhelper.FILEGROUPNAME],
-                                            h[rpmhelper.FILEMODES],
-                                            h[rpmhelper.FILESIZES],
-                                            h[rpmhelper.FILERDEVS],
-                                            h[rpmhelper.FILEFLAGS],
-                                            h[rpmhelper.FILEVERIFYFLAGS],
-                                            h[rpmhelper.FILELINKTOS],
-                                            )))
+            itertools.izip(h[rpmhelper.OLDFILENAMES],
+                           itertools.izip(h[rpmhelper.FILEUSERNAME],
+                                          h[rpmhelper.FILEGROUPNAME],
+                                          h[rpmhelper.FILEMODES],
+                                          h[rpmhelper.FILESIZES],
+                                          h[rpmhelper.FILERDEVS],
+                                          h[rpmhelper.FILEFLAGS],
+                                          h[rpmhelper.FILEVERIFYFLAGS],
+                                          h[rpmhelper.FILELINKTOS],
+                                          )))
 
         foundFiles = dict.fromkeys(rpmFileList)
 
-        def fassert( test, path="", why=None ):
+        def fassert(test, path="", why=None):
             if not test:
                 if why:
-                    raise CommitFailedError( jobId=jobId, why=why )
+                    raise CommitFailedError(jobId=jobId, why=why)
                 else:
-                    raise CommitFailedError(jobId=jobId, why="metadata in trove doesn't "
-                                            "agree with rpm header for file %s" % (path) )
+                    raise CommitFailedError(jobId=jobId, why='metadata in trove'
+                        ' does not agree with rpm header for file %s' % (path))
 
         for fileInfo, fileObj in zip(fileList, fileObjs):
             fpath = fileInfo[1]
             foundFiles[fpath] = True
-            rUser, rGroup, rMode, rSize, rDev, rFlags, rVflags, rLinkto = rpmFileList[fpath]
+            rUser, rGroup, rMode, rSize, rDev, rFlags, rVflags, rLinkto = \
+                rpmFileList[fpath]
 
             # First, tests based on the Conary changeset
 
             # file metadata verification
-            if  rUser != fileObj.inode.owner() or rGroup != fileObj.inode.group() \
-                    or stat.S_IMODE(rMode) != fileObj.inode.perms():
-                fassert( False, fpath )
+            if (rUser != fileObj.inode.owner() or
+                rGroup != fileObj.inode.group() or
+                stat.S_IMODE(rMode) != fileObj.inode.perms()):
+                fassert(False, fpath)
 
             if isinstance(fileObj, files.RegularFile):
-                if not stat.S_ISREG( rMode ):
-                    fassert( False, fpath )
+                if not stat.S_ISREG(rMode):
+                    fassert(False, fpath)
 
                 # RPM config flag mapping
                 if rFlags & rpmhelper.RPMFILE_CONFIG:
@@ -401,47 +403,105 @@ class Builder(object):
                         fassert(fileObj.flags.isInitialContents(), fpath)
 
             elif isinstance(fileObj, files.Directory):
-                fassert( stat.S_ISDIR( rMode ), fpath )
-                fassert( not fileObj.flags.isPayload(), fpath )
+                fassert(stat.S_ISDIR(rMode), fpath)
+                fassert(not fileObj.flags.isPayload(), fpath)
             elif isinstance(fileObj, files.CharacterDevice):
-                fassert( stat.S_ISCHR( rMode ), fpath )
+                fassert(stat.S_ISCHR(rMode), fpath)
 
                 minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
                 major = (rDev >> 8) & 0xfff
-                fassert( fileObj.devt.major() ==  major , fpath )
-                fassert( fileObj.devt.minor() == minor , fpath )
+                fassert(fileObj.devt.major() ==  major , fpath)
+                fassert(fileObj.devt.minor() == minor , fpath)
 
-                fassert( not fileObj.flags.isPayload() )
+                fassert(not fileObj.flags.isPayload())
             elif isinstance(fileObj, files.BlockDevice):
-                fassert( stat.S_ISBLK( rMode ), fpath )
+                fassert(stat.S_ISBLK(rMode), fpath)
 
                 minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
                 major = (rDev >> 8) & 0xfff
-                fassert( fileObj.devt.major() == major, fpath )
-                fassert( fileObj.devt.minor() == minor, fpath )
+                fassert(fileObj.devt.major() == major, fpath)
+                fassert(fileObj.devt.minor() == minor, fpath)
 
-                fassert( not fileObj.flags.isPayload(), fpath )
+                fassert(not fileObj.flags.isPayload(), fpath)
             elif isinstance(fileObj, files.NamedPipe):
-                fassert( stat.S_ISFIFO( rMode ), fpath )
+                fassert(stat.S_ISFIFO(rMode), fpath)
 
-                fassert( not fileObj.flags.isPayload(), fpath )
+                fassert(not fileObj.flags.isPayload(), fpath)
             elif isinstance(fileObj, files.SymbolicLink):
-                fassert( stat.S_ISLNK( rMode ), fpath )
-                fassert( fileObj.target() == rLinkto, fpath )
+                fassert(stat.S_ISLNK(rMode), fpath)
+                fassert(fileObj.target() == rLinkto, fpath)
 
-                fassert( not fileObj.flags.isPayload(), fpath )
+                fassert(not fileObj.flags.isPayload(), fpath)
             else:
                 # unhandled file type
-                fassert( False, fpath )
+                fassert(False, fpath)
 
             # Now, some tests based on the contents of the RPM header
             if (not stat.S_ISDIR(rMode)) and rFlags & rpmhelper.RPMFILE_GHOST:
-                fassert( fileObj.flags.isInitialContents(), fpath )
+                fassert(fileObj.flags.isInitialContents(), fpath)
 
             if not rVflags:
                 # %doc -- CNY-3254
-                fassert( isinstance(fileObj, files.RegularFile), fpath )
-                fassert( not fileObj.flags.isInitialContents(), fpath )
+                fassert(isinstance(fileObj, files.RegularFile), fpath)
+                fassert(not fileObj.flags.isInitialContents(), fpath)
+
+    def _sanityCheckChangeSet(self, csFile, jobId):
+        """
+        Sanity check changeset before commit.
+        """
+
+        newCs = changeset.ChangeSetFromFile(csFile)
+        log.info('comparing changeset to rpm capsules contained within it for
+                  changset %s' % writeToFile)
+
+        oldCsJob = []
+        for newTroveCs in newCs.iterNewTroveList():
+            if newTroveCs.getTroveInfo().capsule.type() == 'rpm':
+                if newTroveCs.getOldVersion():
+                    name, version, flavor = newTroveCs.getOldNameVersionFlavor()
+                    oldCsJob.append((name, (None, None),
+                                           (version, flavor), True))
+
+                oldCs = None
+                if oldCsJob:
+                    oldCs = self._client.repos.createChangeSet(oldCsJob,
+                        withFiles=True, withFileContents=False)
+
+                fileObjs = []
+                fileList = []
+                capsuleFileContents = None
+                if newTroveCs.getOldVersion():
+                    oldTroveCs = oldCs.getNewTroveVersion(
+                        *newTroveCs.getOldNameVersionFlavor())
+                    assert (oldTroveCs.getNewNameVersionFlavor() ==
+                            newTroveCs.getOldNameVersionFlavor())
+                    oldTrove = trove.Trove(oldTroveCs)
+                    newTrove = oldTrove.copy()
+                    newTrove.applyChangeSet(newTroveCs)
+                else:
+                    oldTrove = None
+                    newTrove = trove.Trove(newTroveCs)
+
+                # get file streams for comparison
+                fileList = list(newTrove.iterFileList(capsules=False))
+                for pathId, path, fileId, fileVer in fileList:
+                    fileObjs.append(ChangesetFilter._getFileObject(
+                        pathId, fileId, oldTrove, oldCs, newCs))
+
+                # get capsule file contents
+                capFileList = [ x[2:] for x in
+                                newTrove.iterFileList(capsules=True) ]
+                if len(capFileList) != 1:
+                    raise CommitFailedError(jobId=jobId, why='More than 1 RPM '
+                        'capsule in trove %s' % newTroveCs.name())
+                fcList = self._client.repos.getFileContents(capFileList,
+                                                            compressed=False)
+                capsuleFileContents = fcList[0].get()
+
+                # do the check
+                self._sanityCheckRPMCapsule(jobIdsStr, fileList, fileObjs,
+                                            capsuleFileContents)
+
 
     def _commitJob(self, jobId):
         """
@@ -481,48 +541,7 @@ class Builder(object):
 
         if writeToFile:
             log.info('changeset saved to %s' % writeToFile)
-            newCs = changeset.ChangeSetFromFile( writeToFile )
-
-            log.info('comparing changeset to rpm capsules contained within it for changset %s' % writeToFile)
-
-            oldCsJob = []
-            for newTroveCs in newCs.iterNewTroveList():
-                if newTroveCs.getTroveInfo().capsule.type() == 'rpm':
-                    if newTroveCs.getOldVersion():
-                        name, version, flavor = newTroveCs.getOldNameVersionFlavor()
-                        oldCsJob.append((name, (None, None), (version, flavor), True))
-
-                    oldCs = None
-                    if oldCsJob:
-                        oldCs = self._client.repos.createChangeSet(oldCsJob, withFiles=True, withFileContents=False)
-
-                    fileObjs = []
-                    fileList = []
-                    capsuleFileContents = None
-                    if newTroveCs.getOldVersion():
-                        oldTroveCs = oldCs.getNewTroveVersion(*newTroveCs.getOldNameVersionFlavor())
-                        assert oldTroveCs.getNewNameVersionFlavor() == newTroveCs.getOldNameVersionFlavor()
-                        oldTrove = trove.Trove(oldTroveCs)
-                        newTrove = oldTrove.copy()
-                        newTrove.applyChangeSet(newTroveCs)
-                    else:
-                        oldTrove = None
-                        newTrove = trove.Trove(newTroveCs)
-
-                    # get file streams for comparison
-                    fileList = list(newTrove.iterFileList(capsules=False))
-                    for pathId, path, fileId, fileVer in fileList:
-                        fileObjs.append( ChangesetFilter._getFileObject(pathId, fileId, oldTrove, oldCs, newCs) )
-
-                    # get capsule file contents
-                    capFileList = [ x[2:] for x in newTrove.iterFileList(capsules=True) ]
-                    if len(capFileList) != 1:
-                        raise CommitFailedError(jobId=jobId, why="More than 1 RPM capsule in trove %s" % newTroveCs.name() )
-                    fcList = self._client.repos.getFileContents(capFileList, compressed=False)
-                    capsuleFileContents = fcList[0].get()
-
-                    # do the check
-                    self._sanityCheckRPMCapsule( jobIdsStr, fileList, fileObjs, capsuleFileContents )
+            self._sanityCheckChangeSet(writeToFile, jobIdsStr)
 
             log.info('committing changeset to repository')
             self._client.repos.commitChangeSetFile(writeToFile)
