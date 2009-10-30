@@ -46,7 +46,7 @@ log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
-builder = build.Builder(cfg, saveChangeSets=tempfile.mkdtemp(), sanityCheckCommits=True)
+builder = build.Builder(cfg, saveChangeSets=tempfile.mkdtemp())
 
 def displayTrove(nvf):
     flavor = ''
