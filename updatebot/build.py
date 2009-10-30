@@ -402,7 +402,8 @@ class Builder(object):
                     else:
                         fassert(fileObj.flags.isConfig() or
                                 fileObj.flags.isInitialContents(),
-                                why='RPM config file %s is neither config file nor initialcontents' %fpath)
+                                why='RPM config file %s is neither config file '
+                                    'nor initialcontents' %fpath)
 
             elif isinstance(fileObj, files.Directory):
                 fassert(stat.S_ISDIR(rMode), fpath)
@@ -549,7 +550,9 @@ class Builder(object):
 
         if writeToFile:
             log.info('changeset saved to %s' % writeToFile)
-            self._sanityCheckChangeSet(writeToFile, jobIdsStr)
+
+            if self._sanityCheckCommits:
+                self._sanityCheckChangeSet(writeToFile, jobIdsStr)
 
             log.info('committing changeset to repository')
             self._client.repos.commitChangeSetFile(writeToFile)
@@ -563,13 +566,9 @@ class Builder(object):
                     for n, v, f in arch:
                         if n.startswith('group-'): continue
                         jobList.append((n, (None, None), (v, f), True))
-            try:
-                cs = self._client.repos.createChangeSet(jobList, withFiles=True,
-                                                        withFileContents=False)
-            except Exception, e:
-                self._errorEvent.setError(Exception, e)
-                if self._topLevel:
-                    self._errorEvent.raiseError()
+
+            cs = self._client.repos.createChangeSet(jobList, withFiles=True,
+                                                    withFileContents=False)
 
         log.info('Commit of job %s completed in %.02f seconds',
                  jobIdsStr, time.time() - startTime)
