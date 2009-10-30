@@ -354,7 +354,7 @@ class Builder(object):
         trove to make sure that they agree.
         """
 
-        h = rpmhelper.readHeader(rpmFile,ignoreSize=True)
+        h = rpmhelper.readHeader(rpmFile, ignoreSize=True)
         rpmFileList = dict(
             itertools.izip(h[rpmhelper.OLDFILENAMES],
                            itertools.izip(h[rpmhelper.FILEUSERNAME],
@@ -410,8 +410,8 @@ class Builder(object):
 
                 minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
                 major = (rDev >> 8) & 0xfff
-                fassert(fileObj.devt.major() ==  major , fpath)
-                fassert(fileObj.devt.minor() == minor , fpath)
+                fassert(fileObj.devt.major() == major, fpath)
+                fassert(fileObj.devt.minor() == minor, fpath)
 
                 fassert(not fileObj.flags.isPayload())
             elif isinstance(fileObj, files.BlockDevice):
@@ -437,7 +437,7 @@ class Builder(object):
                 fassert(False, fpath)
 
             # Now, some tests based on the contents of the RPM header
-            if (not stat.S_ISDIR(rMode)) and rFlags & rpmhelper.RPMFILE_GHOST:
+            if not stat.S_ISDIR(rMode) and rFlags & rpmhelper.RPMFILE_GHOST:
                 fassert(fileObj.flags.isInitialContents(), fpath)
 
             if not rVflags:
@@ -451,8 +451,8 @@ class Builder(object):
         """
 
         newCs = changeset.ChangeSetFromFile(csFile)
-        log.info('comparing changeset to rpm capsules contained within it for
-                  changset %s' % writeToFile)
+        log.info('comparing changeset to rpm capsules contained within it for'
+                 'changset %s' % csFile)
 
         oldCsJob = []
         for newTroveCs in newCs.iterNewTroveList():
@@ -462,15 +462,9 @@ class Builder(object):
                     oldCsJob.append((name, (None, None),
                                            (version, flavor), True))
 
-                oldCs = None
-                if oldCsJob:
                     oldCs = self._client.repos.createChangeSet(oldCsJob,
                         withFiles=True, withFileContents=False)
 
-                fileObjs = []
-                fileList = []
-                capsuleFileContents = None
-                if newTroveCs.getOldVersion():
                     oldTroveCs = oldCs.getNewTroveVersion(
                         *newTroveCs.getOldNameVersionFlavor())
                     assert (oldTroveCs.getNewNameVersionFlavor() ==
@@ -478,10 +472,13 @@ class Builder(object):
                     oldTrove = trove.Trove(oldTroveCs)
                     newTrove = oldTrove.copy()
                     newTrove.applyChangeSet(newTroveCs)
+
                 else:
+                    oldCs = None
                     oldTrove = None
                     newTrove = trove.Trove(newTroveCs)
 
+                fileObjs = []
                 # get file streams for comparison
                 fileList = list(newTrove.iterFileList(capsules=False))
                 for pathId, path, fileId, fileVer in fileList:
@@ -489,19 +486,29 @@ class Builder(object):
                         pathId, fileId, oldTrove, oldCs, newCs))
 
                 # get capsule file contents
-                capFileList = [ x[2:] for x in
-                                newTrove.iterFileList(capsules=True) ]
+                if newTroveCs.getOldVersion():
+                    capFileList = [ x[2:] for x in
+                                    newTrove.iterFileList(capsules=True) ]
+                else:
+                    capFileList = [ (x[0], x[2]) for x in
+                                    newTrove.iterFileList(capsules=True) ]
+
                 if len(capFileList) != 1:
                     raise CommitFailedError(jobId=jobId, why='More than 1 RPM '
                         'capsule in trove %s' % newTroveCs.name())
-                fcList = self._client.repos.getFileContents(capFileList,
-                                                            compressed=False)
-                capsuleFileContents = fcList[0].get()
+
+                if newTroveCs.getOldVersion():
+                    getFileContents = self._client.repos.getFileContents
+                    fcList = getFileContents(capFileList, compressed=False)
+                    capsuleFileContents = fcList[0].get()
+                else:
+                    getFileContents = newCs.getFileContents
+                    fcList = getFileContents(*capFileList[0], compressed=False)
+                    capsuleFileContents = fcList[1].get()
 
                 # do the check
-                self._sanityCheckRPMCapsule(jobIdsStr, fileList, fileObjs,
+                self._sanityCheckRPMCapsule(jobId, fileList, fileObjs,
                                             capsuleFileContents)
-
 
     def _commitJob(self, jobId):
         """
