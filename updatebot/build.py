@@ -354,7 +354,7 @@ class Builder(object):
         trove to make sure that they agree.
         """
 
-        h = rpmhelper.readHeader(rpmFile, ignoreSize=True)
+        h = rpmhelper.readHeader(rpmFile, checkSize=False)
         rpmFileList = dict(
             itertools.izip(h[rpmhelper.OLDFILENAMES],
                            itertools.izip(h[rpmhelper.FILEUSERNAME],
