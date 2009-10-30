@@ -98,9 +98,10 @@ class XDict(object):
 
     def __init__(self):
         self.items = []
+        self._itemClass = self.__class__.__dict__['items'][0]
 
     def __setitem__(self, key, value):
-        item = XDictItem(key, value)
+        item = self._itemClass(key, value)
         if item in self.items:
             idx = self.items.index(item)
             self.items[idx] = item
@@ -115,3 +116,68 @@ class XDict(object):
 
     def __contains__(self, key):
         return key in self.items
+
+
+class XItemList(XDocManager):
+    """
+    List of items.
+    """
+
+    def __init__(self):
+        self.items = []
+        self._itemClass = self.__class__.__dict__['items'][0]
+        XDocManager.__init__(self)
+
+
+class XPackageItem(object):
+    """
+    Object to represent package data required for group builds with the
+    managed group factory.
+    """
+
+    name = str
+    version = str
+    flavor = str
+    byDefault = int
+    use = str
+    source = str
+    originalName = str
+
+    def __init__(self, name, version='', flavor='', byDefault=1, use=1,
+                 source='', originalName=None):
+        self.name = name
+        self.version = version
+        self.flavor = flavor
+        self.byDefault = byDefault
+        self.use = use
+        self.source = source
+        self.originalName = originalName and originalName or name
+
+
+class XPackageData(XItemList):
+    """
+    Mapping of package name to package group data.
+    """
+
+    items = [ XPackageItem ]
+
+
+class XGroup(object):
+    """
+    Group file info.
+    """
+
+    name = str
+    filename = str
+
+    def __init__(self, name, filename):
+        self.name = name
+        self.filename = filename
+
+
+class XGroupList(XItemList):
+    """
+    List of file names to load as groups.
+    """
+
+    items = [ XGroup ]
