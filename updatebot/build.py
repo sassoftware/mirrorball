@@ -354,6 +354,7 @@ class Builder(object):
         trove to make sure that they agree.
         """
 
+        rpmFile.seek(0)
         h = rpmhelper.readHeader(rpmFile, checkSize=False)
         rpmFileList = dict(
             itertools.izip(h[rpmhelper.OLDFILENAMES],
@@ -452,17 +453,22 @@ class Builder(object):
         Sanity check changeset before commit.
         """
 
-        newCs = changeset.ChangeSetFromFile(csFile)
-        log.info('comparing changeset to rpm capsules contained within it for'
-                 'changset %s' % csFile)
+        def idCmp(a, b):
+            apid, afid = a[0][0], a[0][2]
+            bpid, bfid = b[0][0], b[0][2]
 
-        oldCsJob = []
+            return cmp((apid, afid), (bpid, bfid))
+
+        newCs = changeset.ChangeSetFromFile(csFile)
+        log.info('comparing changeset to rpm capsules: %s' % csFile)
+
+        capsules = []
         for newTroveCs in newCs.iterNewTroveList():
             if newTroveCs.getTroveInfo().capsule.type() == 'rpm':
                 if newTroveCs.getOldVersion():
                     name, version, flavor = newTroveCs.getOldNameVersionFlavor()
-                    oldCsJob.append((name, (None, None),
-                                           (version, flavor), True))
+                    oldCsJob = [ (name, (None, None),
+                                        (version, flavor), True) ]
 
                     oldCs = self._client.repos.createChangeSet(oldCsJob,
                         withFiles=True, withFileContents=False)
@@ -487,30 +493,33 @@ class Builder(object):
                     fileObjs.append(ChangesetFilter._getFileObject(
                         pathId, fileId, oldTrove, oldCs, newCs))
 
-                # get capsule file contents
-                if newTroveCs.getOldVersion():
-                    capFileList = [ x[2:] for x in
-                                    newTrove.iterFileList(capsules=True) ]
-                else:
-                    capFileList = [ (x[0], x[2]) for x in
-                                    newTrove.iterFileList(capsules=True) ]
+                capFileList = [ x for x in
+                    newTrove.iterFileList(capsules=True) ]
 
                 if len(capFileList) != 1:
                     raise CommitFailedError(jobId=jobId, why='More than 1 RPM '
                         'capsule in trove %s' % newTroveCs.name())
 
-                if newTroveCs.getOldVersion():
-                    getFileContents = self._client.repos.getFileContents
-                    fcList = getFileContents(capFileList, compressed=False)
-                    capsuleFileContents = fcList[0].get()
-                else:
-                    getFileContents = newCs.getFileContents
-                    fcList = getFileContents(*capFileList[0], compressed=False)
-                    capsuleFileContents = fcList[1].get()
+                capsules.append((capFileList[0], fileList, fileObjs))
 
-                # do the check
-                self._sanityCheckRPMCapsule(jobId, fileList, fileObjs,
-                                            capsuleFileContents)
+        contentsCache = {}
+        for capFile, fileList, fileObjs in sorted(capsules, cmp=idCmp):
+            if capFile[2] in contentsCache:
+                capsuleFileContents = contentsCache[capFile[2]]
+            elif newTroveCs.getOldVersion():
+                getFileContents = self._client.repos.getFileContents
+                fcList = getFileContents(capFile[2:], compressed=False)
+                capsuleFileContents = fcList[0].get()
+            else:
+                getFileContents = newCs.getFileContents
+                fcList = getFileContents(capFile[0], capFile[2],
+                                         compressed=False)
+                capsuleFileContents = fcList[1].get()
+            contentsCache[capFile[2]] = capsuleFileContents
+
+            # do the check
+            self._sanityCheckRPMCapsule(jobId, fileList, fileObjs,
+                                        capsuleFileContents)
 
     def _commitJob(self, jobId):
         """
