@@ -1,0 +1,71 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2009 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+# This script finds all packages that include paths starting with the
+# prefixes specified on the command line.  It takes a long time.  For
+# example, given a mirrorball config called "boots", you can run:
+# ./findprefixpackages boots /usr/lib/python2.6 /usr/lib64/python2.6 /usr/lib/perl5 /usr/lib64/perl5 
+
+import os
+import sys
+
+sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
+import copy
+import logging
+
+from updatebot import log
+from updatebot import bot
+from updatebot import errors
+from updatebot import config
+from updatebot import conaryhelper
+
+from conary.deps import deps
+
+log.addRootLogger()
+
+slog = logging.getLogger('findprefixpackages')
+
+cfg = config.UpdateBotConfig()
+cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+
+prefixes = set(sys.argv[2:])
+
+bot = bot.Bot(cfg)
+helper = bot._updater._conaryhelper
+
+def findPrefixInPaths(pathSet):
+    for path in pathSet:
+        for prefix in prefixes:
+            if path.startswith(prefix):
+                return True
+    return False
+
+label = helper._ccfg.buildLabel
+trvMap = helper._repos.getTroveLeavesByLabel({None: {label: None}})
+troveSpecList = []
+for troveName in sorted(trvMap.keys()):
+    for v in trvMap[troveName]:
+        for flv in trvMap[troveName][v]:
+            troveSpecList.append((troveName, v, flv))
+
+reportedTroves = set()
+for troveName, pathSet in helper._iterPathsByTrove(troveSpecList):
+    if troveName not in reportedTroves:
+        if findPrefixInPaths(pathSet):
+            print troveName
+            reportedTroves.add(troveName)

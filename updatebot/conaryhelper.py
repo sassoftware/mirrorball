@@ -149,6 +149,24 @@ class ConaryHelper(object):
 
         return latest
 
+    def _iterPathsByTrove(self, troveSpecList):
+        """
+        Generates (name, set of paths) tuples representing the paths
+        contained in troves mentioned in the troveSpecList
+        @param troveSpecList: troves to inspect
+        @type troveSpecList: [(name, versionObj, flavorObj), ...]
+        @yield (name, frozenset(path, path, ...))
+        """
+        cl = [ (x, (None, None), (y, z), True) for x, y, z in troveSpecList ]
+        cs = self._client.createChangeSet(cl, withFiles=True,
+                                          withFileContents=False,
+                                          recurse=False)
+        for trvCs in cs.iterNewTroveList():
+            trv = trove.Trove(trvCs)
+            paths = frozenset(path for _, path, _, _ in trv.iterFileList())
+            if paths:
+                yield trv.name(), paths
+
     def _getSourceTroves(self, troveSpec):
         """
         Iterate over the contents of a trv to find all of source troves
