@@ -350,10 +350,9 @@ class Dispatcher(object):
     """
 
     _completed = (
-        -1, -2,
+        -2,
         buildjob.JOB_STATE_FAILED,
-        buildjob.JOB_STATE_BUILT,
-#        buildjob.JOB_STATE_COMMITTED
+        buildjob.JOB_STATE_COMMITTED
     )
 
     def __init__(self, builder, maxSlots):
@@ -439,7 +438,7 @@ class Dispatcher(object):
         results = {}
         for jobId, (trove, status, result) in self._jobs.iteritems():
             # log failed jobs
-            if status == buildjob.JOB_STATE_FAILED:
+            if status == buildjob.JOB_STATE_FAILED or not result:
                 log.info('[%s] failed job: %s' % (jobId, trove))
             else:
                 results.update(result)
