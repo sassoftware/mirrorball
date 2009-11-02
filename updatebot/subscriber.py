@@ -350,7 +350,7 @@ class Dispatcher(object):
     """
 
     _completed = (
-        -1,
+        -1, -2,
         buildjob.JOB_STATE_FAILED,
         buildjob.JOB_STATE_BUILT,
 #        buildjob.JOB_STATE_COMMITTED
@@ -430,7 +430,7 @@ class Dispatcher(object):
             for jobId, error in itertools.chain(self._monitor.getErrors(),
                                                 self._committer.getErrors()):
                 self._slots += 1
-                self._jobs[jobId][1] = -1
+                self._jobs[jobId][1] = -2
                 self._failures.append((jobId, error))
 
             # Wait for a bit before polling again.
@@ -442,7 +442,7 @@ class Dispatcher(object):
             if status == buildjob.JOB_STATE_FAILED:
                 log.info('[%s] failed job: %s' % (jobId, trove))
             else:
-                results[trove] = result
+                results.update(result)
 
         # report failures
         for job, error in self._failures:
