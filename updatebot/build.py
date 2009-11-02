@@ -508,7 +508,7 @@ class Builder(object):
                 capsuleFileContents = contentsCache[capFile[2]]
             elif newTroveCs.getOldVersion():
                 getFileContents = self._client.repos.getFileContents
-                fcList = getFileContents(capFile[2:], compressed=False)
+                fcList = getFileContents((capFile[2:], ), compressed=False)
                 capsuleFileContents = fcList[0].get()
             else:
                 getFileContents = newCs.getFileContents
