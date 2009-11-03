@@ -449,6 +449,11 @@ class Builder(object):
                 # %doc -- CNY-3254
                 fassert(not fileObj.flags.isInitialContents(), fpath)
 
+        # Make sure we have explicitly checked every file in the RPM
+        uncheckedFiles = [x[0] for x in foundFiles.iteritems() if not x[1]]
+        fassert( not uncheckedFiles, str(uncheckedFiles) )
+
+
     def _sanityCheckChangeSet(self, csFile, jobId):
         """
         Sanity check changeset before commit.
