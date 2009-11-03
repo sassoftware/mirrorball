@@ -16,6 +16,7 @@
 Builder object implementation.
 """
 
+import os
 import stat
 import time
 import logging
