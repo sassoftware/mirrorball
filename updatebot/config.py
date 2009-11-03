@@ -111,7 +111,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     topSourceGroup      = CfgTroveSpec
 
     # Group contents info.
-    groupContents       = (CfgList(CfgList(CfgString)), [])
+    groupContents       = (CfgDict(CfgDict(CfgString)), {})
 
     # Other labels that are referenced in the group that need to be flattend
     # onto the targetLabel.

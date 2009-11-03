@@ -551,15 +551,23 @@ class ConaryHelper(object):
 
         return None
 
+    def _getLatestTroves(self):
+        """
+        Get a dict of the latest troves on the buildLabel.
+        @return {name: {version: [flavor, ...]}}}
+        """
+
+        label = self._ccfg.buildLabel
+        trvMap = self._repos.getTroveLeavesByLabel({None: {label: None}})
+        return trvMap
+
     def getLatestVersions(self):
         """
         Find all of the versions on the buildLabel.
         @return {trvName: trvVersion}
         """
 
-        label = self._ccfg.buildLabel
-
-        trvMap = self._repos.getTroveLeavesByLabel({None: {label: None}})
+        trvMap = self._getLatestTroves()
 
         verMap = {}
         for name, verDict in trvMap.iteritems():

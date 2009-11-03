@@ -250,6 +250,52 @@ class ErrataPackageNotFoundError(ErrataError):
     """
 
     _params = ['pkg', ]
-    _templates = ('Could not find a matching package for %(pkg)s in the '
+    _template = ('Could not find a matching package for %(pkg)s in the '
         'configured repositories when attempting to map errata source to '
         'package source.')
+
+class GroupManagerError(UpdateBotError):
+    """
+    GroupManagerError, generic error for group manager related errors.
+    """
+
+    _template = 'Group manager error'
+
+class UnsupportedTroveFlavorError(GroupManagerError):
+    """
+    UnsupportedTroveError, raised when the group manager runs across a flavor it
+    does not know what to do with.
+    """
+
+    _params = ['name', 'flavor']
+    _template = ('Do not know what to do with flavor %(flavor)s from trove '
+        '%(name)s')
+
+class UnknownBuildContextError(GroupManagerError):
+    """
+    UnknownBuildContextError, raised when the group manager finds a build
+    context on a special package that does not match either the x86 or
+    x86_64 filter.
+    """
+
+    _params = ['name', 'context']
+    _template = ('Context does not fall into the x86 or x86_64 flavor sets.')
+
+class FlavorCountMismatchError(GroupManagerError):
+    """
+    FlavorCountMismatchError, raised when the number of built package flavors
+    does not match the configured flavors.
+    """
+
+    _params = ['name', ]
+    _template = ('Could not find all built flavors for %(name)s. Maybe one of '
+        'the configured contexts resulted in an overlap.')
+
+class UnhandledPackageAdditionError(GroupManagerError):
+    """
+    UnhandledPackageAdditionError, raised when the group manager just doesn't
+    know what to do when adding a package.
+    """
+
+    _params = ['name', ]
+    _templates = 'I don not know what to do with this package %(name)s.'

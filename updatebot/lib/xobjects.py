@@ -18,6 +18,8 @@ Module for serializable representations of repository metadata.
 
 from xobj import xobj
 
+import conary
+
 from aptmd.packages import _Package
 from aptmd.sources import _SourcePackage
 
@@ -36,6 +38,24 @@ class XDocManager(xobj.Document):
         """
 
         return xobj.parse(xml, documentClass=cls)
+
+    @classmethod
+    def fromfile(cls, fn):
+        """
+        Deserialize from file.
+        """
+
+        return xobj.parsef(fn, documentClass=cls)
+
+    def tofile(self, fn):
+        """
+        Save model to file name.
+        """
+
+        fObj = open(fn, 'w')
+        xml = self.toxml()
+        fObj.write(xml)
+        fObj.close()
 
 
 class XMetadata(object):
@@ -118,18 +138,35 @@ class XDict(object):
         return key in self.items
 
 
-class XItemList(XDocManager):
+class XItemList(object):
     """
     List of items.
     """
 
+    items = None
+
     def __init__(self):
         self.items = []
         self._itemClass = self.__class__.__dict__['items'][0]
-        XDocManager.__init__(self)
 
 
-class XPackageItem(object):
+class XHashableItem(object):
+    """
+    Base class for hashable items.
+    """
+
+    @property
+    def key(self):
+        raise NotImplementedError
+
+    def __hash__(self):
+        return hash(self.key)
+
+    def __cmp__(self, other):
+        return cmp(self.key, other.key)
+
+
+class XPackageItem(XHashableItem):
     """
     Object to represent package data required for group builds with the
     managed group factory.
@@ -141,18 +178,29 @@ class XPackageItem(object):
     byDefault = int
     use = str
     source = str
-    originalName = str
 
-    def __init__(self, name, version='', flavor='', byDefault=1, use=1,
-                 source='', originalName=None):
+    def __init__(self, name=None, version=None, flavor=None, byDefault=True,
+        use=True, source=None):
+
+
         self.name = name
         self.version = version
-        self.flavor = flavor
-        self.byDefault = byDefault
-        self.use = use
+        self.byDefault = byDefault and 1 or 0
         self.source = source
-        self.originalName = originalName and originalName or name
 
+        if use in (True, False):
+            self.use = int(use)
+        else:
+            self.use = use
+
+        if type(flavor) == conary.deps.deps.Flavor:
+            self.flavor = flavor.freeze()
+        else:
+            self.flavor = flavor
+
+    @property
+    def key(self):
+        return (self.name, self.flavor)
 
 class XPackageData(XItemList):
     """
@@ -162,17 +210,33 @@ class XPackageData(XItemList):
     items = [ XPackageItem ]
 
 
-class XGroup(object):
+class XPackageDoc(XDocManager):
+    """
+    Document class for group data.
+    """
+
+    data = XPackageData
+
+
+class XGroup(XHashableItem):
     """
     Group file info.
     """
 
     name = str
     filename = str
+    byDefault = int
+    depCheck = int
 
-    def __init__(self, name, filename):
+    def __init__(self, name=None, filename=None, byDefault=True, depCheck=True):
         self.name = name
         self.filename = filename
+        self.byDefault = byDefault and 1 or 0
+        self.depCheck = depCheck and 1 or 0
+
+    @property
+    def key(self):
+        return self.name
 
 
 class XGroupList(XItemList):
@@ -181,3 +245,11 @@ class XGroupList(XItemList):
     """
 
     items = [ XGroup ]
+
+
+class XGroupDoc(XDocManager):
+    """
+    Document for managing group.xml.
+    """
+
+    data = XGroupList
