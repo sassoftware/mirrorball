@@ -46,7 +46,7 @@ from updatebot.errors import CommitFailedError
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
 
-log = logging.getLogger('updateBot.build')
+log = logging.getLogger('updatebot.build')
 
 def jobInfoExceptionHandler(func):
     def deco(self, *args, **kwargs):
