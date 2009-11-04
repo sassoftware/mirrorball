@@ -45,7 +45,7 @@ from updatebot.errors import CommitFailedError
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
 
-from updatebot.build.subscriber import Dispatcher
+from updatebot.build.dispatcher import Dispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
 
 log = logging.getLogger('updatebot.build')
