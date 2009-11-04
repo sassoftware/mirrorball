@@ -40,11 +40,13 @@ from rmake.cmdline import helper
 from rmake.cmdline import monitor
 
 from updatebot.lib import util
-from updatebot import subscriber
 from updatebot.errors import JobFailedError
 from updatebot.errors import CommitFailedError
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
+
+from updatebot.build.subscriber import Dispatcher
+from updatebot.build.callbacks import StatusOnlyDisplay
 
 log = logging.getLogger('updatebot.build')
 
@@ -159,7 +161,7 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        dispatcher = subscriber.Dispatcher(self, 30)
+        dispatcher = Dispatcher(self, 30)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
@@ -332,7 +334,7 @@ class Builder(object):
 
         # Watch build, wait for completion
         monitor.monitorJob(self._helper.client, jobId,
-            exitOnFinish=True, displayClass=_StatusOnlyDisplay)
+            exitOnFinish=True, displayClass=StatusOnlyDisplay)
 
     def _sanityCheckJob(self, jobId):
         """
@@ -622,34 +624,3 @@ class Builder(object):
 
     def _registerCommand(self, *args, **kwargs):
         'Fake rMake hook'
-
-
-class _StatusOnlyDisplay(monitor.JobLogDisplay):
-    """
-    Display only job and trove status. No log output.
-
-    Copied from bob3
-    """
-
-    # R0901 - Too many ancestors
-    # pylint: disable-msg=R0901
-
-    def _troveLogUpdated(self, (jobId, troveTuple), state, status):
-        """
-        Don't care about trove logs
-        """
-
-    def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
-        """
-        Don't care about resolving/installing chroot
-        """
-
-    def _tailBuildLog(self, jobId, troveTuple):
-        """
-        Don't care about the build log
-        """
-
-    def _stopTailing(self, jobId, troveTuple):
-        """
-        Don't care about the build log
-        """
