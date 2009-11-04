@@ -24,7 +24,7 @@ from rmake.build import buildjob
 
 from updatebot.build.monitor import JobStarter
 from updatebot.build.monitor import JobMonitor
-from updatebot.build.monitor import Jobcommitter
+from updatebot.build.monitor import JobCommitter
 from updatebot.build.constants import JobStatus
 
 log = logging.getLogger('updatebot.build')

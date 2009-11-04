@@ -21,7 +21,7 @@ from updatebot.build.common import AbstractStatusMonitor
 
 from updatebot.build.constants import ThreadTypes
 from updatebot.build.constants import MessageTypes
-from updatebot.build.callaback import JobMonitorCallback
+from updatebot.build.callbacks import JobMonitorCallback
 
 class StartWorker(AbstractWorker):
     """
