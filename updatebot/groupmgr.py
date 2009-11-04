@@ -256,6 +256,30 @@ class GroupManager(object):
         # Unknown state.
         raise UnhandledPackageAdditionError(name=name)
 
+    @checkout
+    def setVersion(self, version):
+        """
+        Set the version of the managed group.
+        """
+
+        self._helper.setVersion(self._sourceName, version)
+
+    @checkout
+    def setErrataState(self, state):
+        """
+        Set errata state info for the managed platform.
+        """
+
+        self._helper.setErrataState(self._sourceName, state)
+
+    @checkout
+    def getErrataState(self):
+        """
+        Get the errata state info.
+        """
+
+        self._helper.getErrataState(self._sourceName)
+
 
 class GroupHelper(ConaryHelper):
     """
