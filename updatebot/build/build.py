@@ -382,6 +382,19 @@ class Builder(object):
                 raise ChangesetValidationFailedError(jobId=jobId, why=why,
                                                      path=path)
 
+        def devassert(path, rDev, fileObj):
+            minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
+            major = (rDev >> 8) & 0xfff
+            fassert(fileObj.devt.major() == major, path,
+                    'Device major mismatch: RPM %d != Conary %d'
+                    %(major, fileObj.devt.major()))
+            fassert(fileObj.devt.minor() == minor, path,
+                    'Device minor mismatch: RPM %d != Conary %d'
+                    %(minor, fileObj.devt.minor()))
+            fassert(not fileObj.flags.isPayload(), path,
+                    'Device file is marked as payload')
+            
+
         for fileInfo, fileObj in zip(fileList, fileObjs):
             fpath = fileInfo[1]
             foundFiles[fpath] = True
@@ -392,69 +405,91 @@ class Builder(object):
 
             # file metadata verification
             if (rUser != fileObj.inode.owner() or
-                rGroup != fileObj.inode.group() or
-                stat.S_IMODE(rMode) != fileObj.inode.perms()):
-                fassert(False, fpath)
+                rGroup != fileObj.inode.group()):
+                fassert(False, fpath,
+                        'User/Group mismatch: RPM %s:%s != Conary %s:%s'
+                        %(rUser, rGroup,
+                          fileObj.inode.owner(), fileObj.inode.group()))
+
+            if stat.S_IMODE(rMode) != fileObj.inode.perms():
+                fassert(False, fpath,
+                        'Mode mismatch: RPM 0%o != Conary 0%o'
+                        %(rMode, fileObj.inode.perms()))
 
             if isinstance(fileObj, files.RegularFile):
                 if not stat.S_ISREG(rMode):
-                    fassert(False, fpath)
+                    fassert(False, fpath,
+                            'Conary Regular file has non-regular mode 0%o'
+                            %rMode)
 
                 # RPM config flag mapping
                 if rFlags & rpmhelper.RPMFILE_CONFIG:
                     if fileObj.linkGroup() or not fileObj.contents.size():
-                        fassert(fileObj.flags.isInitialContents(), fpath)
+                        fassert(fileObj.flags.isInitialContents(), fpath,
+                                'RPM config file without size or'
+                                ' hardlinked is not InitialContents')
                     else:
                         fassert(fileObj.flags.isConfig() or
-                                fileObj.flags.isInitialContents(),
-                                why='RPM config file %s is neither config file '
-                                    'nor initialcontents' % fpath)
+                                fileObj.flags.isInitialContents(), fpath,
+                                'RPM config file is neither Config file '
+                                'nor InitialContents')
 
             elif isinstance(fileObj, files.Directory):
-                fassert(stat.S_ISDIR(rMode), fpath)
-                fassert(not fileObj.flags.isPayload(), fpath)
+                fassert(stat.S_ISDIR(rMode), fpath,
+                        'Conary directory has non-directory RPM mode 0%o'
+                        %rMode)
+                fassert(not fileObj.flags.isPayload(), fpath,
+                        'Conary directory marked as payload')
+
             elif isinstance(fileObj, files.CharacterDevice):
-                fassert(stat.S_ISCHR(rMode), fpath)
+                fassert(stat.S_ISCHR(rMode), fpath,
+                        'Conary CharacterDevice has RPM non-character-device'
+                        ' mode 0%o' %rMode)
+                devassert(fpath, rDev, fileObj)
 
-                minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
-                major = (rDev >> 8) & 0xfff
-                fassert(fileObj.devt.major() == major, fpath)
-                fassert(fileObj.devt.minor() == minor, fpath)
-
-                fassert(not fileObj.flags.isPayload())
             elif isinstance(fileObj, files.BlockDevice):
-                fassert(stat.S_ISBLK(rMode), fpath)
+                fassert(stat.S_ISBLK(rMode), fpath,
+                        'Conary BlockDevice has RPM non-block-device'
+                        ' mode 0%o' %rMode)
+                devassert(fpath, rDev, fileObj)
 
-                minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
-                major = (rDev >> 8) & 0xfff
-                fassert(fileObj.devt.major() == major, fpath)
-                fassert(fileObj.devt.minor() == minor, fpath)
-
-                fassert(not fileObj.flags.isPayload(), fpath)
             elif isinstance(fileObj, files.NamedPipe):
                 fassert(stat.S_ISFIFO(rMode), fpath)
+                        'Conary NamedPipe has RPM non-named-pipe'
+                        ' mode 0%o' %rMode)
+                fassert(not fileObj.flags.isPayload(), fpath,
+                        'NamedPipe file is marked as payload')
 
-                fassert(not fileObj.flags.isPayload(), fpath)
             elif isinstance(fileObj, files.SymbolicLink):
                 fassert(stat.S_ISLNK(rMode), fpath)
-                fassert(fileObj.target() == rLinkto, fpath)
+                        'Conary SymbolicLink has RPM non-symlink'
+                        ' mode 0%o' %rMode)
+                fassert(fileObj.target() == rLinkto, fpath,
+                        'Symlink target mismatch:'
+                        ' RPM %s != Conary %s'
+                        %(rLinkto, fileObj.target()))
+                fassert(not fileObj.flags.isPayload(), fpath,
+                        'SymbolicLink file is marked as payload')
 
-                fassert(not fileObj.flags.isPayload(), fpath)
             else:
                 # unhandled file type
-                fassert(False, fpath)
+                fassert(False, fpath,
+                        'Unknown Conary file type %r' %fileObj)
 
             # Now, some tests based on the contents of the RPM header
             if not stat.S_ISDIR(rMode) and rFlags & rpmhelper.RPMFILE_GHOST:
-                fassert(fileObj.flags.isInitialContents(), fpath)
+                fassert(fileObj.flags.isInitialContents(), fpath,
+                        'RPM ghost non-directory is not InitialContents')
 
             if not rVflags:
                 # %doc -- CNY-3254
-                fassert(not fileObj.flags.isInitialContents(), fpath)
+                fassert(not fileObj.flags.isInitialContents(), fpath,
+                        'RPM %%doc file is InitialContents')
 
         # Make sure we have explicitly checked every file in the RPM
         uncheckedFiles = [x[0] for x in foundFiles.iteritems() if not x[1]]
-        fassert( not uncheckedFiles, str(uncheckedFiles) )
+        fassert(not uncheckedFiles, str(uncheckedFiles),
+                'Files contained in RPM not contained in Conary changeset')
 
 
     def _sanityCheckChangeSet(self, csFile, jobId):
