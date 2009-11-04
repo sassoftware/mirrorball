@@ -408,7 +408,7 @@ class Builder(object):
                         fassert(fileObj.flags.isConfig() or
                                 fileObj.flags.isInitialContents(),
                                 why='RPM config file %s is neither config file '
-                                    'nor initialcontents' %fpath)
+                                    'nor initialcontents' % fpath)
 
             elif isinstance(fileObj, files.Directory):
                 fassert(stat.S_ISDIR(rMode), fpath)
