@@ -103,7 +103,7 @@ class Builder(object):
         else:
             self._saveChangeSets = False
 
-        self._santiyCheckChangesets = self._cfg.sanityCheckChangesets
+        self._sanityCheckChangesets = self._cfg.sanityCheckChangesets
         self._sanityCheckCommits = self._cfg.sanityCheckCommits
 
         # Get default pluginDirs from the rmake cfg object, setup the plugin
