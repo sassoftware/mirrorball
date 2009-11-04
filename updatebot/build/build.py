@@ -487,8 +487,7 @@ class Builder(object):
                         'RPM %%doc file is InitialContents')
 
         # Make sure we have explicitly checked every file in the RPM
-        uncheckedFiles = [x[0] for x in foundFiles.iteritems()
-                               if not x[1] and x[0] != '/' ]
+        uncheckedFiles = [x[0] for x in foundFiles.iteritems() if not x[1] ]
         fassert(not uncheckedFiles, str(uncheckedFiles),
                 'Files contained in RPM not contained in Conary changeset')
 
