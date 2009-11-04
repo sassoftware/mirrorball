@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2008-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -38,11 +38,12 @@ def addRootLogger(logFile=None):
                                                   maxBytes=logSize,
                                                   backupCount=5)
 
-    formatter = logging.Formatter('%(asctime)s %(levelname)s '
+    streamFomatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    fileFormatter = logging.Formatter('%(asctime)s %(levelname)s '
         '%(name)s %(message)s')
 
-    streamHandler.setFormatter(formatter)
-    logFileHandler.setFormatter(formatter)
+    streamHandler.setFormatter(streamFormatter)
+    logFileHandler.setFormatter(fileFormatter)
 
     rootLog.addHandler(streamHandler)
     rootLog.addHandler(logFileHandler)
