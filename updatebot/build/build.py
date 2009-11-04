@@ -455,14 +455,14 @@ class Builder(object):
                 devassert(fpath, rDev, fileObj)
 
             elif isinstance(fileObj, files.NamedPipe):
-                fassert(stat.S_ISFIFO(rMode), fpath)
+                fassert(stat.S_ISFIFO(rMode), fpath,
                         'Conary NamedPipe has RPM non-named-pipe'
                         ' mode 0%o' %rMode)
                 fassert(not fileObj.flags.isPayload(), fpath,
                         'NamedPipe file is marked as payload')
 
             elif isinstance(fileObj, files.SymbolicLink):
-                fassert(stat.S_ISLNK(rMode), fpath)
+                fassert(stat.S_ISLNK(rMode), fpath,
                         'Conary SymbolicLink has RPM non-symlink'
                         ' mode 0%o' %rMode)
                 fassert(fileObj.target() == rLinkto, fpath,
