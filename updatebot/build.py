@@ -79,11 +79,9 @@ class Builder(object):
 
     @param cfg: updateBot configuration object
     @type cfg: config.UpdateBotConfig
-    @param saveChangeSets: directory to save changesets to
-    @type saveChangeSets: str
     """
 
-    def __init__(self, cfg, rmakeCfgFn=None, saveChangeSets=None):
+    def __init__(self, cfg, rmakeCfgFn=None):
         self._cfg = cfg
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
@@ -93,13 +91,14 @@ class Builder(object):
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 
-        if saveChangeSets is None and self._cfg.saveChangeSets:
+        if self._cfg.saveChangeSets or self._cfg.sanityCheckChangesets:
             self._saveChangeSets = tempfile.mkdtemp(
                 prefix=self._cfg.platformName,
                 suffix='-import-changesets')
         else:
-            self._saveChangeSets = saveChangeSets
+            self._saveChangeSets = False
 
+        self._santiyCheckChangesets = self._cfg.sanityCheckChangesets
         self._sanityCheckCommits = self._cfg.sanityCheckCommits
 
         # Get default pluginDirs from the rmake cfg object, setup the plugin
@@ -566,7 +565,7 @@ class Builder(object):
         if writeToFile:
             log.info('changeset saved to %s' % writeToFile)
 
-            if self._sanityCheckCommits:
+            if self._sanityCheckChangesets:
                 self._sanityCheckChangeSet(writeToFile, jobIdsStr)
 
             log.info('committing changeset to repository')

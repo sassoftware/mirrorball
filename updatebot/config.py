@@ -176,6 +176,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # to make sure all of the contents made it into the repository.
     sanityCheckCommits   = (CfgBool, False)
 
+    # Check the changeset for any rpm capsules and validate that the changeset
+    # contents match the rpm header. Implies saveChangeSets.
+    sanityCheckChangesets = (CfgBool, False)
+
     # Save all binary changesets to disk before committing them.
     saveChangeSets      = (CfgBool, False)
 
