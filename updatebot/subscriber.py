@@ -57,6 +57,16 @@ class ThreadTypes(object):
     }
 
 
+class JobStatus(object):
+    """
+    Job states in dispatcher.
+    """
+
+    JOB_NOT_STARTED = -1
+    ERROR_MONITOR_FAILURE = -2
+    ERROR_COMITTER_FAILURE = -3
+
+
 class JobMonitorCallback(monitor.JobLogDisplay):
     """
     Monitor job status changes.
@@ -352,8 +362,15 @@ class Dispatcher(object):
     _completed = (
         -2,
         buildjob.JOB_STATE_FAILED,
-        buildjob.JOB_STATE_COMMITTED
+        buildjob.JOB_STATE_COMMITTED,
     )
+
+    _slotdone = (
+        -2,
+        buildjob.JOB_STATE_FAILED,
+        buildjob.JOB_STATE_BUILT,
+    )
+
 
     def __init__(self, builder, maxSlots):
         self._builder = builder
@@ -400,7 +417,7 @@ class Dispatcher(object):
 
             # get started status
             for jobId, trove in self._starter.getStatus():
-                self._jobs[jobId] = [trove, -1, None]
+                self._jobs[jobId] = [trove, JobStatus.JOB_NOT_STARTED, None]
                 self._startSlots += 1
                 self._monitor.monitorJob(jobId)
 
@@ -413,7 +430,8 @@ class Dispatcher(object):
             # update job status changes
             for jobId, status in self._monitor.getStatus():
                 self._jobs[jobId][1] = status
-                if status in self._completed:
+                # free up the slot once the job is built
+                if status in self._slotdone:
                     self._slots += 1
                     assert self._slots <= self._maxSlots
 
@@ -425,11 +443,15 @@ class Dispatcher(object):
             for jobId, result in self._committer.getStatus():
                 self._jobs[jobId][2] = result
 
-            # process monitor and commit errors
-            for jobId, error in itertools.chain(self._monitor.getErrors(),
-                                                self._committer.getErrors()):
+            # process monitor errors
+            for jobId, error in self._monitor.getErrors():
                 self._slots += 1
-                self._jobs[jobId][1] = -2
+                self._jobs[jobId][1] = JobStatus.ERROR_MONITOR_FAILURE
+                self._failures.append((jobId, error))
+
+            # process committer errors
+            for jobId, error in self._committer.getErrors():
+                self._jobs[jobId][1] = JobStatus.ERROR_COMITTER_FAILURE
                 self._failures.append((jobId, error))
 
             # Wait for a bit before polling again.
