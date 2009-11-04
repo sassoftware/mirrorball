@@ -17,31 +17,34 @@ Builder object implementation.
 """
 
 import os
+import xml
 import stat
 import time
 import logging
 import tempfile
 import itertools
 
-import xml
-from Queue import Queue, Empty
-from threading import Thread, RLock
-
-from conary import conarycfg, conaryclient
-from conary import rpmhelper
 from conary import trove
 from conary import files
+from conary import rpmhelper
+from conary import conarycfg
 from conary.deps import deps
+from conary import conaryclient
 from conary.repository import changeset
 from conary.repository.netrepos.proxy import ChangesetFilter
 
 from rmake import plugins
 from rmake.build import buildcfg
-from rmake.cmdline import helper, monitor, commit
+from rmake.cmdline import commit
+from rmake.cmdline import helper
+from rmake.cmdline import monitor
 
 from updatebot.lib import util
 from updatebot import subscriber
-from updatebot.errors import JobFailedError, CommitFailedError
+from updatebot.errors import JobFailedError
+from updatebot.errors import CommitFailedError
+from updatebot.errors import FailedToRetrieveChangesetError
+from updatebot.errors import ChangesetValidationFailedError
 
 log = logging.getLogger('updateBot.build')
 
@@ -267,9 +270,11 @@ class Builder(object):
                     if name != 'kernel':
                         # Don't build kernel modules with a .debug flag, that
                         # is only for kernels.
-                        if flavor.stronglySatisfies(deps.parseFlavor('kernel.debug')):
+                        if flavor.stronglySatisfies(
+                            deps.parseFlavor('kernel.debug')):
                             continue
-                        flavor = deps.parseFlavor(str(flavor).replace('kernel', name))
+                        flavor = deps.parseFlavor(
+                            str(flavor).replace('kernel', name))
                     troves.append((name, version, flavor, context))
 
             # Handle special package flavors when specified.
@@ -370,13 +375,10 @@ class Builder(object):
 
         foundFiles = dict.fromkeys(rpmFileList)
 
-        def fassert(test, path="", why=None):
+        def fassert(test, path='', why=''):
             if not test:
-                if why:
-                    raise CommitFailedError(jobId=jobId, why=why)
-                else:
-                    raise CommitFailedError(jobId=jobId, why='metadata in trove'
-                        ' does not agree with rpm header for file %s' % (path))
+                raise ChangesetValidationFailedError(jobId=jobId, why=why,
+                                                     path=path)
 
         for fileInfo, fileObj in zip(fileList, fileObjs):
             fpath = fileInfo[1]
@@ -502,8 +504,8 @@ class Builder(object):
                     newTrove.iterFileList(capsules=True) ]
 
                 if len(capFileList) != 1:
-                    raise CommitFailedError(jobId=jobId, why='More than 1 RPM '
-                        'capsule in trove %s' % newTroveCs.name())
+                    raise FailedToRetrieveChangesetError(jobId=jobId, why='More'
+                        ' than 1 RPM capsule in trove %s' % newTroveCs.name())
 
                 capsules.append((capFileList[0], fileList, fileObjs))
 

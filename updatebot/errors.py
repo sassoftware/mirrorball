@@ -50,6 +50,25 @@ class CommitFailedError(UpdateBotError):
     _template = 'rMake job %(jobId)s failed to commit: %(why)s'
 
 
+class FailedToRetrieveChangesetError(CommitFailedError):
+    """
+    FailedToRetrieveChangesetError, 
+    """
+
+    _template = 'Failed to fetch changeset contents for job %(jobId)s: %(why)s'
+
+
+class ChangesetValidationFailedError(CommitFailedError):
+    """
+    ChangesetValidationFailedError, raised when the builder fails to validate
+    the built changeset.
+    """
+
+    _params = ['jobId', 'why', 'path']
+    _template = ('Changeset from rmake job %(jobId)s failed to pass '
+        'validation for path %(path)s: %(why)s')
+
+
 class JobFailedError(UpdateBotError):
     """
     JobFailedError, raised when an rMake job fails.
