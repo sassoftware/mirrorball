@@ -38,7 +38,7 @@ def addRootLogger(logFile=None):
                                                   maxBytes=logSize,
                                                   backupCount=5)
 
-    streamFomatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    streamFormatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     fileFormatter = logging.Formatter('%(asctime)s %(levelname)s '
         '%(name)s %(message)s')
 
