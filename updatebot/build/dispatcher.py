@@ -36,13 +36,15 @@ class Dispatcher(object):
     """
 
     _completed = (
-        -2,
+        JobStatus.ERROR_MONITOR_FAILURE,
+        JobStatus.ERROR_COMITTER_FAILURE,
         buildjob.JOB_STATE_FAILED,
         buildjob.JOB_STATE_COMMITTED,
     )
 
     _slotdone = (
-        -2,
+        JobStatus.ERROR_MONITOR_FAILURE,
+        JobStatus.ERROR_COMITTER_FAILURE,
         buildjob.JOB_STATE_FAILED,
         buildjob.JOB_STATE_BUILT,
     )
