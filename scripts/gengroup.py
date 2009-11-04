@@ -38,8 +38,6 @@ trvMap = mgr._helper._getLatestTroves()
 
 from conary.deps import deps
 
-#mgr.add('foo', byDefault=False, use=True, flavor=deps.parseFlavor('is:x86'))
-
 troves = mgr._helper._getLatestTroves()
 for name, vf in troves.iteritems():
     if ':' in name or bot._updater._fltrPkg(name):
