@@ -356,6 +356,49 @@ class ConaryHelper(object):
         # add file to the source compoent
         self._addFile(recipeDir, 'buildrequires')
 
+    def getVersion(self, pkgname):
+        """
+        Get the version of the specified package if this package has a version
+        file in the source component, otherwise return None.
+        @param pkgname: name of hte package to edit
+        @type pkgname: string
+        """
+
+        log.info('getting version info for %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+        versionFileName = util.join(recipeDir, 'version')
+
+        if not os.path.exists(versionFileName):
+            return None
+
+        version = open(versionFileName).read().strip()
+        return version
+
+    def setVersion(self, pkgname, version):
+        """
+        Set the version of the specified package, for this to be meaningful
+        there must be a factory that consumes this data.
+        @param pkgname: name of hte package to edit
+        @type pkgname: string
+        @param version: upstream version of the package, required to be a valid
+                        conary version.
+        @type version: string
+        """
+
+        log.info('setting version info for %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+        versionFileName = util.join(recipeDir, 'version')
+
+        # write version info
+        versionfh = open(versionFileName, 'w')
+        versionfh.write(version)
+        versionfh.close()
+
+        # make sure version file has been added to package
+        self._addFile(recipeDir, 'version')
+
     def commit(self, pkgname, commitMessage=''):
         """
         Commit the cached checkout of a source component.

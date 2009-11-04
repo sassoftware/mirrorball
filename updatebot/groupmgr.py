@@ -333,6 +333,41 @@ class GroupHelper(ConaryHelper):
 
         #self._commit(recipeDir, commitMessage='automated group update')
 
+    def getErrataState(self, pkgname):
+        """
+        Get the contents of the errata state file from the specified package,
+        if file does not exist, return None.
+        """
+
+        log.info('getting errata state information from %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+        stateFileName = util.join(recipeDir, 'erratastate')
+
+        if not os.path.exists(stateFileName):
+            return None
+
+        state = open(stateFileName).read().strip()
+        return state
+
+    def setErrataState(self, pkgname, state):
+        """
+        Set the current errata state for the given package.
+        """
+
+        log.info('storing errata state information in %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+        stateFileName = util.join(recipeDir, 'erratastate')
+
+        # write state info
+        statefh = open(stateFileName, 'w')
+        statefh.write(state)
+        statefh.close()
+
+        # make sure state file is part of source trove
+        self._adFile('erratastate')
+
 
 class AbstractModel(object):
     """
