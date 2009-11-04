@@ -375,12 +375,13 @@ class Builder(object):
                                           h[rpmhelper.FILELINKTOS],
                                           )))
 
+        errors = []
+
         foundFiles = dict.fromkeys(rpmFileList)
 
         def fassert(test, path='', why=''):
             if not test:
-                raise ChangesetValidationFailedError(jobId=jobId, why=why,
-                                                     path=path)
+                errors.append((path, why))
 
         def devassert(path, rDev, fileObj):
             minor = rDev & 0xff | (rDev >> 12) & 0xffffff00
@@ -490,6 +491,12 @@ class Builder(object):
         uncheckedFiles = [x[0] for x in foundFiles.iteritems() if not x[1]]
         fassert(not uncheckedFiles, str(uncheckedFiles),
                 'Files contained in RPM not contained in Conary changeset')
+
+        if errors:
+                raise ChangesetValidationFailedError(jobId=jobId,
+                        reason='\n'.join([
+                            '%s: %s' %(x, y) for x, y in errors
+                        ]))
 
 
     def _sanityCheckChangeSet(self, csFile, jobId):

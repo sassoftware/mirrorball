@@ -64,9 +64,9 @@ class ChangesetValidationFailedError(CommitFailedError):
     the built changeset.
     """
 
-    _params = ['jobId', 'why', 'path']
+    _params = ['jobId', 'reason']
     _template = ('Changeset from rmake job %(jobId)s failed to pass '
-        'validation for path %(path)s: %(why)s')
+        'validation because:\n%(reason)s')
 
 
 class JobFailedError(UpdateBotError):
