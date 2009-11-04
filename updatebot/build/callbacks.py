@@ -16,6 +16,8 @@ from rmake.build import buildjob
 from rmake.build import buildtrove
 from rmake.cmdline import monitor
 
+from updatebot.build.constants import MessageTypes
+
 class StatusOnlyDisplay(monitor.JobLogDisplay):
     """
     Display only job and trove status. No log output.

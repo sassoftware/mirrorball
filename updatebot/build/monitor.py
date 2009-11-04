@@ -16,6 +16,8 @@
 Module for managing monitors.
 """
 
+from rmake.cmdline import monitor
+
 from updatebot.build.common import AbstractWorker
 from updatebot.build.common import AbstractStatusMonitor
 
