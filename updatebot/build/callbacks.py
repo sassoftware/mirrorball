@@ -62,6 +62,11 @@ class JobMonitorCallback(monitor.JobLogDisplay):
         buildjob.JOB_STATE_COMMITTED,
     )
 
+    doneStates = (
+        buildjob.JOB_STATE_FAILED,
+        buildjob.JOB_STATE_COMMITTED,
+    )
+
     def __init__(self, status, *args, **kwargs):
         # override showBuildLogs since we don't handle writing to the out pipe
         kwargs['showBuildLogs'] = False
@@ -76,9 +81,11 @@ class JobMonitorCallback(monitor.JobLogDisplay):
         self._status.put((MessageTypes.DATA, data))
 
     def _jobStateUpdated(self, jobId, state, status):
-        monitor.JobLogDisplay(self, jobId, state, None)
+        monitor.JobLogDisplay._jobStateUpdated(self, jobId, state, None)
         if state in self.monitorStates:
             self._data((jobId, state))
+        if state in self.doneStates:
+            self.finished = True
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         pass
@@ -87,6 +94,12 @@ class JobMonitorCallback(monitor.JobLogDisplay):
         pass
 
     def _tailBuildLog(self, jobId, troveTuple):
+        pass
+
+    def _serveLoopHook(self):
+        pass
+
+    def _setFinished(self):
         pass
 
     def _primeOutput(self, jobId):

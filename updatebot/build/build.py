@@ -242,6 +242,15 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
+    def setCommitFailed(self, jobId):
+        """
+        Sets the job as failed in rmake.
+        @param jobId: id of the build job to commit
+        @type jobId: integer
+        """
+
+        self._helper.client.commitFailed([jobId, ], {})
+
     def _formatInput(self, troveSpecs):
         """
         Formats the list of troves provided into a job list for rMake.
@@ -635,12 +644,13 @@ class Builder(object):
         log.info('[%s] commit completed in %.02f seconds',
                  jobIdsStr, time.time() - startTime)
 
+        self._helper.client.commitSucceeded(data)
+
         troveMap = {}
         for troveTupleDict in data.itervalues():
             for buildTroveTuple, committedList in troveTupleDict.iteritems():
                 troveMap[buildTroveTuple] = committedList
 
-        self._helper.client.commitSucceeded(data)
 
         return troveMap
 

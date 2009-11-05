@@ -43,8 +43,6 @@ class Dispatcher(object):
     )
 
     _slotdone = (
-        JobStatus.ERROR_MONITOR_FAILURE,
-        JobStatus.ERROR_COMITTER_FAILURE,
         buildjob.JOB_STATE_FAILED,
         buildjob.JOB_STATE_BUILT,
     )
@@ -133,6 +131,9 @@ class Dispatcher(object):
             for jobId, error in self._committer.getErrors():
                 self._jobs[jobId][1] = JobStatus.ERROR_COMITTER_FAILURE
                 self._failures.append((jobId, error))
+
+                # Flag job as failed so that monitor worker will exit properly.
+                self._builder.setCommitFailed(jobId)
 
             # Wait for a bit before polling again.
             time.sleep(3)
