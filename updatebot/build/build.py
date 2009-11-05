@@ -492,11 +492,10 @@ class Builder(object):
                 'Files contained in RPM not contained in Conary changeset')
 
         if errors:
-                raise ChangesetValidationFailedError(jobId=jobId,
-                        reason='\n'.join([
-                            '%s: %s' %(x, y) for x, y in errors
-                        ]))
-
+            raise ChangesetValidationFailedError(jobId=jobId,
+                    reason='\n'.join([
+                        '%s: %s' %(x, y) for x, y in errors
+                    ]))
 
     def _sanityCheckChangeSet(self, csFile, jobId):
         """
@@ -510,7 +509,7 @@ class Builder(object):
             return cmp((apid, afid), (bpid, bfid))
 
         newCs = changeset.ChangeSetFromFile(csFile)
-        log.info('comparing changeset to rpm capsules: %s' % csFile)
+        log.info('[%s] comparing changeset to rpm capsules' % jobId)
 
         capsules = []
         for newTroveCs in newCs.iterNewTroveList():
@@ -571,6 +570,10 @@ class Builder(object):
             self._sanityCheckRPMCapsule(jobId, fileList, fileObjs,
                                         capsuleFileContents)
 
+        # Make sure the changeset gets closed so that we don't run out of
+        # file descriptors.
+        del newCs
+
     def _commitJob(self, jobId):
         """
         Commit completed job.
@@ -589,7 +592,7 @@ class Builder(object):
         # Do the commit
         startTime = time.time()
         jobs = [ self._getJob(x) for x in jobIds ]
-        log.info('Starting commit of job %s', jobIdsStr)
+        log.info('[%s] starting commit' % jobIdsStr)
 
         if self._saveChangeSets:
             csfn = tempfile.mktemp(dir=self._saveChangeSets, suffix='.ccs')
@@ -608,17 +611,17 @@ class Builder(object):
             raise CommitFailedError(jobId=jobIdsStr, why=data)
 
         if writeToFile:
-            log.info('changeset saved to %s' % writeToFile)
+            log.info('[%s] changeset saved to %s' % (jobIdsStr, writeToFile))
 
             if self._sanityCheckChangesets:
                 self._sanityCheckChangeSet(writeToFile, jobIdsStr)
 
-            log.info('committing changeset to repository')
+            log.info('[%s] committing changeset to repository' % jobIdsStr)
             self._client.repos.commitChangeSetFile(writeToFile)
 
         if self._sanityCheckCommits:
             # sanity check repository
-            log.info('checking repository for sanity')
+            log.info('[%s] checking repository for sanity' % jobIdsStr)
             jobList = []
             for job in data.itervalues():
                 for arch in job.itervalues():
@@ -629,7 +632,7 @@ class Builder(object):
             cs = self._client.repos.createChangeSet(jobList, withFiles=True,
                                                     withFileContents=False)
 
-        log.info('Commit of job %s completed in %.02f seconds',
+        log.info('[%s] commit completed in %.02f seconds',
                  jobIdsStr, time.time() - startTime)
 
         troveMap = {}
@@ -664,4 +667,6 @@ class Builder(object):
         return ret
 
     def _registerCommand(self, *args, **kwargs):
-        'Fake rMake hook'
+        """
+        Fake rMake hook
+        """

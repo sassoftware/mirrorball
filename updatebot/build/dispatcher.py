@@ -111,7 +111,9 @@ class Dispatcher(object):
                 # free up the slot once the job is built
                 if status in self._slotdone:
                     self._slots += 1
-                    assert self._slots <= self._maxSlots
+
+                    if self._slots > self._maxSlots:
+                        log.critical('slots is greater than maxSlots')
 
                 # commit any jobs that are done building
                 if status == buildjob.JOB_STATE_BUILT:
@@ -135,19 +137,20 @@ class Dispatcher(object):
             # Wait for a bit before polling again.
             time.sleep(3)
 
+        # report failures
+        for job, error in self._failures:
+            log.error('[%s] failed with error: %s' % (job, error))
+
         results = {}
         for jobId, (trove, status, result) in self._jobs.iteritems():
             # log failed jobs
             if status == buildjob.JOB_STATE_FAILED or not result:
                 log.info('[%s] failed job: %s' % (jobId, trove))
+                self._failures.append((jobId, status))
             else:
                 results.update(result)
 
-        # report failures
-        for job, error in self._failures:
-            log.error('[%s] failed with error: %s' % (job, error))
-
-        return results
+        return results, self._failures
 
     def _jobDone(self):
         if not len(self._jobs):
