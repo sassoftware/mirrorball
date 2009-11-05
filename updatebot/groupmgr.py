@@ -87,6 +87,8 @@ class GroupManager(object):
         self._helper.setModel(self._sourceName, self._groups)
         self._checkedout = False
 
+    save = _commit
+
     @commit
     def build(self):
         """
