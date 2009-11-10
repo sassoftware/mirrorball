@@ -179,14 +179,17 @@ class XPackageItem(XHashableItem):
     use = str
     source = str
 
-    def __init__(self, name=None, version=None, flavor=None, byDefault=True,
-        use=True, source=None):
-
+    def __init__(self, name=None, version=None, flavor=None, byDefault=None,
+        use=None, source=None):
 
         self.name = name
         self.version = version
-        self.byDefault = byDefault and 1 or 0
         self.source = source
+
+        if byDefault in (True, False):
+            self.byDefault = int(byDefault)
+        else:
+            self.byDefault = byDefault
 
         if use in (True, False):
             self.use = int(use)
