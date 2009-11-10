@@ -128,6 +128,7 @@ class Bot(object):
                         log.warn('%s' % (pkg, ))
             else:
                 # ReBuild all packages.
+                failed = ()
                 trvMap = self._builder.buildsplitarch(sorted(toBuild))
             log.info('import completed successfully')
             log.info('imported %s source packages' % (len(toBuild), ))
@@ -136,7 +137,7 @@ class Bot(object):
 
         log.info('elapsed time %s' % (time.time() - start, ))
 
-        return trvMap
+        return trvMap, failed
 
     def update(self, force=None, updatePkgs=None):
         """
