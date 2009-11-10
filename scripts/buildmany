@@ -16,7 +16,7 @@ trvs = set()
 label = cfg.topSourceGroup[1]
 for pkg in sys.argv[2:]:
     trvs.add((pkg, label, None))
-trvMap = builder.buildmany(trvs)
+trvMap, failed = builder.buildmany(trvs)
 
 print "built:\n"
 
