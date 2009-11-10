@@ -20,6 +20,7 @@ Module for common utility functions.
 # pylint: disable-msg=W0611
 
 import os
+import resource
 from conary.lib.util import rmtree
 
 from rpmutils import rpmvercmp
@@ -138,3 +139,31 @@ def isKernelModulePackage(paths):
             basePath.startswith('kernel-module')):
             return True
     return False
+
+def setMaxRLimit():
+    """
+    Set the max file descriptors to the maximum allowed.
+    """
+
+    cur, max = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (max, max))
+    return max
+
+def getRLimit():
+    """
+    Get the current number of file descriptors.
+    """
+
+    cur, max = resource.getrlimit(resource.RLIMIT_NOFILE)
+    return cur
+
+def getAvailableFileDescriptors(setMax=False):
+    """
+    Get the number of available file descriptors.
+    """
+
+    openfds = len(os.listdir('/proc/self/fd'))
+    if setMax:
+        setMaxRLimit()
+    limit = getRLimit()
+    return limit - openfds
