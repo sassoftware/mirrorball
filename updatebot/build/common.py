@@ -33,8 +33,8 @@ class AbstractWorker(Thread):
 
     threadType = None
 
-    def __init__(self, status, name=None):
-        Thread.__init__(self, name=name)
+    def __init__(self, status):
+        Thread.__init__(self)
 
         self.status = status
         self.workerId = None
@@ -81,12 +81,15 @@ class AbstractStatusMonitor(object):
         Add a job to the worker pool.
         """
 
+        if job in self._workers:
+            log.critical('job already being monitored: %s' % (job, ))
+            import epdb; epdb.st()
+
         args = list(self._threadArgs)
         args.append(job)
 
-        threadName = ('%s Worker'
-            % ThreadTypes.names[self.workerClass.threadType])
-        worker = self.workerClass(self._status, args, name=threadName)
+        worker = self.workerClass(self._status, args)
+
         self._workers[job] = worker
         worker.daemon = True
         worker.start()

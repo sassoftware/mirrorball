@@ -32,8 +32,8 @@ class StartWorker(AbstractWorker):
 
     threadType = ThreadTypes.START
 
-    def __init__(self, status, (builder, trove), name=None):
-        AbstractWorker.__init__(self, status, name=name)
+    def __init__(self, status, (builder, trove)):
+        AbstractWorker.__init__(self, status)
 
         self.builder = builder
         self.trove = trove
@@ -56,8 +56,8 @@ class MonitorWorker(AbstractWorker):
     threadType = ThreadTypes.MONITOR
     displayClass = JobMonitorCallback
 
-    def __init__(self, status, (rmakeClient, jobId), name=None):
-        AbstractWorker.__init__(self, status, name=name)
+    def __init__(self, status, (rmakeClient, jobId)):
+        AbstractWorker.__init__(self, status)
 
         self.client = rmakeClient
         self.jobId = jobId
@@ -92,8 +92,8 @@ class CommitWorker(AbstractWorker):
 
     threadType = ThreadTypes.COMMIT
 
-    def __init__(self, status, (builder, jobId), name=None):
-        AbstractWorker.__init__(self, status, name=name)
+    def __init__(self, status, (builder, jobId)):
+        AbstractWorker.__init__(self, status)
 
         self.builder = builder
         self.jobId = jobId
