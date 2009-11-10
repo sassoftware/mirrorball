@@ -242,14 +242,17 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def setCommitFailed(self, jobId):
+    def setCommitFailed(self, jobId, reason=None):
         """
         Sets the job as failed in rmake.
         @param jobId: id of the build job to commit
         @type jobId: integer
+        @param reason: message to be stored on the rmake server
+        @type resaon: str
         """
 
-        self._helper.client.commitFailed([jobId, ], {})
+        reason = reason and reason or 'none specified'
+        self._helper.client.commitFailed([jobId, ], reason)
 
     def _formatInput(self, troveSpecs):
         """
