@@ -394,6 +394,10 @@ class ConaryHelper(object):
         # write version info
         versionfh = open(versionFileName, 'w')
         versionfh.write(version)
+
+        # source files must end in a trailing newline
+        versionfh.write('\n')
+
         versionfh.close()
 
         # make sure version file has been added to package
