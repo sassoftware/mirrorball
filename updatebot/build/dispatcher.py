@@ -17,11 +17,13 @@ New implementation of builder module that uses rMake's message bus for job
 monitoring.
 """
 
+import math
 import time
 import logging
 
 from rmake.build import buildjob
 
+from updatebot.lib import util
 from updatebot.build.monitor import JobStarter
 from updatebot.build.monitor import JobMonitor
 from updatebot.build.monitor import JobCommitter
@@ -37,7 +39,7 @@ class Dispatcher(object):
 
     _completed = (
         JobStatus.ERROR_MONITOR_FAILURE,
-        JobStatus.ERROR_COMITTER_FAILURE,
+        JobStatus.ERROR_COMMITTER_FAILURE,
         buildjob.JOB_STATE_FAILED,
         buildjob.JOB_STATE_COMMITTED,
     )
@@ -55,6 +57,9 @@ class Dispatcher(object):
 
         self._maxStartSlots = 10
         self._startSlots = self._maxStartSlots
+
+        self._maxCommitSlots = 5
+        self._commitSlots = self._maxCommitSlots
 
         self._starter = JobStarter(self._builder)
         self._monitor = JobMonitor(self._builder._helper.client)
@@ -82,7 +87,8 @@ class Dispatcher(object):
             # Only create more jobs once the last batch has been started.
             if self._startSlots == self._maxStartSlots:
                 # fill slots with available troves
-                while troves and self._slots and self._startSlots:
+                while (troves and self._slots and self._startSlots and
+                       self._availableFDs()):
                     # get trove to work on
                     trove = troves.pop()
 
@@ -113,13 +119,25 @@ class Dispatcher(object):
                     if self._slots > self._maxSlots:
                         log.critical('slots is greater than maxSlots')
 
-                # commit any jobs that are done building
+            # submit any jobs that are ready to commit as long as there are
+            # commit slots
+            toCommit = set()
+            for jobId, (trove, status, result) in self._jobs.iteritems():
+                # don't try to commit anything if there are no free commit
+                # slots.
+                if not self._commitSlots:
+                    break
+                # batch up all jobs that are ready to be committed
                 if status == buildjob.JOB_STATE_BUILT:
-                    self._committer.commitJob(jobId)
+                    # update status to !BUILT so that we don't try to commit
+                    # this job more than once.
+                    self._jobs[jobId][1] = JobStatus.JOB_COMMITTING
+                    toCommit.add(jobId)
 
-            # check for commit status
-            for jobId, result in self._committer.getStatus():
-                self._jobs[jobId][2] = result
+            # commit all available jobs at one time.
+            if toCommit:
+                self._committer.commitJob(tuple(toCommit))
+                self._commitSlots -= 1
 
             # process monitor errors
             for jobId, error in self._monitor.getErrors():
@@ -127,13 +145,27 @@ class Dispatcher(object):
                 self._jobs[jobId][1] = JobStatus.ERROR_MONITOR_FAILURE
                 self._failures.append((jobId, error))
 
+            # check for commit status
+            for jobId, result in self._committer.getStatus():
+                # unbatch commit jobs
+                if not isinstance(jobId, tuple):
+                    jobId = (jobId, )
+                for jobId in jobId:
+                    self._jobs[jobId][2] = result
+                    self._commitSlots += 1
+
             # process committer errors
             for jobId, error in self._committer.getErrors():
-                self._jobs[jobId][1] = JobStatus.ERROR_COMITTER_FAILURE
-                self._failures.append((jobId, error))
+                # unbatch commit jobs
+                if not isinstance(jobId, tuple):
+                    jobId = (jobId, )
+                for jobId in jobId:
+                    self._jobs[jobId][1] = JobStatus.ERROR_COMMITTER_FAILURE
+                    self._failures.append((jobId, error))
+                    self._commitSlots += 1
 
-                # Flag job as failed so that monitor worker will exit properly.
-                self._builder.setCommitFailed(jobId)
+                    # Flag job as failed so that monitor worker will exit properly.
+                    self._builder.setCommitFailed(jobId, reason=str(error))
 
             # Wait for a bit before polling again.
             time.sleep(3)
@@ -154,6 +186,10 @@ class Dispatcher(object):
         return results, self._failures
 
     def _jobDone(self):
+        """
+        Check if all jobs are complete.
+        """
+
         if not len(self._jobs):
             return False
 
@@ -161,3 +197,11 @@ class Dispatcher(object):
             if status not in self._completed:
                 return False
         return True
+
+    def _availableFDs(self, setMax=False):
+        """
+        Get 80% of available file descriptors in hopes of not running out.
+        """
+
+        avail = util.getAvailableFileDescriptors(setMax=setMax)
+        return math.floor(0.8 * avail)

@@ -314,11 +314,14 @@ class Builder(object):
         @param retry: information about retrying the get job, if retry is None
                       then retry forever, if retry is an integer retry n times.
         @type retry: None
-        @type retry: integet
+        @type retry: integer
         @return rmake job instance
         """
 
-        return self._helper.getJob(jobId)
+        if not isinstance(jobId, (list, tuple, set)):
+            return self._helper.client.getJob(jobId)
+        else:
+            return self._helper.client.getJobs(jobId)
 
     def _startJob(self, troveSpecs):
         """
@@ -348,24 +351,29 @@ class Builder(object):
         monitor.monitorJob(self._helper.client, jobId,
             exitOnFinish=True, displayClass=StatusOnlyDisplay)
 
-    def _sanityCheckJob(self, jobId):
+    def _sanityCheckJob(self, jobIds):
         """
         Verify the status of a job.
-        @param jobId: rMake job ID
-        @type jobId: integer
+        @param jobIds: rMake job ID, or list of jobIds
+        @type jobIds: integer or iterable
         """
 
+        if not isinstance(jobIds, (tuple, list, set)):
+            jobIds = [ jobIds, ]
+
         # Check for errors
-        job = self._getJob(jobId)
-        if job.isFailed():
-            log.error('Job %d failed', jobId)
-            raise JobFailedError(jobId=jobId, why=job.status)
-        elif not job.isFinished():
-            log.error('Job %d is not done, yet watch returned early!', jobId)
-            raise JobFailedError(jobId=jobId, why=job.status)
-        elif not list(job.iterBuiltTroves()):
-            log.error('Job %d has no built troves', jobId)
-            raise JobFailedError(jobId=jobId, why='No troves found in job')
+        for job in self._getJob(jobIds):
+            jobId = job.jobId
+            if job.isFailed():
+                log.error('Job %d failed', jobId)
+                raise JobFailedError(jobId=jobId, why=job.status)
+            elif not job.isFinished():
+                log.error('Job %d is not done, yet watch returned early!',
+                          jobId)
+                raise JobFailedError(jobId=jobId, why=job.status)
+            elif not list(job.iterBuiltTroves()):
+                log.error('Job %d has no built troves', jobId)
+                raise JobFailedError(jobId=jobId, why='No troves found in job')
 
     def _sanityCheckRPMCapsule(self, jobId, fileList, fileObjs, rpmFile):
         """
@@ -594,7 +602,7 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        if type(jobId) != list:
+        if not isinstance(jobId, (list, tuple, set)):
             jobIds = [ jobId, ]
         else:
             jobIds = jobId
@@ -603,7 +611,7 @@ class Builder(object):
 
         # Do the commit
         startTime = time.time()
-        jobs = [ self._getJob(x) for x in jobIds ]
+        jobs = self._getJob(jobIds)
         log.info('[%s] starting commit' % jobIdsStr)
 
         if self._saveChangeSets:
@@ -653,7 +661,6 @@ class Builder(object):
         for troveTupleDict in data.itervalues():
             for buildTroveTuple, committedList in troveTupleDict.iteritems():
                 troveMap[buildTroveTuple] = committedList
-
 
         return troveMap
 
