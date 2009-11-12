@@ -30,6 +30,8 @@ class RpmSource(BasePackageSource):
     Class that builds maps of packages from multiple yum repositories.
     """
 
+    PkgClass = repomd.packagexml._Package
+
     def __init__(self, cfg):
         BasePackageSource.__init__(self, cfg)
 
@@ -256,11 +258,9 @@ class RpmSource(BasePackageSource):
         if not self._cfg.synthesizeSources:
             return
 
-        PkgClass = repomd.packagexml._Package
-
         # Create a fake source rpm object for each key in the rpmMap.
         for (name, epoch, version, release, arch), bins in self._rpmMap.iteritems():
-            srcPkg = PkgClass()
+            srcPkg = self.PkgClass()
             srcPkg.name = name
             srcPkg.epoch = epoch
             srcPkg.version = version
