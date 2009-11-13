@@ -605,7 +605,15 @@ class ConaryHelper(object):
         """
 
         label = self._ccfg.buildLabel
-        trvMap = self._repos.getTroveLeavesByLabel({None: {label: None}})
+
+        # Filter by buildFlavor to handle mutli stage bootstrap cases where you
+        # want to build all packages that haven't yet been built !bootstrap.
+        flavors = set()
+        for section in self._ccfg._sections.itervalues():
+            if hasattr(section, 'buildFlavor'):
+                flavors.add(section.buildFlavor)
+
+        trvMap = self._repos.getTroveLeavesByLabel({None: {label: flavors}})
         return trvMap
 
     def getLatestVersions(self):
