@@ -69,7 +69,7 @@ class Bot(object):
         @type recreate - boolean to recreate all sources or a list of specific
                          package names
         @param toCreate - set of source package objects to create, implies recreate.
-        @type toCrate - iterable
+        @type toCreate - iterable
         """
 
         start = time.time()
