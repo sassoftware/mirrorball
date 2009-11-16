@@ -122,6 +122,10 @@ class Builder(object):
             rmakeCfgPath = util.join(self._cfg.configPath, rmakeCfgFn)
             if os.path.exists(rmakeCfgPath):
                 rmakerc = rmakeCfgFn
+                # FIXME: This is a hack to work around having two conaryrc
+                #        files, one for building groups and one for building
+                #        packages.
+                self._ccfg.autoLoadRecipes = []
             else:
                 log.warn('%s not found, falling back to rmakerc' % rmakeCfgFn)
 
