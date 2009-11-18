@@ -118,6 +118,7 @@ class Bot(object):
         log.info('found %s packages to build' % len(toBuild))
 
         trvMap = []
+        failed = ()
         if len(toBuild):
             if not rebuild:
                 # Build all newly imported packages.
@@ -128,12 +129,12 @@ class Bot(object):
                         log.warn('%s' % (pkg, ))
             else:
                 # ReBuild all packages.
-                failed = ()
                 trvMap = self._builder.buildsplitarch(sorted(toBuild))
             log.info('import completed successfully')
             log.info('imported %s source packages' % (len(toBuild), ))
         else:
-            log.info('no packages found to build')
+            log.info('no packages found to build, maybe there is a flavor '
+                     'configuration issue')
 
         log.info('elapsed time %s' % (time.time() - start, ))
 
