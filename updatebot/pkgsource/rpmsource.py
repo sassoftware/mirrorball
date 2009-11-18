@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006,2008-2009 rPath, Inc.
+# Copyright (c) 2009 rPath, Inc.
 #
 #
 # This program is distributed under the terms of the Common Public License,
@@ -17,6 +17,7 @@
 Module for interacting with a directory of packages.
 """
 
+import os
 import logging
 
 from conary import rpmhelper
