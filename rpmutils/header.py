@@ -20,7 +20,7 @@ import urllib2
 
 from conary import rpmhelper
 
-class _SeekableStream(object):
+class SeekableStream(object):
     """
     File like object that can be seeked forward.
     """
@@ -61,6 +61,13 @@ class _SeekableStream(object):
 
         return self._pos
 
+    def getTotalSize(self):
+        """
+        Return the size in the header.
+        @return content length
+        """
+
+        return int(self._fh.headers.getheader('content-length'))
 
 def readHeader(url):
     """
@@ -70,7 +77,7 @@ def readHeader(url):
     @return conary.rpmhelper.RpmHeader object
     """
 
-    fh = _SeekableStream(url)
+    fh = SeekableStream(url)
 
     # Have to read into the file a bit to get to the begining of the header
     # that we care about.
