@@ -85,6 +85,7 @@ class GroupManager(object):
         """
 
         self._helper.setModel(self._sourceName, self._groups)
+        self._helper.commit(self._sourceName, commitMessage='automated commit')
         self._checkedout = False
 
     save = _commit
@@ -114,7 +115,7 @@ class GroupManager(object):
             model = GroupContentsModel(self._pkgGroupName)
             self._groups[self._pkgGroupName] = model
 
-        add = self._groups[self._pkgGroupName].add(*args, **kwargs)
+        self._groups[self._pkgGroupName].add(*args, **kwargs)
 
     @checkout
     def remove(self, name):
@@ -309,10 +310,10 @@ class GroupHelper(ConaryHelper):
         if os.path.exists(groupFileName):
             model = GroupModel.thaw(groupFileName)
             for name, groupObj in model.iteritems():
-                contentFileName = util.join(recipeDir, groupObj.fileName)
+                contentFileName = util.join(recipeDir, groupObj.filename)
                 contentsModel = GroupContentsModel.thaw(contentFileName,
                                 (name, groupObj.byDefault, groupObj.depCheck))
-                contentsModel.fileName = groupObj.fileName
+                contentsModel.fileName = groupObj.filename
                 groups[groupObj.name] = contentsModel
 
         # copy in any group data
@@ -351,13 +352,14 @@ class GroupHelper(ConaryHelper):
             groupfn = util.join(recipeDir, model.fileName)
 
             model.freeze(groupfn)
-            groupModel.add(name, model.fileName)
+            groupModel.add(name=name,
+                           filename=model.fileName,
+                           byDefault=model.byDefault,
+                           depCheck=model.depCheck)
             self._addFile(recipeDir, model.fileName)
 
         groupModel.freeze(groupFileName)
         self._addFile(recipeDir, 'groups.xml')
-
-        #self._commit(recipeDir, commitMessage='automated group update')
 
     def getErrataState(self, pkgname):
         """
@@ -389,10 +391,14 @@ class GroupHelper(ConaryHelper):
         # write state info
         statefh = open(stateFileName, 'w')
         statefh.write(state)
+
+        # source files must end in a trailing newline
+        statefh.write('\n')
+
         statefh.close()
 
         # make sure state file is part of source trove
-        self._adFile('erratastate')
+        self._addFile(recipeDir, 'erratastate')
 
 
 class AbstractModel(object):
