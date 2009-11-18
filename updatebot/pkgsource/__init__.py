@@ -17,6 +17,7 @@ Module for interacting with repository metadata.
 """
 
 from updatebot.pkgsource.rpmsource import RpmSource
+from updatebot.pkgsource.yumsource import YumSource
 from updatebot.pkgsource.debsource import DebSource
 from updatebot.pkgsource.errors import UnsupportedRepositoryError
 
@@ -29,7 +30,7 @@ def PackageSource(cfg):
     if cfg.repositoryFormat == 'apt':
         return DebSource(cfg)
     elif cfg.repositoryFormat == 'yum':
-        return RpmSource(cfg)
+        return YumSource(cfg)
     else:
         raise UnsupportedRepositoryError(repo=cfg.repositoryFormat,
                                          supported=['apt', 'yum'])

@@ -14,278 +14,159 @@
 #
 
 """
-Module for interacting with packages in multiple yum repositories.
+Module for interacting with a directory of packages.
 """
 
 import logging
 
-import repomd
-from updatebot.lib import util
-from updatebot.pkgsource.common import BasePackageSource
+from conary import rpmhelper
 
 log = logging.getLogger('updatebot.pkgsource')
 
-class RpmSource(BasePackageSource):
+from repomd.packagexml import _Package
+from rpmutils import header as rpmheader
+
+from updatebot.lib import urlwalker
+from updatebot.pkgsource.yumsource import YumSource as PackageSource
+
+class Package(_Package):
     """
-    Class that builds maps of packages from multiple yum repositories.
+    Class for represnting package data.
     """
 
-    PkgClass = repomd.packagexml._Package
+    def __init__(self, *args, **kwargs):
+        _Package.__init__(self, *args)
+        for key, val in kwargs.iteritems():
+            setattr(self, key, val)
 
-    def __init__(self, cfg):
-        BasePackageSource.__init__(self, cfg)
+    def getNevra(self):
+        """
+        Return the name, epoch, version, release, and arch the package.
+        """
 
-        # {srcTup: srpm}
-        self._srcMap = dict()
+        return (self.name, self.epoch, self.version, self.release, self.arch)
 
-        # {srcTup: {rpm: path}
-        self._rpmMap = dict()
+    def getConaryVersion(self):
+        """
+        Get the conary version of a source package.
+        """
 
-        # set of all src pkg objects
-        self._srcPkgs = set()
+        assert self.arch == 'src'
+        filename = os.path.basename(self.location)
+        nameVerRelease = ".".join(filename.split(".")[:-2])
+        ver = "_".join(nameVerRelease.split("-")[-2:])
+        return ver
+
+
+class Client(object):
+    """
+    Client class for walking package tree.
+    """
+
+    walkMethod = os.walk
+
+    def __init__(self, path):
+        self._path = path
+
+    def getPackageDetail(self):
+        """
+        Walk the specified path to find rpms.
+        """
+
+        for path, dirs, files in self.walkMethod(self._path):
+            for f in files:
+                if f.endswith('.rpm'):
+                    yield self._index(os.path.join(path, f))
+
+    def _index(self, rpm):
+        """
+        Index an individual rpm.
+        """
+
+        log.info(os.path.basename(rpm))
+
+        fh = rpmheader.SeekableStream(rpm)
+        h = rpmhelper.readHeader(fh)
+        name = h[rpmhelper.NAME]
+        epoch = h.get(rpmhelper.EPOCH, None)
+        if isinstance(epoch, (list, tuple)):
+            assert len(epoch) == 1
+            epoch = str(epoch[0])
+        version = h[rpmhelper.VERSION]
+        release = h[rpmhelper.RELEASE]
+        arch = h.isSource and 'src' or h[rpmhelper.ARCH]
+        sourcename = h.get(rpmhelper.SOURCERPM, None)
+
+        basename = os.path.basename(rpm)
+        pkg = Package(name=name,
+                      epoch=epoch,
+                      version=version,
+                      release=release,
+                      arch=arch,
+                      sourcerpm=sourcename,
+                      location=basename)
+        return pkg
+
+
+class UrlClient(Client):
+    """
+    Url based client.
+    """
+
+    walkMethod = urlwalker.walk
+
+
+class RpmSource(PackageSource):
+    """
+    Walk a directory, find rpms, index them.
+    """
+
+    PkgClass = Package
+
+    def __init__(self, cfg, path):
+        PackageSource.__init__(self, cfg)
+        self._path = path
 
     def load(self):
         """
-        Load package source based on config data.
+        load package source.
         """
 
         if self._loaded:
             return
 
-        for repo in self._cfg.repositoryPaths:
-            log.info('loading repository data %s' % repo)
-            client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-            self.loadFromClient(client, repo)
-            self._clients[repo] = client
+        log.info('loading %s' % self._path)
+
+        client = Client(self._path)
+        self.loadFromClient(client)
 
         self.finalize()
         self._loaded = True
 
     def loadFromUrl(self, url, basePath=''):
         """
-        Walk the yum repository rooted at url/basePath and collect information
-        about rpms found.
-        @param url: url to common directory on host where all repositories resides.
-        @type url: string
-        @param basePath: directory where repository resides.
-        @type basePath: string
+        This method is not supported for indexing, raise a decent error.
         """
 
-        client = repomd.Client(url + '/' + basePath)
-        self.loadFromClient(client, basePath=basePath)
-
-    def loadFromClient(self, client, basePath=''):
-        """
-        Walk the yum repository rooted at url/basePath and collect information
-        about rpms found.
-        @param client: client object for extracting data from the repo metadata
-        @type client: repomd.Client
-        @param basePath: path to prefix location metadata with
-        @type basePath: string
-        """
-
-        for pkg in client.getPackageDetail():
-            # ignore the 32-bit compatibility libs - we will
-            # simply use the 32-bit components from the repository
-            if '32bit' in pkg.name:
-                continue
-
-            # Don't use all arches.
-            if pkg.arch in self._excludeArch:
-                continue
-
-            assert '-' not in pkg.version
-            assert '-' not in pkg.release
-
-            pkg.location = basePath + '/' + pkg.location
-
-            # ignore 32bit rpms in a 64bit repo.
-            if (pkg.arch in ('i386', 'i586', 'i686') and
-                'x86_64' in pkg.location):
-                continue
-
-            if pkg.sourcerpm == '' or pkg.sourcerpm is None:
-                self._procSrc(pkg)
-            else:
-                self._procBin(pkg)
-
-    def _procSrc(self, package):
-        """
-        Process source rpms.
-        @param package: package object
-        @type package: repomd.packagexml._Package
-        """
-
-        if package.name not in self.srcNameMap:
-            self.srcNameMap[package.name] = set()
-        self.srcNameMap[package.name].add(package)
-
-        self.locationMap[package.location] = package
-
-        self._srcPkgs.add(package)
-        self._srcMap[(package.name, package.epoch, package.version,
-                      package.release, package.arch)] = package
-
-    def _procBin(self, package):
-        """
-        Process binary rpms.
-        @param package: package object
-        @type package: repomd.packagexml._Package
-        """
-
-        # FIXME: There should be a better way to figure out the tuple that
-        #        represents the hash of the srcPkg.
-        srcParts = package.sourcerpm.split('-')
-        srcName = '-'.join(srcParts[:-2])
-        srcVersion = srcParts[-2]
-        if srcParts[-1].endswith('.src.rpm'):
-            srcRelease = srcParts[-1][:-8] # remove '.src.rpm'
-        elif srcParts[-1].endswith('.nosrc.rpm'):
-            srcRelease = srcParts[-1][:-10]
-        rpmMapKey = (srcName, package.epoch, srcVersion, srcRelease, 'src')
-        if rpmMapKey not in self._rpmMap:
-            self._rpmMap[rpmMapKey] = set()
-        self._rpmMap[rpmMapKey].add(package)
-
-        if package.name not in self.binNameMap:
-            self.binNameMap[package.name] = set()
-        self.binNameMap[package.name].add(package)
-
-        self.locationMap[package.location] = package
-
-    def finalize(self):
-        """
-        Make some final datastructures now that we are done populating object.
-        """
-
-        # Build source structures from binaries if no sources are available from
-        # the repository.
-        if self._cfg.synthesizeSources:
-            self._createSrcMap()
-
-        # Now that we have processed all of the rpms, build some more data
-        # structures.
-        count = 0
-        toDelete = set()
-        for pkg in self._srcPkgs:
-            key = (pkg.name, pkg.epoch, pkg.version, pkg.release, pkg.arch)
-            if pkg in self.srcPkgMap:
-                continue
-
-            if key not in self._rpmMap:
-                #log.warn('found source without binary rpms: %s' % pkg)
-                #log.debug(key)
-                #log.debug([ x for x in self._rpmMap if x[0] == key[0] ])
-
-                count += 1
-                if pkg in self.srcNameMap[pkg.name]:
-                    self.srcNameMap[pkg.name].remove(pkg)
-                continue
-
-            self.srcPkgMap[pkg] = self._rpmMap[key]
-            self.srcPkgMap[pkg].add(pkg)
-            toDelete.add(key)
-
-            for binPkg in self.srcPkgMap[pkg]:
-                self.binPkgMap[binPkg] = pkg
-
-        if count > 0:
-            log.warn('found %s source rpms without matching binary '
-                     'rpms' % count)
-
-        # Defer deletes, contents of rpmMap are used more than once.
-        for key in toDelete:
-            del self._rpmMap[key]
-
-        # Attempt to match up remaining binaries with srpms.
-        for srcTup in self._rpmMap.keys():
-            srcKey = list(srcTup)
-            epoch = int(srcKey[1])
-            while epoch >= 0:
-                srcKey[1] = str(epoch)
-                key = tuple(srcKey)
-                if key in self._srcMap:
-                    srcPkg = self._srcMap[key]
-                    for binPkg in self._rpmMap[srcTup]:
-                        self.srcPkgMap[srcPkg].add(binPkg)
-                        self.binPkgMap[binPkg] = srcPkg
-                    del self._rpmMap[srcTup]
-                    break
-                epoch -= 1
-
-        if self._rpmMap:
-            count = sum([ len(x) for x in self._rpmMap.itervalues() ])
-            log.warn('found %s binary rpms without matching srpms' % count)
-
-            srcs = {}
-            for x in self._rpmMap.itervalues():
-                for y in x:
-                    # skip debuginfo rpms
-                    if 'debuginfo' in y.location or 'debugsource' in y.location:
-                        continue
-
-                    # skip rpms built from nosrc rpms
-                    if 'nosrc' in y.sourcerpm:
-                        continue
-
-                    if y.sourcerpm not in srcs:
-                        srcs[y.sourcerpm] = set()
-                    srcs[y.sourcerpm].add(y.location)
-
-            for src, locs in srcs.iteritems():
-                log.warn('missing srpm: %s' % src)
-                log.warn('for rpm(s):')
-                for loc in sorted(locs):
-                    log.warn('\t%s' % loc)
-
-    def loadFileLists(self, client, basePath):
-        """
-        Parse file information.
-        """
-
-        for pkg in client.getFileLists():
-            for binPkg in self.binPkgMap.iterkeys():
-                if util.packageCompare(pkg, binPkg) == 0:
-                    binPkg.files = pkg.files
-                    break
-
-    def _createSrcMap(self):
-        """
-        Create a source map from the binary map if no sources are available.
-        """
-
-        # Return if sources should be available in repos.
-        if not self._cfg.synthesizeSources:
+        if self._loaded:
             return
 
-        # Create a fake source rpm object for each key in the rpmMap.
-        for (name, epoch, version, release, arch), bins in self._rpmMap.iteritems():
-            srcPkg = self.PkgClass()
-            srcPkg.name = name
-            srcPkg.epoch = epoch
-            srcPkg.version = version
-            srcPkg.release = release
-            srcPkg.arch = arch
+        fullUrl = url + '/' + basePath
 
-            # grab the first binary package
-            pkg = sorted(bins)[0]
+        log.info('loading %s' % fullUrl)
 
-            # Set the location of the fake source package to just be the name
-            # of the file. The factory will take care of the rest.
-            srcPkg.location = pkg.sourcerpm
+        client = UrlClient(fullUrl)
+        self.loadFromClient(client, basePath=basePath)
 
-            # Handle sub packages with different epochs that should be taken
-            # care of with the epoch fuzzing that happens in finalize. This
-            # should only happen with differently named packages.
-            if name not in [ x.name for x in bins ]:
-                # Find sources that match on all cases except epoch.
-                sources = [ x for x in self._srcMap.iterkeys()
-                    if (name, version, release, arch) == (x[0], x[2], x[3], x[4]) ]
+        self.finalize()
+        self._loaded = True
 
-                # leave it up to fuzzing
-                if sources: continue
+    def iterPackageSet(self):
+        """
+        Iterate over the set of source packages.
+        """
 
-            # add source to structures
-            if (name, epoch, version, release, arch) not in self._srcMap:
-                log.warn('synthesizing source package %s' % srcPkg)
-                self._procSrc(srcPkg)
+        for srcPkg, binPkgs in self.srcPkgMap.iteritems():
+            if not len(binPkgs):
+                continue
+            yield (srcPkg.name, srcPkg.getConaryVersion())
