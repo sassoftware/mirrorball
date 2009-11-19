@@ -20,6 +20,8 @@ Module for common utility functions.
 # pylint: disable-msg=W0611
 
 import os
+import epdb
+import signal
 import resource
 from conary.lib.util import rmtree
 
@@ -167,3 +169,13 @@ def getAvailableFileDescriptors(setMax=False):
         setMaxRLimit()
     limit = getRLimit()
     return limit - openfds
+
+def setupDebugHandler():
+    """
+    Sets up a USR1 signal handler to trigger epdb.serv().
+    """
+
+    def handler(signum, sigtb):
+        epdb.serve()
+
+    signal.signal(signal.SIGUSR1, handler)
