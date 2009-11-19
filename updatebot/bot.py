@@ -59,6 +59,18 @@ class Bot(object):
             lst.extend(list(trvSet))
         return lst
 
+    def _getGroupBuildTroves(self):
+        """
+        Get the list of name, version, and flavor of the groups to build.
+        """
+
+        grpTrvs = set()
+        for flavor in self._cfg.groupFlavors:
+            grpTrvs.add((self._cfg.topSourceGroup[0],
+                         self._cfg.topSourceGroup[1],
+                         flavor))
+        return grpTrvs
+
     def create(self, rebuild=False, recreate=None, toCreate=None):
         """
         Do initial imports.
@@ -210,25 +222,21 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
-        # Build group.
-        grpTrvs = set()
-        for flavor in self._cfg.groupFlavors:
-            grpTrvs.add((self._cfg.topSourceGroup[0],
-                         self._cfg.topSourceGroup[1],
-                         flavor))
-        grpTrvMap = self._builder.build(grpTrvs)
-
-        # Promote group.
-        # We expect that everything that was built will be published.
-        expected = self._flattenSetDict(trvMap)
-        toPublish = self._flattenSetDict(grpTrvMap)
-        newTroves = self._updater.publish(toPublish, expected,
-                                          self._cfg.targetLabel)
-
-        # Mirror out content
-        self._updater.mirror()
-
         if not self._cfg.disableAdvisories:
+            # Build group.
+            grpTrvs = self._getGroupBuildTroves()
+            grpTrvMap = self._builder.build(grpTrvs)
+
+            # Promote group.
+            # We expect that everything that was built will be published.
+            expected = self._flattenSetDict(trvMap)
+            toPublish = self._flattenSetDict(grpTrvMap)
+            newTroves = self._updater.publish(toPublish, expected,
+                                              self._cfg.targetLabel)
+
+            # Mirror out content
+            self._updater.mirror()
+
             # Send advisories.
             self._advisor.send(toAdvise, newTroves)
 
@@ -236,3 +244,5 @@ class Bot(object):
         log.info('updated %s packages and sent %s advisories'
                  % (len(toUpdate), len(toAdvise)))
         log.info('elapsed time %s' % (time.time() - start, ))
+
+        return trvMap
