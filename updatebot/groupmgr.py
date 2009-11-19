@@ -53,6 +53,7 @@ def commit(func):
         return func(self, *args, **kwargs)
     return wrapper
 
+
 class GroupManager(object):
     """
     Manage group of all packages for a platform.
@@ -479,6 +480,7 @@ class AbstractModel(object):
 
         self._removeItem(name)
 
+
 class GroupModel(AbstractModel):
     """
     Model for representing group name and file name.
@@ -507,3 +509,53 @@ class GroupContentsModel(AbstractModel):
         # figure out file name based on group name
         name = ''.join([ x.capitalize() for x in self.groupName.split('-') ])
         self.fileName = name[0].lower() + name[1:] + '.xml'
+
+
+class URLVersionSource(object):
+    """
+    Class for handling the indexing and comparison of ISO contents.
+    """
+
+    def __init__(self, cfg, version, url):
+        self._cfg = cfg
+        self._version = version
+        self._url = url
+
+        self._pkgSource = pkgsource.rpmSource(cfg)
+
+    def areWeHereYet(self, pkgSet):
+        """
+        Figure out if the given package set is this version.
+        @param pkgSet: set of source names and source versions
+        @type pkgSet: set([(conarySourceName, conarySourceVersion)])
+        @return boolean
+        """
+
+        self._pkgSource.loadFromUrl(self._url)
+
+        sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ]
+        return sourceSet == pkgSet
+
+
+class VersionFactory(object):
+    """
+    Class for generating group verisons from a variety of sources.
+    """
+
+    def __init__(self, cfg):
+        self._cfg = cfg
+        self._sources = {}
+
+        for version, url in cfg.versionSources:
+            self._sources[version] = URLVersionSource(self._cfg, version, url)
+
+    def getVersions(self, pkgSet):
+        """
+        Given the available package sources find the current versions.
+        """
+
+        versions = []
+        for version, source in self._sources.iteritems():
+            if sources.areWeHereYet(pkgSet):
+                versions.append(version)
+        return versions
