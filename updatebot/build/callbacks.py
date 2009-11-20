@@ -83,7 +83,7 @@ class JobMonitorCallback(monitor.JobLogDisplay):
 
     def _jobStateUpdated(self, jobId, state, status):
         monitor.JobLogDisplay._jobStateUpdated(self, jobId, state, None)
-        if state == self._laststate
+        if state == self._laststate:
             return
         self._laststate = state
         if state in self.monitorStates:
