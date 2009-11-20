@@ -84,6 +84,7 @@ class AbstractStatusMonitor(object):
         if job in self._workers:
             log.critical('job already being monitored: %s' % (job, ))
             import epdb; epdb.st()
+            return
 
         args = list(self._threadArgs)
         args.append(job)
@@ -134,7 +135,10 @@ class AbstractStatusMonitor(object):
         elif mtype == MessageTypes.THREAD_DONE:
             job = payload
             #assert not self._workers[job].isAlive()
-            del self._workers[job]
+            if job in self._workers:
+                del self._workers[job]
+            else:
+                log.critical('JOB NOT FOUND %s' % (job, ))
         elif mtype == MessageTypes.THREAD_ERROR:
             threadType, job, error = payload
             #assert not self._workers[job].isAlive()
