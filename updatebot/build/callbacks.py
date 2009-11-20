@@ -73,6 +73,7 @@ class JobMonitorCallback(monitor.JobLogDisplay):
 
         monitor.JobLogDisplay.__init__(self, *args, **kwargs)
         self._status = status
+        self._laststate = None
 
     def _msg(self, msg, *args):
         self._status.put((MessageTypes.LOG, msg))
@@ -82,6 +83,9 @@ class JobMonitorCallback(monitor.JobLogDisplay):
 
     def _jobStateUpdated(self, jobId, state, status):
         monitor.JobLogDisplay._jobStateUpdated(self, jobId, state, None)
+        if state == self._laststate
+            return
+        self._laststate = state
         if state in self.monitorStates:
             self._data((jobId, state))
         if state in self.doneStates:
