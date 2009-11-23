@@ -533,7 +533,7 @@ class URLVersionSource(object):
 
         self._pkgSource.loadFromUrl(self._url)
 
-        sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ]
+        sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ])
         return sourceSet == pkgSet
 
 
