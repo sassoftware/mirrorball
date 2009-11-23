@@ -127,6 +127,16 @@ class Updater(object):
         log.info('found %s protentially updatable troves' % len(troves))
         return troves
 
+    def getSourceVersionMap(self):
+        """
+        Query the repository for a list of the latest source names and versions.
+        """
+
+        return dict([ (x.split(':')[0], y) for x, y, z in
+            self._conaryhelper.getSourceTroves(self._cfg.topGroup).iterkeys()
+            if not self._fltrPkg(x.split(':')[0])
+        ])
+
     def _getLatestSource(self, name):
         """
         Get the latest src package for a given package name.
