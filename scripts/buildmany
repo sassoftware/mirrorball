@@ -9,6 +9,9 @@ Script for cooking groups defined in the updatebot config.
 
 from header import *
 
+from updatebot.lib import util
+util.setupDebugHandler()
+
 if len(sys.argv) < 3:
     usage()
 
