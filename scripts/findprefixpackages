@@ -20,7 +20,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+mbdir = os.path.abspath('../')
+sys.path.insert(0, mbdir)
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -41,7 +42,7 @@ log.addRootLogger()
 slog = logging.getLogger('findprefixpackages')
 
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(mbdir + '/config/%s/updatebotrc' % sys.argv[1])
 
 prefixes = set(sys.argv[2:])
 
