@@ -56,7 +56,7 @@ class ErrataFilter(object):
         Given a errata timestamp lookup the name and summary.
         """
 
-        return self._advMap.get(bucketId, None)
+        return dict(self._advMap.get(bucketId, tuple()))
 
     @loadErrata
     def getUpdateDetailMessage(self, bucketId):
@@ -193,8 +193,8 @@ class ErrataFilter(object):
 
             if bucketId not in self._advMap:
                 self._advMap[bucketId] = set()
-            self._advMap[bucketId].add({'name': e.advisory,
-                                        'summary': e.synopsis})
+            self._advMap[bucketId].add((('name', e.advisory),
+                                        ('summary', e.synopsis)))
 
         # separate out golden bits
         other = []
