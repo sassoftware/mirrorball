@@ -558,4 +558,4 @@ class VersionFactory(object):
         for version, source in self._sources.iteritems():
             if sources.areWeHereYet(pkgSet):
                 versions.append(version)
-        return versions
+        return set(versions)
