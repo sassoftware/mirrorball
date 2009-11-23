@@ -317,4 +317,28 @@ class UnhandledPackageAdditionError(GroupManagerError):
     """
 
     _params = ['name', ]
-    _templates = 'I don not know what to do with this package %(name)s.'
+    _template = 'I don not know what to do with this package %(name)s.'
+
+class ImportError(UpdateBotError):
+    """
+    General purpose error for all import related issues.
+    """
+
+class PlatformAlreadyImportedError(ImportError):
+    """
+    PlatformAlreadyImportedError, raised when a platform is being created in
+    ordered mode that already exists.
+    """
+
+    _params = []
+    _template = ('This platform has already been imported, you probably meant '
+        'to run an update.')
+
+class PlatformNotImportedError(ImportError):
+    """
+    PlatformNotImportedError, raised when a platform is being updated, but has
+    not yet been created.
+    """
+
+    _params = []
+    _template = 'This platform has not yet been created.'
