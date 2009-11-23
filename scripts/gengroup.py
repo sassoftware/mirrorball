@@ -13,7 +13,7 @@ sys.excepthook = util.genExcepthook()
 mbdir = os.path.abspath('../')
 sys.path.insert(0, mbdir)
 
-confDir = os.path.join(mbdir, 'config', 'rhel5test')
+confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
 from updatebot import log
 from updatebot import Bot
@@ -34,21 +34,24 @@ from updatebot import groupmgr
 
 mgr = groupmgr.GroupManager(cfg)
 
-trvMap = mgr._helper._getLatestTroves()
-
-from conary.deps import deps
-
 troves = mgr._helper._getLatestTroves()
+mgr._checkout()
+
+import epdb; epdb.st()
+
 for name, vf in troves.iteritems():
     if ':' in name or bot._updater._fltrPkg(name):
         continue
 
-    assert len(vf.keys()) == 1
-    version = vf.keys()[0]
+    versions = vf.keys()
+    versions.sort()
+    version = versions[-1]
     flavors = vf[version]
-    mgr.addPackage(name, version, flavors)
+#    mgr.addPackage(name, version, flavors)
 
+mgr.setVersion('0')
+mgr.setErrataState('0')
 mgr._commit()
-
+#mgr.build()
 
 import epdb; epdb.st()
