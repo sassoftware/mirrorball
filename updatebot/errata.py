@@ -51,13 +51,24 @@ class ErrataFilter(object):
         return self._order[0]
 
     @loadErrata
-    def lookupUpdateDetail(self, bucketId):
+    def getUpdateDetail(self, bucketId):
         """
         Given a errata timestamp lookup the name and summary.
         """
 
+        return self._advMap.get(bucketId, None)
+
+    @loadErrata
+    def getUpdateDetailMessage(self, bucketId):
+        """
+        Given a errata timestamp create a name and summary message.
+        """
+
         if bucketId in self._advMap:
-            return '%(name)s: %(summary)s' % self._advMap[bucketId]
+            msg = ''
+            for adv in self._advMap[bucketId]:
+                msg += '(%(name)s: %(summary)s) ' % adv
+            return msg
         else:
             return '%s (no detail found)' % bucketId
 
@@ -180,8 +191,10 @@ class ErrataFilter(object):
             for nevra in allocated:
                 nevraMap[nevra] = bucketId
 
-            self._advMap[bucketId] = {'name': e.advisory,
-                                      'summary': e.synopsis}
+            if bucketId not in self._advMap:
+                self._advMap[bucketId] = set()
+            self._advMap[bucketId].add({'name': e.advisory,
+                                        'summary': e.synopsis})
 
         # separate out golden bits
         other = []
