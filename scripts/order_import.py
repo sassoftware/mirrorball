@@ -61,6 +61,6 @@ errata = rhnmirror.Errata(mcfg)
 errata.fetch()
 
 bot = ordered.Bot(cfg, errata)
-bot.create()
+pkgMap, failures = bot.create()
 
 import epdb; epdb.st()
