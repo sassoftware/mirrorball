@@ -104,6 +104,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Paths based off of the repositoryUrl to get to individual repositories.
     repositoryPaths     = (CfgList(CfgString), ['/'])
 
+    # Data source for determining platform version information, only used for
+    # group versioning.
+    versionSources      = (CfgList(CfgList(CfgString)), [])
+
     # The top level binary group, this may be the same as topSourceGroup.
     topGroup            = CfgTroveSpec
 
