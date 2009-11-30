@@ -58,7 +58,7 @@ class Dispatcher(object):
         self._maxStartSlots = 10
         self._startSlots = self._maxStartSlots
 
-        self._maxCommitSlots = 5
+        self._maxCommitSlots = 2
         self._commitSlots = self._maxCommitSlots
 
         self._starter = JobStarter(self._builder)
