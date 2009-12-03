@@ -11,10 +11,7 @@ from header import *
 
 builder = build.Builder(cfg, rmakeCfgFn='rmakerc-groups')
 
-grpTrvs = set()
-for flavor in cfg.groupFlavors:
-    grpTrvs.add((cfg.topSourceGroup[0], cfg.topSourceGroup[1], flavor))
-grpTrvMap = builder.build(grpTrvs)
+grpTrvMap = builder.build((cfg.topSourceGroup, ))
 
 print "built:\n"
 

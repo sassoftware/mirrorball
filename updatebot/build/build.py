@@ -273,10 +273,11 @@ class Builder(object):
             # the deps modules in conary.
             name = name.encode()
 
-            # Don't set context for groups, they will already have the
-            # correct flavors.
+            # Build groups in all of the defined falvors. We don't need a
+            # context here since groups are all built in a single job.
             if name.startswith('group-'):
-                troves.append((name, version, flavor))
+                for flv in self._cfg.groupFlavors:
+                    troves.append((name, version, flv))
 
             # Kernels are special.
             elif ((name == 'kernel' or

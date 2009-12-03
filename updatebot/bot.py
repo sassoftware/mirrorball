@@ -59,18 +59,6 @@ class Bot(object):
             lst.extend(list(trvSet))
         return lst
 
-    def _getGroupBuildTroves(self):
-        """
-        Get the list of name, version, and flavor of the groups to build.
-        """
-
-        grpTrvs = set()
-        for flavor in self._cfg.groupFlavors:
-            grpTrvs.add((self._cfg.topSourceGroup[0],
-                         self._cfg.topSourceGroup[1],
-                         flavor))
-        return grpTrvs
-
     def create(self, rebuild=False, recreate=None, toCreate=None):
         """
         Do initial imports.
@@ -224,7 +212,7 @@ class Bot(object):
 
         if not self._cfg.disableAdvisories:
             # Build group.
-            grpTrvs = self._getGroupBuildTroves()
+            grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
 
             # Promote group.
