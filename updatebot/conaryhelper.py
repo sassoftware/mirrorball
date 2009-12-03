@@ -195,7 +195,7 @@ class ConaryHelper(object):
                     list(topTrove.iterTroveList(weakRefs=True,
                                                 strongRefs=True)))
         for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True,
-                                                            strongRefs=True)):
+                                                             strongRefs=True)):
             src = (sources[i](), v.getSourceVersion(), None)
             if src not in srcTrvs:
                 srcTrvs[src] = set()
