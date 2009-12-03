@@ -17,6 +17,7 @@ Module for managing conary groups.
 """
 
 import os
+import copy
 import logging
 
 from conary.deps import deps
@@ -543,7 +544,8 @@ class VersionFactory(object):
     """
 
     def __init__(self, cfg):
-        self._cfg = cfg
+        self._cfg = copy.deepcopy(cfg)
+        self._cfg.synthesizeSources = True
         self._sources = {}
 
         for version, url in cfg.versionSources:
