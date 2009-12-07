@@ -435,10 +435,14 @@ class Builder(object):
                         %(rUser, rGroup,
                           fileObj.inode.owner(), fileObj.inode.group()))
 
-            if stat.S_IMODE(rMode) != fileObj.inode.perms():
+            if isinstance(fileObj, files.SymbolicLink):
+                expectedMode = 0777 # CNY-3304
+            else:
+                expectedMode = stat.S_IMODE(rMode)
+            if fileObj.inode.perms() != expectedMode:
                 fassert(False, fpath,
                         'Mode mismatch: RPM 0%o != Conary 0%o'
-                        %(rMode, fileObj.inode.perms()))
+                        %(expectedMode, fileObj.inode.perms()))
 
             if isinstance(fileObj, files.RegularFile):
                 if not stat.S_ISREG(rMode):
