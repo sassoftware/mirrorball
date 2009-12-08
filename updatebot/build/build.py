@@ -510,6 +510,13 @@ class Builder(object):
                 fassert(fileObj.flags.isInitialContents(), fpath,
                         'RPM ghost non-directory is not InitialContents')
 
+            if rFlags & rpmhelper.RPMFILE_MISSINGOK:
+                fassert(fileObj.flags.isMissingOkay(), fpath,
+                        'RPM missingok file does not have missingOkay flag')
+            if fileObj.flags.isMissingOkay():
+                fassert(rFlags & rpmhelper.RPMFILE_MISSINGOK, fpath,
+                        'missingOkay file does not have RPM missingok flag')
+
             if not rVflags:
                 # %doc -- CNY-3254
                 fassert(not fileObj.flags.isInitialContents(), fpath,
