@@ -205,6 +205,7 @@ class XPackageItem(XHashableItem):
     def key(self):
         return (self.name, self.flavor)
 
+
 class XPackageData(XItemList):
     """
     Mapping of package name to package group data.
