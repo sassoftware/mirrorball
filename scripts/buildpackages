@@ -4,7 +4,7 @@
 #
 
 """
-Script for cooking groups defined in the updatebot config.
+Script for cooking packages with updatebot config.
 """
 
 from header import *

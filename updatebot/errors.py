@@ -317,7 +317,7 @@ class UnhandledPackageAdditionError(GroupManagerError):
     """
 
     _params = ['name', ]
-    _template = 'I don not know what to do with this package %(name)s.'
+    _template = 'I do not know what to do with this package %(name)s.'
 
 class ImportError(UpdateBotError):
     """
