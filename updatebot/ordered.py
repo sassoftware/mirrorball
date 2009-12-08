@@ -48,7 +48,9 @@ class Bot(BotSuperClass):
         for binSet in pkgMap.itervalues():
             pkgs = {}
             for n, v, f in binSet:
-                if n not in pkgs:
+                if ':' in n:
+                    continue
+                elif n not in pkgs:
                     pkgs[n] = {v: set([f, ])}
                 elif v not in pkgs[n]:
                     pkgs[n][v] = set([f, ])
@@ -56,8 +58,6 @@ class Bot(BotSuperClass):
                     pkgs[n][v].add(f)
 
             for name, vf in pkgs.iteritems():
-                if ':' in name:
-                    continue
                 assert len(vf) == 1
                 version = vf.keys()[0]
                 flavors = list(vf[version])
@@ -74,6 +74,7 @@ class Bot(BotSuperClass):
 
         self._pkgSource.load()
         toCreate = self._errata.getInitialPackages()
+
         pkgMap, failures = self._create(*args, toCreate=toCreate, **kwargs)
 
         # Insert package map into group.

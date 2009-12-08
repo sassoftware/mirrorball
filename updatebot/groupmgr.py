@@ -24,6 +24,7 @@ from conary.deps import deps
 
 from updatebot.lib import util
 from updatebot.build import Builder
+from updatebot.pkgsource import RpmSource
 from updatebot.conaryhelper import ConaryHelper
 from updatebot.lib.xobjects import XGroup
 from updatebot.lib.xobjects import XGroupDoc
@@ -31,6 +32,7 @@ from updatebot.lib.xobjects import XGroupList
 from updatebot.lib.xobjects import XPackageDoc
 from updatebot.lib.xobjects import XPackageData
 from updatebot.lib.xobjects import XPackageItem
+
 from updatebot.errors import FlavorCountMismatchError
 from updatebot.errors import UnknownBuildContextError
 from updatebot.errors import UnsupportedTroveFlavorError
@@ -98,11 +100,7 @@ class GroupManager(object):
         Build all configured flavors of the group.
         """
 
-        # create list of trove specs to build
-        groupTroves = set()
-        for flavor in self._cfg.groupFlavors:
-            groupTroves.add((self._sourceName, self._sourceVersion, flavor))
-
+        groupTroves = ((self._sourceName, self._sourceVersion, None), )
         built = self._builder.build(groupTroves)
         return built
 
@@ -452,8 +450,11 @@ class AbstractModel(object):
         Freeze the model to a given output file.
         """
 
+        def _srtByKey(a, b):
+            return cmp(a.key, b.key)
+
         model = self.dataClass()
-        model.items = self._data.values()
+        model.items = sorted(self._data.values(), cmp=_srtByKey)
 
         doc = self.docClass()
         doc.data = model
@@ -522,7 +523,7 @@ class URLVersionSource(object):
         self._version = version
         self._url = url
 
-        self._pkgSource = pkgsource.rpmSource(cfg)
+        self._pkgSource = RpmSource(cfg, )
 
     def areWeHereYet(self, pkgSet):
         """
@@ -535,6 +536,7 @@ class URLVersionSource(object):
         self._pkgSource.loadFromUrl(self._url)
 
         sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ])
+        import epdb; epdb.st()
         return sourceSet == pkgSet
 
 
@@ -548,7 +550,7 @@ class VersionFactory(object):
         self._cfg.synthesizeSources = True
         self._sources = {}
 
-        for version, url in cfg.versionSources:
+        for version, url in sorted(cfg.versionSources.iteritems()):
             self._sources[version] = URLVersionSource(self._cfg, version, url)
 
     def getVersions(self, pkgSet):
@@ -558,6 +560,6 @@ class VersionFactory(object):
 
         versions = []
         for version, source in self._sources.iteritems():
-            if sources.areWeHereYet(pkgSet):
+            if source.areWeHereYet(pkgSet):
                 versions.append(version)
         return set(versions)

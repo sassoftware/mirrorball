@@ -106,7 +106,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # Data source for determining platform version information, only used for
     # group versioning.
-    versionSources      = (CfgList(CfgList(CfgString)), [])
+    versionSources      = (CfgDict(CfgString), {})
 
     # The top level binary group, this may be the same as topSourceGroup.
     topGroup            = CfgTroveSpec
