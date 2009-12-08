@@ -74,17 +74,19 @@ class Client(object):
         Walk the specified path to find rpms.
         """
 
+        idx = 0
         for path, dirs, files in self.walkMethod(self._path):
             for f in files:
                 if f.endswith('.rpm'):
+                    idx += 1
+                    if idx % 50 == 0:
+                        log.info('indexing %s' % idx)
                     yield self._index(os.path.join(path, f))
 
     def _index(self, rpm):
         """
         Index an individual rpm.
         """
-
-        log.info(os.path.basename(rpm))
 
         fh = rpmheader.SeekableStream(rpm)
         h = rpmhelper.readHeader(fh)
@@ -124,7 +126,7 @@ class RpmSource(PackageSource):
 
     PkgClass = Package
 
-    def __init__(self, cfg, path):
+    def __init__(self, cfg, path=None):
         PackageSource.__init__(self, cfg)
         self._path = path
 
@@ -134,6 +136,9 @@ class RpmSource(PackageSource):
         """
 
         if self._loaded:
+            return
+
+        if not self.path:
             return
 
         log.info('loading %s' % self._path)
