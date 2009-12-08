@@ -34,8 +34,20 @@ from updatebot import groupmgr
 
 mgr = groupmgr.GroupManager(cfg)
 
+slog.info('retrieving trove information')
 troves = mgr._helper._getLatestTroves()
+label = mgr._helper._ccfg.buildLabel
+allTroves = mgr._helper._repos.getTroveLeavesByLabel({None: {label: None}})
 mgr._checkout()
+
+import itertools
+for k1, k2 in itertools.izip(sorted(troves), sorted(allTroves)):
+    assert k1 == k2
+    a = troves[k1]
+    b = allTroves[k2]
+    if not k1.startswith('group-') and len(a.values()[0]) != len(b.values()[0]):
+        slog.error('unhandled flavor found %s' % k1)
+        raise RuntimeError
 
 import epdb; epdb.st()
 
@@ -47,11 +59,17 @@ for name, vf in troves.iteritems():
     versions.sort()
     version = versions[-1]
     flavors = vf[version]
-#    mgr.addPackage(name, version, flavors)
+
+    if name == 'kernel':
+        import epdb; epdb.st()
+
+        mgr.addPackage(name, version, flavors)
+
+import epdb; epdb.st()
 
 mgr.setVersion('0')
 mgr.setErrataState('0')
-mgr._commit()
+#mgr._commit()
 #mgr.build()
 
 import epdb; epdb.st()
