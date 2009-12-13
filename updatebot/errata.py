@@ -20,6 +20,7 @@ import time
 import logging
 
 from updatebot.errors import ErrataPackageNotFoundError
+from updatebot.errors import ErrataSourceDataMissingError
 
 log = logging.getLogger('updatebot.errata')
 
@@ -112,7 +113,8 @@ class ErrataFilter(object):
         # get sources to build
         for bucketId in sorted(buckets.keys()):
             bucket = buckets[bucketId]
-            self._order[bucketId] = set()
+            if bucketId not in self._order:
+                self._order[bucketId] = set()
             for pkg in bucket:
                 src = self._pkgSource.binPkgMap[pkg]
                 self._order[bucketId].add(src)
@@ -145,6 +147,7 @@ class ErrataFilter(object):
         # pull nevras into errata sized buckets
         buckets = {}
         nevraMap = {}
+        broken = []
 
         log.info('processing errata')
 
@@ -181,6 +184,13 @@ class ErrataFilter(object):
                 else:
                     raise ErrataPackageNotFoundError(pkg=nevra)
 
+            # There should be packages in the bucket, if there aren't the errata
+            # store is probably broken.
+            if not bucket:
+                broken.append(e.advisory)
+                log.critical('broken advisory: %s' % e.advisory)
+                continue
+
             if bucketId is None:
                 bucketId = int(time.mktime(time.strptime(e.issue_date,
                                                          '%Y-%m-%d %H:%M:%S')))
@@ -195,6 +205,9 @@ class ErrataFilter(object):
                 self._advMap[bucketId] = set()
             self._advMap[bucketId].add((('name', e.advisory),
                                         ('summary', e.synopsis)))
+
+        if broken:
+            raise ErrataSourceDataMissingError(broken=broken)
 
         # separate out golden bits
         other = []

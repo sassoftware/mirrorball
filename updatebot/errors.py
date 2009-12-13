@@ -273,6 +273,18 @@ class ErrataPackageNotFoundError(ErrataError):
         'configured repositories when attempting to map errata source to '
         'package source.')
 
+class ErrataSourceDataMissingError(ErrataError):
+    """
+    ErrataSourceDataMissingError, raised when missing package or channel data is
+    detected. This normally means that the errata source is corupt or missing
+    data.
+    """
+
+    _params = ['broken', ]
+    _tempalte = ('Found missing information when parsing errata source. This '
+                 'normally means that the errat source is corrupt or incorect. '
+                 '%(broken)s')
+
 class GroupManagerError(UpdateBotError):
     """
     GroupManagerError, generic error for group manager related errors.
