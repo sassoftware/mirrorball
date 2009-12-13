@@ -279,8 +279,7 @@ class Updater(object):
         if pkgNames:
             toCreate = set()
         else:
-            # Import very specific versions of packages, make sure to recreate
-            # them all.
+            # Import very specific versions of packages.
             pkgNames = []
             recreate = False
 
@@ -298,10 +297,32 @@ class Updater(object):
             if srcPkg.name not in pkgs or recreate:
                 toCreate.add(srcPkg)
 
+        verCache = self._conaryhelper.getLatestVersions()
+        # In the case that we are rebuilding and already have groups available,
+        # try to only build packages that have not been rebuilt.
+        if buildAll and pkgs and not pkgNames:
+            nv = {}
+            for sn, pkgs in pkgs.iteritems():
+                for n, v, f in pkgs:
+                    if n not in nv:
+                        nv[n] = (v, sn)
+
+            create = set()
+            toCreateMap = dict([ (x.name, x) for x in toCreate ])
+            for n, v in verCache.iteritems():
+                # Skip all components, including sources
+                if len(n.split(':')) > 1:
+                    continue
+                # If binary is in the group and the verison on the label is the
+                # same it needs to be updated.
+                if n in nv and v == nv[n][0] and nv[n][1] in toCreateMap:
+                    create.add(toCreateMap[nv[n][1]])
+
+            toCreate = create
+
         # Update all of the unique sources.
         fail = set()
         toBuild = set()
-        verCache = self._conaryhelper.getLatestVersions()
         for pkg in sorted(toCreate):
             try:
                 # Only import packages that haven't been imported before
@@ -318,7 +339,7 @@ class Updater(object):
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
 
-        if buildAll and pkgs:
+        if buildAll and pkgs and pkgNames:
             toBuild.update(
                 [ (x, self._conaryhelper.getLatestSourceVersion(x), None)
                   for x in pkgs if not self._fltrPkg(x) ]
@@ -335,10 +356,10 @@ class Updater(object):
         # pylint: disable-msg=W0612
 
         try:
-            return [ n.split(':')[0] for n, v, f in
-            self._conaryhelper.getSourceTroves(self._cfg.topGroup).iterkeys() ]
+            return dict([(n.split(':')[0], pkgs) for (n, v, f), pkgs in
+            self._conaryhelper.getSourceTroves(self._cfg.topGroup).iteritems()])
         except GroupNotFound:
-            return []
+            return {}
 
     def _getPackagesToImport(self, name):
         """
