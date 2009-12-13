@@ -165,7 +165,7 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        dispatcher = Dispatcher(self, 30)
+        dispatcher = Dispatcher(self, 15)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
