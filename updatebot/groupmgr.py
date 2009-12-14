@@ -67,6 +67,8 @@ class GroupManager(object):
         self._helper = GroupHelper(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
 
+        self._versionFactory = VersionFactory(cfg)
+
         self._sourceName = self._cfg.topSourceGroup[0]
         self._sourceVersion = self._cfg.topSourceGroup[1]
 
@@ -282,6 +284,14 @@ class GroupManager(object):
         """
 
         self._helper.getErrataState(self._sourceName)
+
+    def getVersions(self, pkgSet):
+        """
+        Get the set of versions that are represented by the given set of
+        packages from the version factory.
+        """
+
+        return self._versionFactory.getVersions(pkgSet)
 
 
 class GroupHelper(ConaryHelper):
@@ -534,10 +544,14 @@ class URLVersionSource(object):
         """
 
         self._pkgSource.loadFromUrl(self._url)
+        self._pkgSource.finalize()
 
         sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ])
-        import epdb; epdb.st()
-        return sourceSet == pkgSet
+
+        # Make sure that all versions that are on the ISO are in the conary
+        # repository. It appears to be a common case that the ISO is missing
+        # content from RHN.
+        return not sourceSet.difference(pkgSet)
 
 
 class VersionFactory(object):
@@ -559,7 +573,7 @@ class VersionFactory(object):
         """
 
         versions = []
-        for version, source in self._sources.iteritems():
+        for version, source in sorted(self._sources.iteritems()):
             if source.areWeHereYet(pkgSet):
                 versions.append(version)
         return set(versions)
