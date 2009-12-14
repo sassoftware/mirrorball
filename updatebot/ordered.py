@@ -130,6 +130,7 @@ class Bot(BotSuperClass):
             # FIXME: this are probably not the versions that we need
             # Get current set of source names and versions.
             nvMap = self._updater.getSourceVersionMap()
+            # Add in new names and versions that have just been built.
             for n, v, f in pkgMap.iterkeys():
                 n = n.split(':')[0]
                 nvMap[n] = v
@@ -140,7 +141,13 @@ class Bot(BotSuperClass):
                             self._groupmgr.getVersions(pkgSet)):
                 log.info('setting version %s' % version)
                 self._groupmgr.setVersion(version)
-                self._groupmgr.build()
+                grpTrvMap = self._groupmgr.build()
+
+                log.info('promoting version %s' % version)
+                expected = self._flattenSetDict(pkgMap)
+                toPublish = self._flattenSetDict(grpTrvMap)
+                newTroves = self._updater.publish(toPublish, expected,
+                                                  self._cfg.targetLabel)
 
             updateSet.update(pkgMap)
 
