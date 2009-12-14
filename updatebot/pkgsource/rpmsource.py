@@ -120,6 +120,26 @@ class UrlClient(Client):
 
 
 class RpmSource(PackageSource):
+    PkgClass = Package
+
+    def iterPackageSet(self):
+        """
+        Iterate over the set of source packages.
+        """
+
+        for srcPkg, binPkgs in self.srcPkgMap.iteritems():
+            if not len(binPkgs):
+                continue
+            yield (srcPkg.name, srcPkg.getConaryVersion())
+
+    def _excludeLocation(self, location):
+        # FIXME: This should not be hard coded. There needs to be a config
+        #        option for exclusions.
+        path = os.path.dirname(location)
+        if 'VT' in path or 'Cluster' in path:
+            return True
+
+class _RpmSource(PackageSource):
     """
     Walk a directory, find rpms, index them.
     """
