@@ -145,13 +145,14 @@ class ErrataFilter(object):
                         if x.arch != 'src' and '-debuginfo' not in x.name)
 
         # pull nevras into errata sized buckets
+        broken = []
         buckets = {}
         nevraMap = {}
-        broken = []
 
         log.info('processing errata')
 
         indexedChannels = set(self._errata.getChannels())
+        # FIXME: This should not be a hard coded set of arches.
         arches = ('i386', 'i486', 'i586', 'i686', 'x86_64', 'noarch')
         for e in self._errata.iterByIssueDate():
             bucket = []
@@ -184,9 +185,10 @@ class ErrataFilter(object):
                 else:
                     raise ErrataPackageNotFoundError(pkg=nevra)
 
-            # There should be packages in the bucket, if there aren't the errata
-            # store is probably broken.
-            if not bucket:
+            # There should be packages in the bucket or the packages should
+            # already be in an existing bucket (bucketId != None), if there
+            # aren't the errata store is probably broken.
+            if not bucket and bucketId is None:
                 broken.append(e.advisory)
                 log.critical('broken advisory: %s' % e.advisory)
                 continue
