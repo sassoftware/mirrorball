@@ -187,15 +187,25 @@ class ConaryHelper(object):
                                           recurse=False)
 
         topTrove = self._getTrove(cs, name, version, flavor)
+        troves = topTrove.iterTroveList(weakRefs=True, strongRefs=True)
+
+        return self.getSourceVersions(list(troves))
+
+    def getSourceVersions(self, troveSpecs):
+        """
+        Given a list of trove specs, query the repository for all of the related
+        source versions.
+        @param troveSpecs: list of troves to query for.
+        @type troveSpecs: [(name, versionObj, flavObj), ... ]
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
+        """
 
         # Iterate over both strong and weak refs because msw said it was a
         # good idea.
         srcTrvs = {}
-        sources = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME,
-                    list(topTrove.iterTroveList(weakRefs=True,
-                                                strongRefs=True)))
-        for i, (n, v, f) in enumerate(topTrove.iterTroveList(weakRefs=True,
-                                                             strongRefs=True)):
+        tiSourceName = trove._TROVEINFO_TAG_SOURCENAME
+        sources = self._repos.getTroveInfo(tiSourceName, troveSpecs)
+        for i, (n, v, f) in enumerate(troveSpecs):
             src = (sources[i](), v.getSourceVersion(), None)
             if src not in srcTrvs:
                 srcTrvs[src] = set()
