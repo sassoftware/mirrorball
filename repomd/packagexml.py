@@ -157,6 +157,24 @@ class _Package(SlotNode, PackageCompare):
 
         return cmp(self.location, other.location)
 
+    def getNevra(self):
+        """
+        Return the name, epoch, version, release, and arch the package.
+        """
+
+        return (self.name, self.epoch, self.version, self.release, self.arch)
+
+    def getConaryVersion(self):
+        """
+        Get the conary version of a source package.
+        """
+
+        assert self.arch == 'src'
+        filename = os.path.basename(self.location)
+        nameVerRelease = ".".join(filename.split(".")[:-2])
+        ver = "_".join(nameVerRelease.split("-")[-2:])
+        return ver
+
 
 class _RpmRequires(xmllib.BaseNode):
     """
