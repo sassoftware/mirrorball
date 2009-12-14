@@ -129,13 +129,32 @@ class Updater(object):
 
     def getSourceVersionMap(self):
         """
-        Query the repository for a list of the latest source names and versions.
+        Query the repository for a list of the latest source names and versions
+        that have binary versions.
+        @return {sourceName: sourceVersion}
         """
 
-        return dict([ (x.split(':')[0], y) for x, y, z in
-            self._conaryhelper.getSourceTroves(self._cfg.topGroup).iterkeys()
-            if not self._fltrPkg(x.split(':')[0])
-        ])
+        # Get the latest versions from repository
+        troves = self._conaryhelper._getLatestTroves()
+
+        # Convert to a n, v, f list excluding components and sources.
+        troveSpecs = []
+        for name, verDict in troves.iteritems():
+            if ':' in name:
+                continue
+            assert len(verDict) == 1
+            version = verDict.keys()[0]
+            flavor = list(verDict[version])[0]
+            troveSpecs.append((name, version, flavor))
+
+        # Get the sources for all binary packages.
+        sourceVersions = self._conaryhelper.getSourceVersions(troveSpecs)
+
+        # Convert to sourceName: version map.
+        return dict([ (x.split(':')[0], y)
+                      for x, y, z in sourceVersions.iterkeys()
+                      if not self._fltrPkg(x.split(':')[0])
+                    ])
 
     def _getLatestSource(self, name):
         """
