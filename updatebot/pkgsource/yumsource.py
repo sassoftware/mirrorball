@@ -71,6 +71,7 @@ class YumSource(BasePackageSource):
         @type basePath: string
         """
 
+        log.info('loading repository data %s/%s' % (url, basePath))
         client = repomd.Client(url + '/' + basePath)
         self.loadFromClient(client, basePath=basePath)
 
@@ -98,6 +99,9 @@ class YumSource(BasePackageSource):
             assert '-' not in pkg.release
 
             pkg.location = basePath + '/' + pkg.location
+
+            if self._excludeLocation(pkg.location):
+                continue
 
             # ignore 32bit rpms in a 64bit repo.
             if (pkg.arch in ('i386', 'i586', 'i686') and
@@ -152,6 +156,13 @@ class YumSource(BasePackageSource):
         self.binNameMap[package.name].add(package)
 
         self.locationMap[package.location] = package
+
+    def _excludeLocation(self, location):
+        """
+        Method for filtering packages based on locaiton.
+        """
+
+        return False
 
     def finalize(self):
         """
