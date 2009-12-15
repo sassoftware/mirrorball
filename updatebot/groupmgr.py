@@ -283,7 +283,7 @@ class GroupManager(object):
         Get the errata state info.
         """
 
-        self._helper.getErrataState(self._sourceName)
+        return self._helper.getErrataState(self._sourceName)
 
     def getVersions(self, pkgSet):
         """
@@ -304,6 +304,13 @@ class GroupHelper(ConaryHelper):
         self._configDir = cfg.configPath
         self._newPkgFactory = 'managed-group'
         self._groupContents = cfg.groupContents
+
+        # FIXME: autoLoadRecipes causes group versioning to go sideways
+        # The group super class in the repository has a version defined, which
+        # overrides the version from factory-version. This should probably be
+        # considered a bug in factory-managed-group, but we don't need
+        # autoLoadRecipes here anyway.
+        self._ccfg.autoLoadRecipes = []
 
     def getModel(self, pkgName):
         """
@@ -386,6 +393,8 @@ class GroupHelper(ConaryHelper):
             return None
 
         state = open(stateFileName).read().strip()
+        if state.isdigit():
+            state = int(state)
         return state
 
     def setErrataState(self, pkgname, state):
@@ -400,7 +409,7 @@ class GroupHelper(ConaryHelper):
 
         # write state info
         statefh = open(stateFileName, 'w')
-        statefh.write(state)
+        statefh.write(str(state))
 
         # source files must end in a trailing newline
         statefh.write('\n')
