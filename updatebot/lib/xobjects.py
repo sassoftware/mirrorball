@@ -196,7 +196,7 @@ class XPackageItem(XHashableItem):
         else:
             self.use = use
 
-        if type(flavor) == conary.deps.deps.Flavor:
+        if isinstance(flavor, conary.deps.deps.Flavor):
             self.flavor = flavor.freeze()
         else:
             self.flavor = flavor
