@@ -16,12 +16,14 @@
 Module for doing updates ordered by errata information.
 """
 
+import time
 import logging
 
 from updatebot import errata
 from updatebot import groupmgr
 from updatebot.bot import Bot as BotSuperClass
 
+from updatebot.errors import PlatformNotImportedError
 from updatebot.errors import PlatformAlreadyImportedError
 
 log = logging.getLogger('updatebot.ordered')
@@ -106,15 +108,13 @@ class Bot(BotSuperClass):
         self._pkgSource.load()
 
         updateSet = {}
-        for updateId, updates in self._errata.iterByIssueDate(start=current):
+        for updateId, updates in self._errata.iterByIssueDate(current=current):
+            start = time.time()
             detail = self._errata.getUpdateDetailMessage(updateId)
             log.info('attempting to apply %s' % detail)
 
             # Update package set.
-            pkgMap = self._update(updatePkgs=updates)
-
-            # Store current updateId.
-            self._groupmgr.setErrataState(updateId)
+            pkgMap = self._update(*args, updatePkgs=updates, **kwargs)
 
             # Find errata group versions.
             errataVersions = set()
@@ -127,7 +127,6 @@ class Bot(BotSuperClass):
                 name += '_rolling'
                 errataVersions.add(name)
 
-            # FIXME: this are probably not the versions that we need
             # Get current set of source names and versions.
             nvMap = self._updater.getSourceVersionMap()
             # Add in new names and versions that have just been built.
@@ -135,20 +134,39 @@ class Bot(BotSuperClass):
                 n = n.split(':')[0]
                 nvMap[n] = v
             pkgSet = set(nvMap.items())
+            # Get the major distro verisons from the group manager.
+            majorVersions = self._groupmgr.getVersions(pkgSet)
+
+            # Store current updateId.
+            self._groupmgr.setErrataState(updateId)
+
+            # Make sure built troves are part of group.
+            self._addPackages(pkgMap)
 
             # Build various group verisons.
-            for version in (errataVersions +
-                            self._groupmgr.getVersions(pkgSet)):
+            expected = self._flattenSetDict(pkgMap)
+            for version in errataVersions | majorVersions:
                 log.info('setting version %s' % version)
                 self._groupmgr.setVersion(version)
                 grpTrvMap = self._groupmgr.build()
 
                 log.info('promoting version %s' % version)
-                expected = self._flattenSetDict(pkgMap)
                 toPublish = self._flattenSetDict(grpTrvMap)
-                newTroves = self._updater.publish(toPublish, expected,
-                                                  self._cfg.targetLabel)
+                newTroves = self._updater.publish(
+                    toPublish,
+                    expected,
+                    self._cfg.targetLabel
+                )
+
+                # After the first promote, packages should not be repromoted.
+                expected = set()
 
             updateSet.update(pkgMap)
+
+            # Report timings
+            advTime = time.strftime('%m-%d-%Y %H:%M:%S',
+                                    time.localtime(updateId))
+            totalTime = time.time() - start
+            log.info('published update %s in %s seconds' % (advTime, totalTime))
 
         return updateSet
