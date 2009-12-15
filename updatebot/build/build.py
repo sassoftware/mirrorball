@@ -591,16 +591,17 @@ class Builder(object):
         for capFile, fileList, fileObjs in sorted(capsules, cmp=idCmp):
             if capFile[2] in contentsCache:
                 capsuleFileContents = contentsCache[capFile[2]]
-            elif newTroveCs.getOldVersion():
-                getFileContents = self._client.repos.getFileContents
-                fcList = getFileContents((capFile[2:], ), compressed=False)
-                capsuleFileContents = fcList[0].get()
             else:
-                getFileContents = newCs.getFileContents
-                fcList = getFileContents(capFile[0], capFile[2],
-                                         compressed=False)
-                capsuleFileContents = fcList[1].get()
-            contentsCache[capFile[2]] = capsuleFileContents
+                try:
+                    getFileContents = newCs.getFileContents
+                    fcList = getFileContents(capFile[0], capFile[2],
+                                             compressed=False)
+                    capsuleFileContents = fcList[1].get()
+                except KeyError, e:
+                    getFileContents = self._client.repos.getFileContents
+                    fcList = getFileContents((capFile[2:], ), compressed=False)
+                    capsuleFileContents = fcList[0].get()
+                contentsCache[capFile[2]] = capsuleFileContents
 
             # do the check
             self._sanityCheckRPMCapsule(jobId, fileList, fileObjs,
