@@ -79,3 +79,6 @@ class UpdateBotCloneCallback(CloneCallback):
     def gettingCloneData(self):
         CloneCallback.gettingCloneData(self)
 
+    @callonce
+    def sendingChangset(self, got, need):
+        self._message('uploading changeset')
