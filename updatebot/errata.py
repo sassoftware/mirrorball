@@ -57,7 +57,7 @@ class ErrataFilter(object):
         Given a errata timestamp lookup the name and summary.
         """
 
-        return dict(self._advMap.get(bucketId, tuple()))
+        return [ dict(x) for x in self._advMap.get(bucketId, tuple()) ]
 
     @loadErrata
     def getUpdateDetailMessage(self, bucketId):
@@ -68,21 +68,22 @@ class ErrataFilter(object):
         if bucketId in self._advMap:
             msg = ''
             for adv in self._advMap[bucketId]:
-                msg += '(%(name)s: %(summary)s) ' % adv
+                msg += '(%(name)s: %(summary)s) ' % dict(adv)
             return msg
         else:
             return '%s (no detail found)' % bucketId
 
     @loadErrata
-    def iterByIssueDate(self, start=None):
+    def iterByIssueDate(self, current=None):
         """
         Yield sets of srcPkgs by errata release date.
-        @param start: timestamp from which to start iterating.
-        @type start: int
+        @param current: the current state, start iterating after this state has
+                        been reached.
+        @type current: int
         """
 
         for stamp in sorted(self._order.keys()):
-            if start > stamp:
+            if current >= stamp:
                 continue
             yield stamp, self._order[stamp]
 
@@ -113,8 +114,7 @@ class ErrataFilter(object):
         # get sources to build
         for bucketId in sorted(buckets.keys()):
             bucket = buckets[bucketId]
-            if bucketId not in self._order:
-                self._order[bucketId] = set()
+            self._order[bucketId] = set()
             for pkg in bucket:
                 src = self._pkgSource.binPkgMap[pkg]
                 self._order[bucketId].add(src)
@@ -196,9 +196,10 @@ class ErrataFilter(object):
             if bucketId is None:
                 bucketId = int(time.mktime(time.strptime(e.issue_date,
                                                          '%Y-%m-%d %H:%M:%S')))
-                buckets[bucketId] = bucket
-            else:
-                buckets[bucketId].extend(bucket)
+
+            if bucketId not in buckets:
+                buckets[bucketId] = set()
+            buckets[bucketId].update(bucket)
 
             for nevra in allocated:
                 nevraMap[nevra] = bucketId
