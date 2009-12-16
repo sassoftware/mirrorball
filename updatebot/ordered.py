@@ -40,7 +40,6 @@ class Bot(BotSuperClass):
         BotSuperClass.__init__(self, cfg)
         self._errata = errata.ErrataFilter(self._pkgSource, errataSource)
         self._groupmgr = groupmgr.GroupManager(self._cfg)
-        self._versionFactory = groupmgr.VersionFactory(self._cfg)
 
     def _addPackages(self, pkgMap):
         """
@@ -156,22 +155,25 @@ class Bot(BotSuperClass):
             self._addPackages(pkgMap)
 
             # Build various group verisons.
-            expected = self._flattenSetDict(pkgMap)
-            for version in sorted(errataVersions | majorVersions, cmp=verCmp):
+            #expected = self._flattenSetDict(pkgMap)
+            versions = sorted(errataVersions | majorVersions, cmp=verCmp)
+            if not versions:
+                versions = set(['unknown.%s' % updateId, ])
+            for version in versions:
                 log.info('setting version %s' % version)
                 self._groupmgr.setVersion(version)
                 grpTrvMap = self._groupmgr.build()
 
-                log.info('promoting version %s' % version)
-                toPublish = self._flattenSetDict(grpTrvMap)
-                newTroves = self._updater.publish(
-                    toPublish,
-                    expected,
-                    self._cfg.targetLabel
-                )
+                #log.info('promoting version %s' % version)
+                #toPublish = self._flattenSetDict(grpTrvMap)
+                #newTroves = self._updater.publish(
+                #    toPublish,
+                #    expected,
+                #    self._cfg.targetLabel
+                #)
 
                 # After the first promote, packages should not be repromoted.
-                expected = set()
+                #expected = set()
 
             updateSet.update(pkgMap)
 
