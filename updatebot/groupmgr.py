@@ -542,7 +542,12 @@ class URLVersionSource(object):
         self._version = version
         self._url = url
 
-        self._pkgSource = RpmSource(cfg, )
+        pkgSource = RpmSource(cfg, )
+        pkgSource.loadFromUrl(url)
+        pkgSource.finalize()
+        pkgSource.setLoaded()
+
+        self._sourceSet = set([ x for x in pkgSource.iterPackageSet() ])
 
     def areWeHereYet(self, pkgSet):
         """
@@ -552,16 +557,10 @@ class URLVersionSource(object):
         @return boolean
         """
 
-        self._pkgSource.loadFromUrl(self._url)
-        self._pkgSource.finalize()
-        self._pkgSource.setLoaded()
-
-        sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ])
-
         # Make sure that all versions that are on the ISO are in the conary
         # repository. It appears to be a common case that the ISO is missing
         # content from RHN.
-        return not sourceSet.difference(pkgSet)
+        return not self._sourceSet.difference(pkgSet)
 
 
 class VersionFactory(object):
