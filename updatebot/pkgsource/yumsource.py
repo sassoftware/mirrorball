@@ -312,3 +312,9 @@ class YumSource(BasePackageSource):
             if (name, epoch, version, release, arch) not in self._srcMap:
                 log.warn('synthesizing source package %s' % srcPkg)
                 self._procSrc(srcPkg)
+
+            # Add location mappings for packages that may have once been
+            # synthesized so that parsing old manifest files still works.
+            elif srcPkg.location not in self.locationMap:
+                pkg = self._srcMap[(name, epoch, version, release, arch)]
+                self.locationMap[srcPkg.location] = pkg
