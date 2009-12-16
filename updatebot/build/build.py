@@ -142,7 +142,7 @@ class Builder(object):
 
         self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
 
-        self.cvc = Cvc(self._cfg, self._ccfg, self._client, self._formatInput)
+        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput)
 
     def build(self, troveSpecs):
         """

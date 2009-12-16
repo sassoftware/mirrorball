@@ -16,10 +16,12 @@
 An abstraction layer around cvc cook.
 """
 
+import copy
 import logging
 
 log = logging.getLogger('updatebot.build.cvc')
 
+from conary import conarycfg
 from conary.build import cook
 
 from updatebot.lib import conarycallbacks
@@ -42,11 +44,13 @@ class Cvc(object):
     @type inputFormatter: method
     """
 
-    def __init__(self, cfg, ccfg, client, inputFormatter):
+    def __init__(self, cfg, ccfg, inputFormatter):
         self._cfg = cfg
-        self._ccfg = ccfg
-        self._client = client
+        self._ccfg = copy.deepcopy(ccfg)
         self._formatInput = inputFormatter
+
+        # Restet dbPath to the default value for local cooking.
+        self._ccfg.dbPath = conarycfg.ConaryContext.dbPath
 
     def cook(self, troveSpecs):
         """
@@ -84,7 +88,7 @@ class Cvc(object):
             ignoreDeps=True,
             logBuild=True,
             callback=conarycallbacks.UpdateBotCookCallback(),
-            groupOptions=groupOptions
+            groupOptions=groupCookOptions,
         )
 
         if built is None:
