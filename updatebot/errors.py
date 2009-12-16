@@ -354,3 +354,19 @@ class PlatformNotImportedError(ImportError):
 
     _params = []
     _template = 'This platform has not yet been created.'
+
+class CvcError(UpdateBotError):
+    """
+    Generic cvc related error.
+    """
+
+    _params = []
+    _template = 'cvc failed'
+
+class LocalCookFailedError(CvcError):
+    """
+    LocalCookFailedError, raised when cvc.cook fails.
+    """
+
+    _parms = ['troveSpecs', ]
+    _template = 'Failed while cooking %(troveSpecs)s'

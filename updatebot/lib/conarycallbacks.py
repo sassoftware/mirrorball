@@ -20,6 +20,7 @@ logging module.
 import logging
 log = logging.getLogger('updatebot.lib.conarycallbacks')
 
+from conary.build.cook import CookCallback
 from conary.conaryclient.callbacks import CloneCallback
 
 def callonce(func):
@@ -29,15 +30,18 @@ def callonce(func):
             return func(self, *args, **kwargs)
     return wrapper
 
-class UpdateBotCloneCallback(CloneCallback):
+class BaseCallback(object):
     def __init__(self, *args, **kwargs):
-        self._log = kwargs.pop('log', log)
-        CloneCallback.__init__(self, *args, **kwargs)
-
         self._last = None
 
     def _message(self, message):
         self._log.info(message)
+
+class UpdateBotCloneCallback(BaseCallback, CloneCallback):
+    def __init__(self, *args, **kwargs):
+        self._log = kwargs.pop('log', log)
+        BaseCallback.__init__(self, *args, **kwargs)
+        CloneCallback.__init__(self, *args, **kwargs)
 
     @callonce
     def determiningCloneTroves(self, current=0, total=0):
@@ -82,3 +86,9 @@ class UpdateBotCloneCallback(CloneCallback):
     @callonce
     def sendingChangset(self, got, need):
         self._message('uploading changeset')
+
+class UpdateBotCookCallback(BaseCallback, CookCallback):
+    def __init__(self, *args, **kwargs):
+        self._log = kwargs.pop('log', log)
+        BaseCallback.__init__(self, *args, **kwargs)
+        CookCallback.__init__(self, *args, **kwargs)

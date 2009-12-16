@@ -103,7 +103,7 @@ class GroupManager(object):
         """
 
         groupTroves = ((self._sourceName, self._sourceVersion, None), )
-        built = self._builder.build(groupTroves)
+        built = self._builder.cvc.cook(groupTroves)
         return built
 
     @checkout

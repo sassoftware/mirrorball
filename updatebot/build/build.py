@@ -45,6 +45,7 @@ from updatebot.errors import CommitFailedError
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
 
+from updatebot.build.cvc import Cvc
 from updatebot.build.dispatcher import Dispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
 
@@ -140,6 +141,8 @@ class Builder(object):
         self._rmakeCfg.tmpDir = conarycfg.ConaryContext.tmpDir[1]
 
         self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
+
+        self.cvc = Cvc(self._cfg, self._ccfg, self._client, self._formatInput)
 
     def build(self, troveSpecs):
         """
