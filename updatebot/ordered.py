@@ -103,7 +103,7 @@ class Bot(BotSuperClass):
         # Method for sorting versions.
         def verCmp(a, b):
             if a.startswith('RH') and b.startswith('RH'):
-                return cmp(a.split('-')[1], b.split('-')[1])
+                return cmp(a.split('_')[1], b.split('_')[1])
             elif a.startswith('RH') and not b.startswith('RH'):
                 return 1
             elif not a.startswith('RH') and b.startswith('RH'):
