@@ -22,6 +22,7 @@ import logging
 log = logging.getLogger('updatebot.build.cvc')
 
 from conary import conarycfg
+from conary import conaryclient
 from conary.build import cook
 
 from updatebot.lib import conarycallbacks
@@ -51,6 +52,8 @@ class Cvc(object):
 
         # Restet dbPath to the default value for local cooking.
         self._ccfg.dbPath = conarycfg.ConaryContext.dbPath
+
+        self._client = conaryclient.ConaryClient(self._ccfg)
 
     def cook(self, troveSpecs):
         """
