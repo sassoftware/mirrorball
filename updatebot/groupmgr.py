@@ -554,6 +554,7 @@ class URLVersionSource(object):
 
         self._pkgSource.loadFromUrl(self._url)
         self._pkgSource.finalize()
+        self._pkgSource.setLoaded()
 
         sourceSet = set([ x for x in self._pkgSource.iterPackageSet() ])
 
