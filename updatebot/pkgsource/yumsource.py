@@ -25,6 +25,14 @@ from updatebot.pkgsource.common import BasePackageSource
 
 log = logging.getLogger('updatebot.pkgsource')
 
+def loaded(func):
+    def wrapper(self, *args, **kwargs):
+        if self._loaded:
+            return
+        return func(self, *args, **kwargs)
+    return wrapper
+
+
 class YumSource(BasePackageSource):
     """
     Class that builds maps of packages from multiple yum repositories.
@@ -44,13 +52,14 @@ class YumSource(BasePackageSource):
         # set of all src pkg objects
         self._srcPkgs = set()
 
+    def setLoaded(self):
+        self._loaded = True
+
+    @loaded
     def load(self):
         """
         Load package source based on config data.
         """
-
-        if self._loaded:
-            return
 
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
@@ -61,6 +70,7 @@ class YumSource(BasePackageSource):
         self.finalize()
         self._loaded = True
 
+    @loaded
     def loadFromUrl(self, url, basePath=''):
         """
         Walk the yum repository rooted at url/basePath and collect information
@@ -75,6 +85,7 @@ class YumSource(BasePackageSource):
         client = repomd.Client(url + '/' + basePath)
         self.loadFromClient(client, basePath=basePath)
 
+    @loaded
     def loadFromClient(self, client, basePath=''):
         """
         Walk the yum repository rooted at url/basePath and collect information
@@ -164,6 +175,7 @@ class YumSource(BasePackageSource):
 
         return False
 
+    @loaded
     def finalize(self):
         """
         Make some final datastructures now that we are done populating object.
