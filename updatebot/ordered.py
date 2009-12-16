@@ -99,6 +99,18 @@ class Bot(BotSuperClass):
         Handle update case.
         """
 
+        # FIXME: this should probably be provided by the errata object.
+        # Method for sorting versions.
+        def verCmp(a, b):
+            if a.startswith('RH') and b.startswith('RH'):
+                return cmp(a.split('-')[1], b.split('-')[1])
+            elif a.startswith('RH') and not b.startswith('RH'):
+                return 1
+            elif not a.startswith('RH') and b.startswith('RH'):
+                return -1
+            else:
+                return cmp(a, b)
+
         # Get current timestamp
         current = self._groupmgr.getErrataState()
         if current is None:
@@ -145,7 +157,7 @@ class Bot(BotSuperClass):
 
             # Build various group verisons.
             expected = self._flattenSetDict(pkgMap)
-            for version in errataVersions | majorVersions:
+            for version in sorted(errataVersions | majorVersions, cmp=verCmp):
                 log.info('setting version %s' % version)
                 self._groupmgr.setVersion(version)
                 grpTrvMap = self._groupmgr.build()
