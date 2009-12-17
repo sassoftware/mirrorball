@@ -277,18 +277,17 @@ class YumSource(BasePackageSource):
         Create a source map from the binary map if no sources are available.
         """
 
-        # Return if sources should be available in repos.
-        if not self._cfg.synthesizeSources:
-            return
+        def getSourcePackage(nevra, bins):
+            # unpack the nevra
+            n, e, v, r, a = nevra
 
-        # Create a fake source rpm object for each key in the rpmMap.
-        for (name, epoch, version, release, arch), bins in self._rpmMap.iteritems():
+            # create a source package object based on the nevra
             srcPkg = self.PkgClass()
-            srcPkg.name = name
-            srcPkg.epoch = epoch
-            srcPkg.version = version
-            srcPkg.release = release
-            srcPkg.arch = arch
+            srcPkg.name = n
+            srcPkg.epoch = e
+            srcPkg.version = v
+            srcPkg.release = r
+            srcPkg.arch = a
 
             # grab the first binary package
             pkg = sorted(bins)[0]
@@ -297,24 +296,58 @@ class YumSource(BasePackageSource):
             # of the file. The factory will take care of the rest.
             srcPkg.location = pkg.sourcerpm
 
+            return srcPkg
+
+        # Return if sources should be available in repos.
+        if not self._cfg.synthesizeSources:
+            return
+
+        deffer = set()
+        # Create a fake source rpm object for each key in the rpmMap.
+        for nevra, bins in self._rpmMap.iteritems():
+            srcPkg = getSourcePackage(nevra, bins)
+
             # Handle sub packages with different epochs that should be taken
             # care of with the epoch fuzzing that happens in finalize. This
             # should only happen with differently named packages.
-            if name not in [ x.name for x in bins ]:
-                # Find sources that match on all cases except epoch.
-                sources = [ x for x in self._srcMap.iterkeys()
-                    if (name, version, release, arch) == (x[0], x[2], x[3], x[4]) ]
-
-                # leave it up to fuzzing
-                if sources: continue
+            if nevra[0] not in [ x.name for x in bins ]:
+                deffer.add(nevra)
+                continue
 
             # add source to structures
-            if (name, epoch, version, release, arch) not in self._srcMap:
+            if nevra not in self._srcMap:
                 log.warn('synthesizing source package %s' % srcPkg)
                 self._procSrc(srcPkg)
 
             # Add location mappings for packages that may have once been
             # synthesized so that parsing old manifest files still works.
             elif srcPkg.location not in self.locationMap:
-                pkg = self._srcMap[(name, epoch, version, release, arch)]
+                pkg = self._srcMap[nevra]
                 self.locationMap[srcPkg.location] = pkg
+
+        broken = set()
+        # Make an attempt to sort out the binaries that have different names
+        # than the related sources.
+        for nevra in deffer:
+            bins = self._rpmMap[nevra]
+            srcPkg = getSourcePackage(nevra, bins)
+
+            name, epoch, version, release, arch = nevra
+            # Find sources that match on all cases except epoch.
+            sources = [ x for x in self._srcMap.iterkeys()
+                if (name, version, release, arch) == (x[0], x[2], x[3], x[4]) ]
+            # leave it up to fuzzing
+            if sources: continue
+
+            # If we get here this is a set of binary packages that have a
+            # different name than the source rpm. This is possible, but should
+            # be an extremely rare case.
+            log.warn('found binary without matching source name %s'
+                     % list(bins)[0].name)
+
+            broken.add((nevra, bins))
+
+        # Raise an exception if this ever happens. We can figure out the right
+        # thing to do then, purhaps on a case by case basis.
+        if broken:
+            raise CanNotFindSourceForBinariesError(count=len(broken))

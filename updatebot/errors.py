@@ -370,3 +370,24 @@ class LocalCookFailedError(CvcError):
 
     _parms = ['troveSpecs', ]
     _template = 'Failed while cooking %(troveSpecs)s'
+
+class PackageSourceError(UpdateBotError):
+    """
+    Generic error for all package source errors to decend from.
+    """
+
+    _parms = []
+    _template = 'an error has occured in the package source'
+
+class CanNotFindSourceForBinariesError(PackageSourceError):
+    """
+    CanNotFindSourceForBinariesError, raise when synthesizing sources and the
+    binary package has a source of a different name and a source of that name,
+    version, and release can not be found.
+    """
+
+    _parms = ['count', ]
+    _template = ('Could not find %(count) sources for matching binary '
+        'packages. This generally means that there is a binary package with a '
+        'source of a different name and a source can not be found with a '
+        'matching source name, version, and release.')
