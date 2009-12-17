@@ -624,6 +624,22 @@ class ConaryHelper(object):
                 flavors.add(section.buildFlavor)
 
         trvMap = self._repos.getTroveLeavesByLabel({None: {label: flavors}})
+
+        # Remove anything with multiple versions, this results from something
+        # changing flavor at any point.
+        for name, verDict in trvMap.iteritems():
+            if len(verDict) == 1:
+                continue
+            versions = verDict.keys()
+            versions.sort()
+            latest = versions[-1]
+            versions.remove(latest)
+            for version in versions:
+                for flavor in verDict[version]:
+                    log.warn('removing extra version of %s=%s[%s]' % 
+                             (name, version, flavor))
+                del trvMap[name][version]
+
         return trvMap
 
     def getLatestVersions(self):
