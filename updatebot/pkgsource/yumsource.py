@@ -17,6 +17,7 @@
 Module for interacting with packages in multiple yum repositories.
 """
 
+import os
 import logging
 
 import repomd
@@ -136,6 +137,13 @@ class YumSource(BasePackageSource):
         self.srcNameMap[package.name].add(package)
 
         self.locationMap[package.location] = package
+
+        # In case the a synthesized source ever turns into real source add the
+        # short name for backward compatibility.
+        if self._cfg.synthesizeSources:
+            baseLoc = os.path.basename(package.location)
+            if baseLoc not in self.locationMap:
+                self.locationMap[baseLoc] = package
 
         self._srcPkgs.add(package)
         self._srcMap[(package.name, package.epoch, package.version,
