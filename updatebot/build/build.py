@@ -47,6 +47,7 @@ from updatebot.errors import ChangesetValidationFailedError
 
 from updatebot.build.cvc import Cvc
 from updatebot.build.dispatcher import Dispatcher
+from updatebot.build.dispatcher import NonCommittalDispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
 
 log = logging.getLogger('updatebot.build')
@@ -160,15 +161,22 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def buildmany(self, troveSpecs):
+    def buildmany(self, troveSpecs, lateCommit=False):
         """
         Build many troves in separate jobs.
         @param troveSpecs: list of trove specs
         @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @param lateCommit: if True, build all troves, then commit. (defaults to
+                           False)
+        @type lateCommit: boolean
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        dispatcher = Dispatcher(self, 15)
+        workers = 15
+        if not lateCommit:
+            dispatcher = Dispatcher(self, workers)
+        else:
+            dispatcher = NonCommittalDispatcher(self, workers)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):

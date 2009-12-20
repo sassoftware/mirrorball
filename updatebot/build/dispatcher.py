@@ -29,6 +29,8 @@ from updatebot.build.monitor import JobMonitor
 from updatebot.build.monitor import JobCommitter
 from updatebot.build.constants import JobStatus
 
+from updatebot.errors import JobNotCompleteError
+
 log = logging.getLogger('updatebot.build')
 
 class Dispatcher(object):
@@ -176,6 +178,10 @@ class Dispatcher(object):
 
         results = {}
         for jobId, (trove, status, result) in self._jobs.iteritems():
+            # don't return errors if we intentionaly didn't commit.
+            built = buildjob.JOB_STATE_BUILT
+            if status == built and built in self._completed and not result:
+                continue
             # log failed jobs
             if status == buildjob.JOB_STATE_FAILED or not result:
                 log.info('[%s] failed job: %s' % (jobId, trove))
@@ -205,3 +211,47 @@ class Dispatcher(object):
 
         avail = util.getAvailableFileDescriptors(setMax=setMax)
         return math.floor(0.8 * avail)
+
+
+class NonCommittalDispatcher(Dispatcher):
+    """
+    A dispatcher class that is configured to not commit until all jobs are
+    complete.
+    """
+
+    # States where the job is considered complete.
+    _completed = (
+        JobStatus.ERROR_MONITOR_FAILURE,
+        JobStatus.ERROR_COMMITTER_FAILURE,
+        buildjob.JOB_STATE_FAILED,
+        buildjob.JOB_STATE_BUILT,
+    )
+
+    def __init__(self, builder, maxSlots):
+        Dispatcher.__init__(self, builder, maxSlots)
+
+        # Disable commits by removing all commit slots.
+        self._maxCommitSlots = 0
+        self._commitSlots = 0
+
+    def buildmany(self, troveSpecs):
+        """
+        Build all packages in seperate jobs, then commit.
+        """
+
+        results, self._failures = Dispatcher.buildmany(self, troveSpecs)
+
+        # Make sure there are no failures.
+        assert not self._failures
+
+        for jobId, (trove, status, result) in self._jobs.iteritems():
+            # Make sure all jobs are built.
+            if status != buildjob.JOB_STATE_BUILT:
+                raise JobNotCompleteError(jobId=jobId)
+
+        # If we get here, all jobs have built successfully and are ready to be
+        # committed.
+        jobIds = self._jobs.keys()
+        res = self._builder.commit(jobIds)
+
+        return res, self._failures
