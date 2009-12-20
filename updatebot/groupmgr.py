@@ -67,7 +67,7 @@ class GroupManager(object):
         self._helper = GroupHelper(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
 
-        self._versionFactory = VersionFactory(cfg)
+        #self._versionFactory = VersionFactory(cfg)
 
         self._sourceName = self._cfg.topSourceGroup[0]
         self._sourceVersion = self._cfg.topSourceGroup[1]
@@ -291,7 +291,8 @@ class GroupManager(object):
         packages from the version factory.
         """
 
-        return self._versionFactory.getVersions(pkgSet)
+        return set()
+        #return self._versionFactory.getVersions(pkgSet)
 
 
 class GroupHelper(ConaryHelper):
