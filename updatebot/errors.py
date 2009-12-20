@@ -75,8 +75,16 @@ class JobFailedError(UpdateBotError):
     """
 
     _params = ['jobId', 'why']
-    _templates = 'rMake job %(jobId)s failed: %(why)s'
+    _template = 'rMake job %(jobId)s failed: %(why)s'
 
+class JobNotCompleteError(UpdateBotError):
+    """
+    JobNotCompleteError, raised when the build dispatcher thinks that the job
+    should be done, but it isn't.
+    """
+
+    _params = ['jobId', ]
+    _template = 'Build job not complete %(jobId)s'
 
 class UnhandledUpdateError(UpdateBotError):
     """
@@ -391,3 +399,21 @@ class CanNotFindSourceForBinariesError(PackageSourceError):
         'packages. This generally means that there is a binary package with a '
         'source of a different name and a source can not be found with a '
         'matching source name, version, and release.')
+
+class ErrataFilterError(UpdateBotError):
+    """
+    Generic errata filter error.
+    """
+
+    _params = []
+    _template = 'generic errata filter error'
+
+class UnableToMergeUpdatesError(ErrataFilterError):
+    """
+    UnableToMergeUpdatesError, raised when errata buckets can not be merged
+    together.
+    """
+
+    _params = [ 'source', 'target', 'package', ]
+    _template = ('Can not merge %(source)s into %(target)s due to conflicting '
+                 'package %(package)s')
