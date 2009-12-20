@@ -223,6 +223,8 @@ class Updater(object):
 
             # make sure new package is actually newer
             if util.packagevercmp(srpm, srcPkg) == -1:
+                log.warn('version goes backwards %s -> %s' %
+                         (srpm.getNevra(), srcPkg.getNevra()))
                 raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
