@@ -202,10 +202,16 @@ class Bot(object):
         # sources that have been updated, but not built.
         buildTroves = set([ x[0] for x in toAdvise ])
 
+        # If importing specific packages, they might require each other so
+        # always use buildmany, but wait to commit.
+        if updatePkgs:
+            trvMap, failed = self._builder.buildmany(buildTroves,
+                                                     lateCommit=True)
+
         # Switch to splitarch if a build is larger than maxBuildSize. This
         # number is kinda arbitrary. Builds tend to break when architectures
         # are combind if the build is significantly large
-        if len(buildTroves) < self._cfg.maxBuildSize:
+        elif len(buildTroves) < self._cfg.maxBuildSize:
             trvMap = self._builder.build(buildTroves)
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
