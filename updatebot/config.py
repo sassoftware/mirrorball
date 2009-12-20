@@ -21,8 +21,9 @@ import os
 from conary.lib import cfg
 from conary import versions
 from conary.conarycfg import CfgFlavor, CfgLabel
-from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict, CfgInt
 from conary.lib.cfgtypes import ParseError
+from conary.lib.cfgtypes import CfgInt, CfgQuotedLineList
+from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict
 
 from rmake.build.buildcfg import CfgTroveSpec
 
@@ -217,6 +218,21 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Number of troves at which to switch to a splitarch build. This is mostly
     # a magic number, but at least it is configurable?
     maxBuildSize = (CfgInt, 10)
+
+    # List of errata timestamps to merge together. This is used when one errata
+    # leaves the platform in a non dependency closed state and a later update
+    # should solve the dependency problem. All updates are folded into the first
+    # bucket listed.
+    mergeUpdates = (CfgList(CfgQuotedLineList(CfgInt)), [])
+
+    # Errata timestamp pairs for rescheduling when updates are applied. The
+    # first element is the current timestamp of the update. The second element
+    # is the new timestamp. You may need to use this option if it appears that
+    # the upstream provider has somehow managed to release updates out of order
+    # and has caused dependency closure problems. Note that you will need to
+    # mark remove anything that has been committed past the destination
+    # timestamp to get mirrorball to go back and apply this update.
+    reorderUpdates = (CfgList(CfgQuotedLineList(CfgInt)), [])
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):

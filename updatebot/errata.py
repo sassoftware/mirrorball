@@ -36,11 +36,15 @@ class ErrataFilter(object):
     Filter data from a given errataSource in chronological order.
     """
 
-    def __init__(self, pkgSource, errataSource):
+    def __init__(self, cfg, pkgSource, errataSource):
+        self._cfg = cfg
         self._pkgSource = pkgSource
         self._errata = errataSource
 
+        # timestamp: srcPkg Set
         self._order = {}
+
+        # timestamp: advisory info
         self._advMap = {}
 
     @loadErrata
@@ -118,6 +122,48 @@ class ErrataFilter(object):
             for pkg in bucket:
                 src = self._pkgSource.binPkgMap[pkg]
                 self._order[bucketId].add(src)
+
+        # fold together updates to preserve dep closure.
+        for mergeList in self._cfg.mergeUpdates:
+            target = mergeList[0]
+            # merge remaining updates into target.
+            for source in mergeList[1:]:
+                log.info('merging errata bucket %s -> %s' % (source, target))
+                updateSet = self._order.pop(source)
+                oldNames = set([ x.name for x in self._order[target]])
+                newNames = set([ x.name for x in updateSet ])
+                # Check for overlapping updates. If there is overlap, these
+                # things can't be merged since all versions need to be
+                # represented in the repository.
+                if oldNames & newNames:
+                    raise UnableToMergeUpdatesError(
+                        source=source, target=target,
+                        package=', '.join(oldNames & newNames)
+                    )
+                self._order[target].update(updateSet)
+
+                # merge advisory detail.
+                if source in self._advMap:
+                    advInfo = self._advMap.pop(source)
+                    if target not in self._advMap:
+                        self._advMap[target] = set()
+                    self._advMap[target].update(advInfo)
+
+        # reschedule any updates that may have been released out of order.
+        for source, dest in self._cfg.reorderUpdates:
+            # Probably don't want to move an update into an already
+            # existing bucket.
+            assert dest not in self._order
+
+            log.info('rescheduling %s -> %s' % (source, dest))
+
+            # remove old version
+            bucket = self._order.pop(source)
+            adv = self._advMap.pop(source)
+
+            # move to new version
+            self._order[dest] = bucket
+            self._advMap[dest] = adv
 
     def _getNevra(self, pkg):
         """
