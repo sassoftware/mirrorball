@@ -38,7 +38,8 @@ class Bot(BotSuperClass):
 
     def __init__(self, cfg, errataSource):
         BotSuperClass.__init__(self, cfg)
-        self._errata = errata.ErrataFilter(self._pkgSource, errataSource)
+        self._errata = errata.ErrataFilter(self._cfg, self._pkgSource,
+            errataSource)
         self._groupmgr = groupmgr.GroupManager(self._cfg)
 
     def _addPackages(self, pkgMap):
@@ -138,15 +139,17 @@ class Bot(BotSuperClass):
                 name += '_rolling'
                 errataVersions.add(name)
 
+            # FIXME: Might want to re-enable this one day.
             # Get current set of source names and versions.
-            nvMap = self._updater.getSourceVersionMap()
+            #nvMap = self._updater.getSourceVersionMap()
             # Add in new names and versions that have just been built.
-            for n, v, f in pkgMap.iterkeys():
-                n = n.split(':')[0]
-                nvMap[n] = v
-            pkgSet = set(nvMap.items())
+            #for n, v, f in pkgMap.iterkeys():
+            #    n = n.split(':')[0]
+            #    nvMap[n] = v
+            #pkgSet = set(nvMap.items())
             # Get the major distro verisons from the group manager.
-            majorVersions = self._groupmgr.getVersions(pkgSet)
+            #majorVersions = self._groupmgr.getVersions(pkgSet)
+            #import epdb; epdb.st()
 
             # Store current updateId.
             self._groupmgr.setErrataState(updateId)
@@ -156,14 +159,15 @@ class Bot(BotSuperClass):
 
             # Build various group verisons.
             #expected = self._flattenSetDict(pkgMap)
-            versions = sorted(errataVersions | majorVersions, cmp=verCmp)
+            versions = sorted(errataVersions, cmp=verCmp)
             if not versions:
-                versions = set(['unknown.%s' % updateId, ])
+                versions = ['unknown.%s' % updateId, ]
             for version in versions:
                 log.info('setting version %s' % version)
                 self._groupmgr.setVersion(version)
                 grpTrvMap = self._groupmgr.build()
 
+                # FIXME: enable promotes at some point
                 #log.info('promoting version %s' % version)
                 #toPublish = self._flattenSetDict(grpTrvMap)
                 #newTroves = self._updater.publish(
