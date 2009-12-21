@@ -127,11 +127,11 @@ class Updater(object):
         log.info('found %s protentially updatable troves' % len(troves))
         return troves
 
-    def getSourceVersionMap(self):
+    def getSourceVersions(self):
         """
-        Query the repository for a list of the latest source names and versions
-        that have binary versions.
-        @return {sourceName: sourceVersion}
+        Query the repository for a list of latest source trove specs and
+        matching binaries.
+        @return {srcTroveSpec: set(binTrovSpec, ...)}
         """
 
         # Get the latest versions from repository
@@ -149,6 +149,17 @@ class Updater(object):
 
         # Get the sources for all binary packages.
         sourceVersions = self._conaryhelper.getSourceVersions(troveSpecs)
+
+        return sourceVersions
+
+    def getSourceVersionMap(self):
+        """
+        Query the repository for a list of the latest source names and versions
+        that have binary versions.
+        @return {sourceName: sourceVersion}
+        """
+
+        sourceVersions = self.getSourceVersions()
 
         # Convert to sourceName: version map.
         return dict([ (x.split(':')[0], y)
