@@ -1,0 +1,88 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2009 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+import os
+import sys
+import logging
+
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+
+import conary
+import updatebot
+
+print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
+print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
+from conary import checkin
+
+from updatebot import config
+from updatebot.bot import Bot
+from updatebot import log as logSetup
+
+logSetup.addRootLogger()
+log = logging.getLogger('script')
+
+def usage():
+    print 'usage: %s <platform>' % sys.argv[0]
+    sys.exit(1)
+
+platform = sys.argv[1]
+if platform not in os.listdir(mirrorballDir + '/config'):
+    usage()
+
+confDir = mirrorballDir + '/config/' + platform
+
+cfg = config.UpdateBotConfig()
+cfg.read(confDir + '/updatebotrc')
+
+bot = Bot(cfg)
+updater = bot._updater
+helper = updater._conaryhelper
+
+labelPkgs = updater.getSourceVersions()
+groupPkgs = updater._conaryhelper.getSourceTroves(cfg.topGroup)
+
+lks = set([ x for x in labelPkgs.keys()
+            if not updater._fltrPkg(x[0].split(':')[0]) ])
+gks = set([ x for x in groupPkgs.keys()
+            if not updater._fltrPkg(x[0].split(':')[0]) ])
+
+newPkgs = lks.difference(gks)
+
+toRemove = set()
+for srcTrv in newPkgs:
+    toRemove.add(srcTrv)
+    toRemove.update(labelPkgs[srcTrv])
+
+ccfg = helper._ccfg
+repos = helper._repos
+
+# This will prompt for confirmation.
+for rspec in sorted(toRemove):
+    n, v, f = rspec
+    spec = '%s=%s' % (n, v)
+    if f is not None:
+        spec += '[%s]' % f
+
+    checkin.markRemoved(ccfg, repos, spec)
+
+import epdb; epdb.st()
