@@ -13,6 +13,11 @@
 # full details.
 #
 
+"""
+Script for diffing the contents of a label against the latest binary
+group version.
+"""
+
 import os
 import sys
 import logging
