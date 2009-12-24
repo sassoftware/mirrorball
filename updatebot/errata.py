@@ -159,11 +159,13 @@ class ErrataFilter(object):
 
             # remove old version
             bucket = self._order.pop(source)
-            adv = self._advMap.pop(source)
+            # There will not be an entry for sources that do not have
+            # advisories, default to None.
+            adv = self._advMap.pop(source, None)
 
             # move to new version
             self._order[dest] = bucket
-            self._advMap[dest] = adv
+            if adv: self._advMap[dest] = adv
 
     def _getNevra(self, pkg):
         """
