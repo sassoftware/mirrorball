@@ -19,4 +19,8 @@ Module that implements rpm version comparison.
 import ctypes
 rpmlib = ctypes.cdll.LoadLibrary('librpm.so')
 
-rpmvercmp = rpmlib.rpmvercmp
+def rpmvercmp(a, b):
+    # rpmlib.rpmvercmp does not handle unicode strings, so convert
+    a = str(a)
+    b = str(b)
+    return rpmlib.rpmvercmp(a, b)
