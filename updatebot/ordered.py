@@ -154,6 +154,14 @@ class Bot(BotSuperClass):
             # Store current updateId.
             self._groupmgr.setErrataState(updateId)
 
+            # Remove any packages that are scheduled for removal.
+            if updateId in self._cfg.updateRemovesPackages:
+                pkgs = self._cfg.updateRemovesPackages[updateId]
+                log.info('removing the following packages from the managed '
+                    'group: %s' % ', '.join(pkgs))
+                for pkg in pkgs:
+                    self._groupmgr.remove(pkg)
+
             # Make sure built troves are part of group.
             self._addPackages(pkgMap)
 

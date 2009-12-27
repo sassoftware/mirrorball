@@ -68,6 +68,34 @@ class CfgContextFlavor(CfgFlavor):
             raise ParseError, e
 
 
+class CfgIntDict(CfgDict):
+    """
+    Config class to represent dictionaries keyed by integers rather than
+    strings.
+    """
+
+    def updateFromString(self, val, str):
+        # update the dict value -- don't just overwrite it, it might be
+        # that the dict value is a list, so we call updateFromString
+        strs = str.split(None, 1)
+        if len(strs) == 1:
+            dkey, dvalue = strs[0], ''
+        else:
+            (dkey, dvalue) = strs
+
+        dkey = CfgInt().parseString(dkey)
+
+        if dkey in val:
+            val[dkey] = self.valueType.updateFromString(val[dkey], dvalue)
+        else:
+            val[dkey] = self.parseValueString(dkey, dvalue)
+        return val
+
+    def toStrings(self, value, displayOptions):
+        value = dict([ (str(x), y) for x, y in value.iteritems() ])
+        return CfgDict.toStrings(self, value, displayOptions)
+
+
 class UpdateBotConfigSection(cfg.ConfigSection):
     """
     Config class for updatebot.
@@ -233,6 +261,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # mark remove anything that has been committed past the destination
     # timestamp to get mirrorball to go back and apply this update.
     reorderUpdates = (CfgList(CfgQuotedLineList(CfgInt)), [])
+
+    # Dictionary of bucketIds and packages that are expected to be removed.
+    updateRemovesPackages = (CfgIntDict(CfgList(CfgString)), {})
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
