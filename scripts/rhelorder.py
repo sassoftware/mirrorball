@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import tempfile
 
 sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
@@ -48,5 +49,12 @@ cfg.read(os.path.join(confDir, 'updatebotrc'))
 bot = Bot(cfg, errata)
 bot._pkgSource.load()
 bot._errata._orderErrata()
+
+order = bot._errata._order
+advMap = bot._errata._advMap
+sorder = sorted(order)
+
+def tconv(tstamp):
+    return time.strftime('%m-%d-%Y %H:%M:%S', time.localtime(tstamp))
 
 import epdb; epdb.st()
