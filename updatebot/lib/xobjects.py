@@ -183,7 +183,6 @@ class XPackageItem(XHashableItem):
         use=None, source=None):
 
         self.name = name
-        self.version = version
         self.source = source
 
         if byDefault in (True, False):
@@ -195,6 +194,11 @@ class XPackageItem(XHashableItem):
             self.use = int(use)
         else:
             self.use = use
+
+        if isinstance(version, conary.versions.Version):
+            self.version = version.freeze()
+        else:
+            self.version = version
 
         if isinstance(flavor, conary.deps.deps.Flavor):
             self.flavor = flavor.freeze()

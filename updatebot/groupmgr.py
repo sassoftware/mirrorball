@@ -148,15 +148,15 @@ class GroupManager(object):
             flavor = flavors[0]
             # noarch package, add unconditionally
             if flavor == plain:
-                self.add(name)
+                self.add(name, version=version)
 
             # x86, add with use=x86
             elif flavor.satisfies(x86):
-                self.add(name, flavor=flavor, use='x86')
+                self.add(name, version=version, flavor=flavor, use='x86')
 
             # x86_64, add with use=x86_64
             elif flavor.satisfies(x86_64):
-                self.add(name, flavor=flavor, use='x86_64')
+                self.add(name, version=version, flavor=flavor, use='x86_64')
 
             else:
                 raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
@@ -183,7 +183,7 @@ class GroupManager(object):
             assert len([ x for x, y in flvCount.iteritems() if y != 1 ]) == 1
 
             # In this case just add the package unconditionally
-            self.add(name)
+            self.add(name, version=version)
 
             return
 
@@ -213,9 +213,9 @@ class GroupManager(object):
                 # with use=x86_64
                 for flavor in flavors:
                     if flavor.satisfies(x86):
-                        self.add(name, flavor=flavor, use='x86')
+                        self.add(name, version=version, flavor=flavor, use='x86')
                     elif flavor.satisfies(x86_64):
-                        self.add(name, flavor=flavor, use='x86_64')
+                        self.add(name, version=version, flavor=flavor, use='x86_64')
                     else:
                         raise UnsupportedTroveFlavorError(name=name,
                                                           flavor=flavor)
@@ -250,9 +250,11 @@ class GroupManager(object):
 
                 for flavor in flavors:
                     if flavor.satisfies(x86):
-                        self.add(name, flavor=flavor, use='x86')
+                        self.add(name, version=version,
+                                 flavor=flavor, use='x86')
                     elif flavor.satisfies(x86_64):
-                        self.add(name, flavor=flavor, use='x86_64')
+                        self.add(name, version=version,
+                                 flavor=flavor, use='x86_64')
                     else:
                         raise UnsupportedTroveFlavorError(name=name,
                                                           flavor=flavor)
