@@ -172,7 +172,7 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        workers = 15
+        workers = 20
         if not lateCommit:
             dispatcher = Dispatcher(self, workers)
         else:
