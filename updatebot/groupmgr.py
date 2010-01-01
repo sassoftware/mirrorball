@@ -90,11 +90,36 @@ class GroupManager(object):
         Commit current changes to the group.
         """
 
+        # sync versions from the package group to the other managed groups.
+        self._copyVersions()
+
+        # write out the model data
         self._helper.setModel(self._sourceName, self._groups)
+
+        # commit to the repository
         self._helper.commit(self._sourceName, commitMessage='automated commit')
         self._checkedout = False
 
     save = _commit
+
+    def _copyVersions(self):
+        """
+        Copy versions from the packages group to the other managed groups.
+        """
+
+        pkgs = [ (x[1].name, x[1]) for x in
+                    self._groups[self._pkgGroupName].iteritems() ]
+
+        for group in self._groups.itervalues():
+            # skip over package group since it is the version source.
+            if group.groupName == self._pkgGroupName:
+                continue
+
+            # for all other groups iterate over contents and set versions to
+            # match package group.
+            for k, pkg in group.iteritems():
+                if pkg.name in pkgs:
+                    pkg.version = pkgs[pkg.name].version
 
     @commit
     def build(self):
