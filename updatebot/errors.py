@@ -339,6 +339,18 @@ class UnhandledPackageAdditionError(GroupManagerError):
     _params = ['name', ]
     _template = 'I do not know what to do with this package %(name)s.'
 
+class UnknownPackageFoundInManagedGroupError(GroupManagerError):
+    """
+    UnknownPackageFoundInManagedGroupError, raised when a package is dicovered
+    in one of the managed non package groups that no longer exists in the
+    package group.
+    """
+
+    _params = ['what', ]
+    _template = ('The following package is not longer managed as part of the '
+        'version group %(what)s, you may need to remove this package from any '
+        'other static group definitions.')
+
 class ImportError(UpdateBotError):
     """
     General purpose error for all import related issues.

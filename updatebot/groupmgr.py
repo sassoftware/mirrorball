@@ -107,8 +107,8 @@ class GroupManager(object):
         Copy versions from the packages group to the other managed groups.
         """
 
-        pkgs = [ (x[1].name, x[1]) for x in
-                    self._groups[self._pkgGroupName].iteritems() ]
+        pkgs = dict([ (x[1].name, x[1]) for x in
+                        self._groups[self._pkgGroupName].iteritems() ])
 
         for group in self._groups.itervalues():
             # skip over package group since it is the version source.
@@ -120,6 +120,8 @@ class GroupManager(object):
             for k, pkg in group.iteritems():
                 if pkg.name in pkgs:
                     pkg.version = pkgs[pkg.name].version
+                else:
+                    raise UnknownPackageFoundInManagedGroupError(what=pkg.name)
 
     @commit
     def build(self):
