@@ -254,6 +254,8 @@ class Updater(object):
                 # equal.
                 if (rpmvercmp(pkg.epoch, srpm.epoch) != 0 or
                     rpmvercmp(pkg.version, srpm.version) != 0):
+                    log.warn('update removes package (%s) %s -> %s'
+                             % (pkg.name, srpm.getNevra(), srcPkg.getNevra()))
                     raise UpdateRemovesPackageError(why='all rpms in the '
                             'manifest should have the same version, trying '
                             'to add %s' % (pkg, ))
