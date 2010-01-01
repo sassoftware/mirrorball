@@ -166,6 +166,9 @@ class GroupManager(object):
         @type flavors: [conary.deps.deps.Flavor, ...]
         """
 
+        # Now that versions are actually used for something make sure they
+        # are always present.
+        assert version
         assert len(flavors)
 
         plain = deps.parseFlavor('')
