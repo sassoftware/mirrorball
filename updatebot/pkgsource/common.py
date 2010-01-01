@@ -16,6 +16,7 @@
 Common module between all pkgSource implementations.
 """
 
+import copy
 import logging
 
 log = logging.getLogger('updatebot.pkgsource')
@@ -48,6 +49,28 @@ class BasePackageSource(object):
 
         # {binName: [binPkg, ... ] }
         self.binNameMap = dict()
+
+    def __copy__(self):
+        log.info('copying pkgsource')
+        cls = self.__class__
+        obj = cls(self._cfg)
+        obj.locationMap = copy.copy(self.locationMap)
+        obj.srcPkgMap = copy.copy(self.srcPkgMap)
+        obj.binPkgMap = copy.copy(self.binPkgMap)
+        obj.srcNameMap = copy.copy(self.srcNameMap)
+        obj.binNameMap = copy.copy(self.binNameMap)
+        return obj
+
+    def __deepcopy__(self, memo):
+        log.info('deepcopying pkgsource')
+        cls = self.__class__
+        obj = cls(self._cfg)
+        obj.locationMap = copy.deepcopy(self.locationMap, memo)
+        obj.srcPkgMap = copy.deepcopy(self.srcPkgMap, memo)
+        obj.binPkgMap = copy.deepcopy(self.binPkgMap, memo)
+        obj.srcNameMap = copy.deepcopy(self.srcNameMap, memo)
+        obj.binNameMap = copy.deepcopy(self.binNameMap, memo)
+        return obj
 
     def getClients(self):
         """
