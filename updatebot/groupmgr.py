@@ -37,6 +37,7 @@ from updatebot.errors import FlavorCountMismatchError
 from updatebot.errors import UnknownBuildContextError
 from updatebot.errors import UnsupportedTroveFlavorError
 from updatebot.errors import UnhandledPackageAdditionError
+from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
 log = logging.getLogger('updatebot.groupmgr')
 
