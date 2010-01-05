@@ -92,6 +92,14 @@ class ConaryHelper(object):
 
         return self._ccfg
 
+    def findTroves(self, troveList, *args, **kwargs):
+        """
+        Mapped to conaryclient.repos.findTroves. Will always search buildLabel.
+        """
+
+        return self._repos.findTroves(self._ccfg.buildLabel, troveList,
+                                      *args, **kwargs)
+
     def getSourceTroves(self, group):
         """
         Find all of the source troves included in group. If group is None use
@@ -207,9 +215,7 @@ class ConaryHelper(object):
         sources = self._repos.getTroveInfo(tiSourceName, troveSpecs)
         for i, (n, v, f) in enumerate(troveSpecs):
             src = (sources[i](), v.getSourceVersion(), None)
-            if src not in srcTrvs:
-                srcTrvs[src] = set()
-            srcTrvs[src].add((n, v, f))
+            srcTrvs.setdefault(src, set()).add((n, v, f))
 
         return srcTrvs
 
@@ -413,7 +419,7 @@ class ConaryHelper(object):
         # make sure version file has been added to package
         self._addFile(recipeDir, 'version')
 
-    def commit(self, pkgname, commitMessage=''):
+    def commit(self, pkgname, version=None, commitMessage=''):
         """
         Commit the cached checkout of a source component.
         @param pkgname name of the package
@@ -421,10 +427,13 @@ class ConaryHelper(object):
         @param commitMessage: optional argument for setting the commit message
                               to use when committing to the repository.
         @type commitMessage: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         @return version of the source commit.
         """
 
-        if pkgname not in self._checkoutCache:
+        pkgkey = (pkgname, version)
+        if pkgkey not in self._checkoutCache:
             raise NoCheckoutFoundError(pkgname=pkgname)
 
         # Setup flavor objects
@@ -432,7 +441,7 @@ class ConaryHelper(object):
                                     error=False)
 
         # Commit to repository.
-        recipeDir = self._checkoutCache[pkgname]
+        recipeDir = self._checkoutCache[pkgkey]
         self._commit(recipeDir, commitMessage)
 
         # Get new version of the source trove.
@@ -440,25 +449,29 @@ class ConaryHelper(object):
         assert version is not None
         return version
 
-    def _edit(self, pkgname):
+    def _edit(self, pkgname, version=None):
         """
         Checkout/Create source checkout.
         @param pkgname name of the package
         @type pkgname string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         @return path to checkout
         """
 
-        if pkgname in self._checkoutCache:
-            return self._checkoutCache[pkgname]
+        pkgkey = (pkgname, version)
+        if pkgkey in self._checkoutCache:
+            return self._checkoutCache[pkgkey]
 
         # Figure out if we should create or update.
         if not self.getLatestSourceVersion(pkgname):
+            assert version is None
             recipeDir = self._newpkg(pkgname)
         else:
-            recipeDir = self._checkout(pkgname)
+            recipeDir = self._checkout(pkgname, version=version)
 
-        self._checkoutCache[pkgname] = recipeDir
-        self._checkoutCache[recipeDir] = pkgname
+        self._checkoutCache[pkgkey] = recipeDir
+        self._checkoutCache[recipeDir] = pkgkey
 
         return recipeDir
 
@@ -472,18 +485,24 @@ class ConaryHelper(object):
 
         return tempfile.mkdtemp(prefix='%s-' % pkgname, dir=self._cacheDir)
 
-    def _checkout(self, pkgname):
+    def _checkout(self, pkgname, version=None):
         """
         Checkout a source component from the repository.
         @param pkgname: name of the package to checkout
         @type pkgname: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         @return checkout directory
         """
 
-        log.info('checking out %s' % pkgname)
+        troveSpec = pkgname
+        if version:
+            troveSpec += '=%s' % version
+
+        log.info('checking out %s' % troveSpec)
 
         recipeDir = self._getRecipeDir(pkgname)
-        checkin.checkout(self._repos, self._ccfg, recipeDir, [pkgname, ])
+        checkin.checkout(self._repos, self._ccfg, recipeDir, [troveSpec, ])
 
         return recipeDir
 
