@@ -84,6 +84,10 @@ class ConaryHelper(object):
         self._cacheDir = tempfile.mkdtemp(
             prefix='conaryhelper-%s-' % cfg.platformName)
 
+        # caches source names and versions for binaries past into getSourceVersions.
+        # binTroveSpec: sourceTroveSpec
+        self._sourceVersionCache = {}
+
     def getConaryConfig(self):
         """
         Get a conary config instance.
@@ -194,6 +198,8 @@ class ConaryHelper(object):
                                           withFileContents=False,
                                           recurse=False)
 
+        # Iterate over both strong and weak refs because msw said it was a
+        # good idea.
         topTrove = self._getTrove(cs, name, version, flavor)
         troves = topTrove.iterTroveList(weakRefs=True, strongRefs=True)
 
@@ -208,14 +214,21 @@ class ConaryHelper(object):
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
         """
 
-        # Iterate over both strong and weak refs because msw said it was a
-        # good idea.
+        # check the cache for any source we have already retrieved from the
+        # repository.
+        cached = set(x for x in troveSpecs if x in self._sourceVersionCache)
+        uncached = sorted(set(troveSpecs).difference(cached))
+
         srcTrvs = {}
         tiSourceName = trove._TROVEINFO_TAG_SOURCENAME
-        sources = self._repos.getTroveInfo(tiSourceName, troveSpecs)
-        for i, (n, v, f) in enumerate(troveSpecs):
+        sources = self._repos.getTroveInfo(tiSourceName, uncached)
+        for i, (n, v, f) in enumerate(uncached):
             src = (sources[i](), v.getSourceVersion(), None)
             srcTrvs.setdefault(src, set()).add((n, v, f))
+            self._sourceVersionCache[(n, v, f)] = src
+
+        for spec in cached:
+            srcTrvs.setdefault(self._sourceVersionCache[spec], set()).add(spec)
 
         return srcTrvs
 
