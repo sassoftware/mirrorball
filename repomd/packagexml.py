@@ -176,7 +176,7 @@ class _Package(SlotNode, PackageCompare):
         return ver
 
 
-class _RpmRequires(xmllib.BaseNode):
+class _RpmEntry(xmllib.BaseNode):
     """
     Parse any element that contains rpm:entry or suse:entry elements.
     """
@@ -217,49 +217,55 @@ class _RpmRequires(xmllib.BaseNode):
             raise UnknownElementError(child)
 
 
-class _RpmRecommends(_RpmRequires):
+class _RpmRequires(_RpmEntry):
+    """
+    Parse rpm:requires children.
+    """
+
+
+class _RpmRecommends(_RpmEntry):
     """
     Parse rpm:recommends children.
     """
 
 
-class _RpmProvides(_RpmRequires):
+class _RpmProvides(_RpmEntry):
     """
     Parse rpm:provides children.
     """
 
 
-class _RpmObsoletes(_RpmRequires):
+class _RpmObsoletes(_RpmEntry):
     """
     Parse rpm:obsoletes children.
     """
 
 
-class _RpmConflicts(_RpmRequires):
+class _RpmConflicts(_RpmEntry):
     """
     Parse rpm:conflicts children.
     """
 
 
-class _RpmEnhances(_RpmRequires):
+class _RpmEnhances(_RpmEntry):
     """
     Parse rpm:enhances children.
     """
 
 
-class _RpmSupplements(_RpmRequires):
+class _RpmSupplements(_RpmEntry):
     """
     Parse rpm:supplements children.
     """
 
 
-class _RpmSuggests(_RpmRequires):
+class _RpmSuggests(_RpmEntry):
     """
     Parse rpm:suggests children.
     """
 
 
-class _SuseFreshens(_RpmRequires):
+class _SuseFreshens(_RpmEntry):
     """
     Parse suse:freshens children.
     """
