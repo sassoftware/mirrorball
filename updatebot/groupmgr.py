@@ -19,7 +19,9 @@ Module for managing conary groups.
 import os
 import copy
 import logging
+import itertools
 
+from conary import versions
 from conary.deps import deps
 
 from updatebot.lib import util
@@ -33,10 +35,13 @@ from updatebot.lib.xobjects import XPackageDoc
 from updatebot.lib.xobjects import XPackageData
 from updatebot.lib.xobjects import XPackageItem
 
+from updatebot.errors import OldVersionsFoundError
 from updatebot.errors import FlavorCountMismatchError
 from updatebot.errors import UnknownBuildContextError
+from updatebot.errors import GroupValidationFailedError
 from updatebot.errors import UnsupportedTroveFlavorError
 from updatebot.errors import UnhandledPackageAdditionError
+from updatebot.errors import NameVersionConflictsFoundError
 from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
 log = logging.getLogger('updatebot.groupmgr')
@@ -71,7 +76,7 @@ class GroupManager(object):
         #self._versionFactory = VersionFactory(cfg)
 
         self._sourceName = self._cfg.topSourceGroup[0]
-        self._sourceVersion = self._cfg.topSourceGroup[1]
+        self._sourceVersion = None
 
         self._pkgGroupName = 'group-%s-packages' % self._cfg.platformName
 
@@ -83,46 +88,61 @@ class GroupManager(object):
         Get current group state from the repository.
         """
 
-        self._groups = self._helper.getModel(self._sourceName)
+        self._groups = self._helper.getModel(self._sourceName,
+                                             version=self._sourceVersion)
         self._checkedout = True
 
-    def _commit(self):
+    def _commit(self, copyToLatest=False):
         """
         Commit current changes to the group.
         """
 
+        if self._sourceVersion and not copyToLatest:
+            log.error('refusing to commit out of date source')
+            raise NotCommittingOutOfDateSourceError()
+
+        # Copy forward data when we are fixing up old group versions so that
+        # this is the latest source.
+        if copyToLatest:
+            log.info('copying information to latest version')
+            # Get data from the old versoin
+            version = self._helper.getVersion(self._sourceName, version=self._sourceVersion)
+            errataState = self._helper.getErrataState(self._sourceName, version=self._sourceVersion)
+            groups = self._groups
+
+            log.info('version: %s' % version)
+            log.info('errataState: %s' % errataState)
+
+            # Set version to None to get the latest source.
+            self._sourceVersion = None
+
+            # Checkout latest source.
+            self._checkout()
+
+            # Set back to old data
+            self.setVersion(version)
+            self.setErrataState(errataState)
+            self._groups = groups
+
         # sync versions from the package group to the other managed groups.
         self._copyVersions()
+
+        # validate group contents.
+        self._validateGroups()
 
         # write out the model data
         self._helper.setModel(self._sourceName, self._groups)
 
         # commit to the repository
-        self._helper.commit(self._sourceName, commitMessage='automated commit')
+        version = self._helper.commit(self._sourceName,
+                                      version=self._sourceVersion,
+                                      commitMessage='automated commit')
+        if self._sourceVersion:
+            self._sourceVersion = version
         self._checkedout = False
+        return version
 
     save = _commit
-
-    def _copyVersions(self):
-        """
-        Copy versions from the packages group to the other managed groups.
-        """
-
-        pkgs = dict([ (x[1].name, x[1]) for x in
-                        self._groups[self._pkgGroupName].iteritems() ])
-
-        for group in self._groups.itervalues():
-            # skip over package group since it is the version source.
-            if group.groupName == self._pkgGroupName:
-                continue
-
-            # for all other groups iterate over contents and set versions to
-            # match package group.
-            for k, pkg in group.iteritems():
-                if pkg.name in pkgs:
-                    pkg.version = pkgs[pkg.name].version
-                else:
-                    raise UnknownPackageFoundInManagedGroupError(what=pkg.name)
 
     @commit
     def build(self):
@@ -327,6 +347,183 @@ class GroupManager(object):
         return set()
         #return self._versionFactory.getVersions(pkgSet)
 
+    def _copyVersions(self):
+        """
+        Copy versions from the packages group to the other managed groups.
+        """
+
+        pkgs = dict([ (x[1].name, x[1]) for x in
+                        self._groups[self._pkgGroupName].iteritems() ])
+
+        for group in self._groups.itervalues():
+            # skip over package group since it is the version source.
+            if group.groupName == self._pkgGroupName:
+                continue
+
+            # for all other groups iterate over contents and set versions to
+            # match package group.
+            for k, pkg in group.iteritems():
+                if pkg.name in pkgs:
+                    pkg.version = pkgs[pkg.name].version
+                else:
+                    raise UnknownPackageFoundInManagedGroupError(what=pkg.name)
+
+    def _validateGroups(self):
+        """
+        Validate the contents of the package group to ensure sanity:
+            1. Check for packages that have the same source name, but
+               different versions.
+            2. Check that the version in the group is the latest source/build
+               of that version.
+        """
+
+        errors = []
+        for name, group in self._groups.iteritems():
+            log.info('checking consistentcy of %s' % name)
+            try:
+                self._checkNameVersionConflict(group)
+            except NameVersionConflictsFoundError, e:
+                errors.append((group, e))
+
+            try:
+                self._checkLatestVersion(group)
+            except OldVersionsFoundError, e:
+                errors.append((group, e))
+
+        if errors:
+            raise GroupValidationFailedError(errors=errors)
+
+    def _checkNameVersionConflict(self, group):
+        """
+        Check for packages taht have the same source name, but different
+        versions.
+        """
+
+        # get names and versions
+        troves = set()
+        for pkgKey, pkgData in group.iteritems():
+            name = str(pkgData.name)
+
+            version = None
+            if pkgData.version:
+                version = str(versions.ThawVersion(pkgData.version).asString())
+
+            flavor = None
+            # FIXME: At some point we might want to add proper flavor handling,
+            #        note that group flavor handling is different than what
+            #        findTroves normally does.
+            #if pkgData.flavor:
+            #    flavor = deps.ThawFlavor(str(pkgData.flavor))
+
+            troves.add((name, version, flavor))
+
+        # Get flavors and such.
+        foundTroves = set([ x for x in
+            itertools.chain(*self._helper.findTroves(troves).itervalues()) ])
+
+        # get sources for each name version pair
+        sources = self._helper.getSourceVersions(foundTroves)
+
+        seen = {}
+        for (n, v, f), pkgSet in sources.iteritems():
+            binVer = list(pkgSet)[1][1]
+            seen.setdefault(n, set()).add(binVer)
+
+        binPkgs = {}
+        conflicts = {}
+        for name, vers in seen.iteritems():
+            if len(vers) > 1:
+                log.error('found multiple versions of %s' % name)
+                for binVer in vers:
+                    srcVer = binVer.getSourceVersion()
+                    nvf = (name, srcVer, None)
+                    conflicts.setdefault(name, []).append(srcVer)
+                    binPkgs[nvf] = sources[nvf]
+
+        if conflicts:
+            raise NameVersionConflictsFoundError(groupName=group.groupName,
+                                                 conflicts=conflicts,
+                                                 binPkgs=binPkgs)
+
+    def _checkLatestVersion(self, group):
+        """
+        Check to make sure each specific conary version is the latest source
+        and build count of the upstream version.
+        """
+
+        # get names and versions
+        troves = set()
+        for pkgKey, pkgData in group.iteritems():
+            name = str(pkgData.name)
+
+            version = None
+            if pkgData.version:
+                version = versions.ThawVersion(pkgData.version)
+                # get upstream version
+                revision = version.trailingRevision()
+                upstreamVersion = revision.getVersion()
+
+                # FIXME: This should probably be a fully formed version
+                #        as above.
+                version = upstreamVersion
+
+            flavor = None
+            # FIXME: At some point we might want to add proper flavor handling,
+            #        note that group flavor handling is different than what
+            #        findTroves normally does.
+            #if pkgData.flavor:
+            #    flavor = deps.ThawFlavor(str(pkgData.flavor))
+
+            troves.add((name, version, flavor))
+
+        # Get flavors and such.
+        foundTroves = dict([ (x[0], y) for x, y in
+            self._helper.findTroves(troves).iteritems() ])
+
+        pkgs = {}
+        for pkgKey, pkgData in group.iteritems():
+            name = str(pkgData.name)
+            version = None
+            if pkgData.version:
+                version = versions.ThawVersion(pkgData.version)
+            flavor = None
+            if pkgData.flavor:
+                flavor = deps.ThawFlavor(str(pkgData.flavor))
+
+            pkgs.setdefault(name, []).append((name, version, flavor))
+
+        assert len(pkgs) == len(foundTroves)
+
+        errors = {}
+        for name, found in foundTroves.iteritems():
+            assert name in pkgs
+            current = pkgs[name]
+
+            if len(current) > len(found):
+                log.warn('found more packages in the model than in the '
+                    'repository, assuming that multiversion policy will '
+                    'catch this.')
+                continue
+
+            assert len(current) == 1 or len(found) == len(current)
+
+            foundError = False
+            for i, (n, v, f) in enumerate(found):
+                if len(current) == 1:
+                    i = 0
+                cn, cv, cf = current[i]
+                assert n == cn
+
+                if v != cv:
+                    foundError = True
+
+            if foundError:
+                log.error('found old version for %s' % name)
+                errors[name] = (current, found)
+
+        if errors:
+            raise OldVersionsFoundError(pkgNames=errors.keys(), errors=errors)
+
 
 class GroupHelper(ConaryHelper):
     """
@@ -346,14 +543,14 @@ class GroupHelper(ConaryHelper):
         # autoLoadRecipes here anyway.
         self._ccfg.autoLoadRecipes = []
 
-    def getModel(self, pkgName):
+    def getModel(self, pkgName, version=None):
         """
         Get a thawed data representation of the group xml data from the
         repository.
         """
 
         log.info('loading model for %s' % pkgName)
-        recipeDir = self._edit(pkgName)
+        recipeDir = self._edit(pkgName, version=version)
         groupFileName = util.join(recipeDir, 'groups.xml')
 
         # load group model
@@ -384,8 +581,10 @@ class GroupHelper(ConaryHelper):
                 (name, byDefault, depCheck)
             )
 
-            # override anything from the repo
-            groups[name] = contentsModel
+            # override anything from the repo, unless retriveing a
+            # specific version.
+            if version is None:
+                groups[name] = contentsModel
 
         return groups
 
@@ -412,7 +611,7 @@ class GroupHelper(ConaryHelper):
         groupModel.freeze(groupFileName)
         self._addFile(recipeDir, 'groups.xml')
 
-    def getErrataState(self, pkgname):
+    def getErrataState(self, pkgname, version=None):
         """
         Get the contents of the errata state file from the specified package,
         if file does not exist, return None.
@@ -420,7 +619,7 @@ class GroupHelper(ConaryHelper):
 
         log.info('getting errata state information from %s' % pkgname)
 
-        recipeDir = self._edit(pkgname)
+        recipeDir = self._edit(pkgname, version=version)
         stateFileName = util.join(recipeDir, 'erratastate')
 
         if not os.path.exists(stateFileName):
