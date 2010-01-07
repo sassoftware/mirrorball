@@ -10,7 +10,8 @@ Checkout all sources for a given platform to the current working directory.
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -20,9 +21,10 @@ from updatebot import conaryhelper, config, log
 
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
-cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1])
+cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 helper = conaryhelper.ConaryHelper(cfg)
 
-pkgs = [ x.split(':')[0] for x in helper.getLatestVersions() if x.endswith(':source') ]
+pkgs = [ x.split(':')[0] for x in helper.getLatestVersions()
+            if x.endswith(':source') ]
 
 checkin.checkout(helper._repos, helper._ccfg, None, pkgs)
