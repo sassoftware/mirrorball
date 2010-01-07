@@ -385,7 +385,7 @@ class ConaryHelper(object):
         # add file to the source compoent
         self._addFile(recipeDir, 'buildrequires')
 
-    def getVersion(self, pkgname):
+    def getVersion(self, pkgname, version=None):
         """
         Get the version of the specified package if this package has a version
         file in the source component, otherwise return None.
@@ -395,7 +395,7 @@ class ConaryHelper(object):
 
         log.info('getting version info for %s' % pkgname)
 
-        recipeDir = self._edit(pkgname)
+        recipeDir = self._edit(pkgname, version=version)
         versionFileName = util.join(recipeDir, 'version')
 
         if not os.path.exists(versionFileName):
