@@ -16,7 +16,7 @@ sys.excepthook = util.genExcepthook()
 mbdir = os.path.abspath('../')
 sys.path.insert(0, mbdir)
 
-confDir = os.path.join(mbdir, 'config', 'rhel5')
+confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
 from updatebot import log
 from updatebot.ordered import Bot
@@ -48,6 +48,7 @@ cfg.read(os.path.join(confDir, 'updatebotrc'))
 
 bot = Bot(cfg, errata)
 bot._pkgSource.load()
+
 bot._errata._orderErrata()
 
 order = bot._errata._order
@@ -56,5 +57,7 @@ sorder = sorted(order)
 
 def tconv(tstamp):
     return time.strftime('%m-%d-%Y %H:%M:%S', time.localtime(tstamp))
+
+bot._errata.sanityCheckOrder()
 
 import epdb; epdb.st()
