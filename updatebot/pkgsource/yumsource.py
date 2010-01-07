@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006,2008-2009 rPath, Inc.
+# Copyright (c) 2006,2008-2010 rPath, Inc.
 #
 #
 # This program is distributed under the terms of the Common Public License,
@@ -18,6 +18,7 @@ Module for interacting with packages in multiple yum repositories.
 """
 
 import os
+import itertools
 import logging
 
 import repomd
@@ -169,6 +170,25 @@ class YumSource(BasePackageSource):
         if rpmMapKey not in self._rpmMap:
             self._rpmMap[rpmMapKey] = set()
         self._rpmMap[rpmMapKey].add(package)
+
+        # the normal case of "obsoletes foo < version" (or with
+        # "requires foo", though that normally also follows the
+        # "< version" pattern) is "keep in sync" which we do already.
+        # The point of this is what redirects are used for in
+        # native conary packages, not for what groups are used for.
+        obsoleteNames = set(
+                x.name for x in itertools.chain(*[
+                    y.getChildren('rpm:entry') for y in package.format
+                    if isinstance(y, repomd.packagexml._RpmObsoletes)])
+                if not x.version)
+        if obsoleteNames:
+            requiresNames = set(
+                    x.name for x in itertools.chain(*[
+                        y.getChildren('rpm:entry') for y in package.format
+                        if isinstance(y, repomd.packagexml._RpmRequires)]))
+            obsoleteNames -= requiresNames
+            if obsoleteNames:
+                self.obsoletesMap[package] = obsoleteNames
 
         if package.name not in self.binNameMap:
             self.binNameMap[package.name] = set()
