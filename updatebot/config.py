@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -66,6 +66,60 @@ class CfgContextFlavor(CfgFlavor):
             return context, flavor
         except versions.ParseError, e:
             raise ParseError, e
+
+
+class CfgAdvisoryOrder(CfgString):
+    """
+    Class for parsing advisor order config.
+    """
+
+    def parseString(self, val):
+        splt = val.split()
+        assert len(splt) == 3
+        fromId, toId, advisory = splt
+        fromId = int(fromId)
+        toId = int(toId)
+        return fromId, toId, advisory
+
+
+class CfgSourceOrder(CfgString):
+    """
+    Class for parsing source order config.
+    """
+
+    def parseString(self, val):
+        splt = val.split()
+        assert len(splt) == 7
+        fromId, toId = splt[:2]
+        fromId = int(fromId)
+        toId = int(toId)
+        nevra = tuple(splt[2:])
+        return fromId, toId, nevra
+
+
+class CfgNevra(CfgString):
+    """
+    Class for parsing nevras
+    """
+
+    def parseString(self, val):
+        splt = tuple(val.split())
+        assert len(splt) == 5
+        return splt
+
+
+class CfgObsoletes(CfgString):
+    """
+    Class for parsing obsolete mappings:
+    <obsoleting nevra> <obsoleted nevra>
+    """
+
+    def parseString(self, val):
+        splt = val.split()
+        assert len(splt) == 10
+        obsoleter = tuple(splt[0:5])
+        obsoleted = tuple(splt[5:10])
+        return obsoleter, obsoleted
 
 
 class CfgIntDict(CfgDict):
@@ -262,8 +316,49 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # timestamp to get mirrorball to go back and apply this update.
     reorderUpdates = (CfgList(CfgQuotedLineList(CfgInt)), [])
 
+    # fromUpdateId toUpdateId advisory
+    # Sometimes advisories are released out of order, but it is inconvienent to
+    # move the entire update bucket.
+    reorderAdvisory = (CfgList(CfgAdvisoryOrder), [])
+
+    # fromUpdateId toUpdateId sourceNevra
+    # Sometimes multiple versions of the same package are released as part of a
+    # single advisory. This does not fit the conary model of doing things, so we
+    # have to reschedule one or more of these sources to another time so that
+    # they end up in a binary group and get updated in the correct order.
+    reorderSource = (CfgList(CfgSourceOrder), [])
+
+    # reuse old revisions as used in SLES, where if on a rebuild with the
+    # same version but different revision a subpackage does not change
+    # content, the new build is not used
+    reuseOldRevisions = (CfgBool, False)
+
+    # updateId binaryPackageName
     # Dictionary of bucketIds and packages that are expected to be removed.
     updateRemovesPackages = (CfgIntDict(CfgList(CfgString)), {})
+
+    # updateId sourceNevra
+    # As of updateId, remove source package specified by sourceNevra
+    # from the package model
+    removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
+
+    # updateId sourceNevra
+    # As of updateId, the specified src is fully obsoleted, but
+    # should be retained in groups
+    keepObsoleteSource = (CfgIntDict(CfgList(CfgNevra)), {})
+
+    # Some obsoletes are merely conceptual preferences, and should not
+    # turn into removals.
+    # We would prefer CfgSet(CfgTuple(CfgNevra, CfgNevra), set())
+    # but CfgSet and CfgTuple do not exist at this point;
+    # maybe we can add them later.
+    # keepObsolete <obsoleting nevra> <obsoleted nevra>
+    keepObsolete = (CfgList(CfgObsoletes), [])
+
+    # updateId packageName [packageName ...]
+    # remove obsoleted packages when other subpackages of the same
+    # srpm are not obsoleted, so we cannot use removeSource
+    removeObsoleted = (CfgIntDict(CfgList(CfgString)), {})
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
