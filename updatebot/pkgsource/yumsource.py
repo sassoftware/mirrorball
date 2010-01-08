@@ -171,11 +171,13 @@ class YumSource(BasePackageSource):
             self._rpmMap[rpmMapKey] = set()
         self._rpmMap[rpmMapKey].add(package)
 
-        # the normal case of "obsoletes foo < version" (or with
+        # The normal case of "obsoletes foo < version" (or with
         # "requires foo", though that normally also follows the
-        # "< version" pattern) is "keep in sync" which we do already.
-        # The point of this is what redirects are used for in
-        # native conary packages, not for what groups are used for.
+        # "< version" pattern) is "keep in sync", which we do
+        # already through groups.
+        # The point of explicit obsoletes handling is what redirects
+        # are used for in native conary packages, not for what groups
+        # are used for.
         obsoleteNames = set(
                 x.name for x in itertools.chain(*[
                     y.getChildren('rpm:entry') for y in package.format
