@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -119,6 +119,20 @@ class UpdateRemovesPackageError(UnhandledUpdateError):
     UpdateRemovesPackageError, raised when the bot tries to remove an rpm from
     the manifest.
     """
+    _params = ['pkgList', 'pkgNames',
+               'oldspkg', 'newspkg',
+               'oldNevra', 'newNevra']
+    _template = '%(pkgList)s removed going from %(oldNevra)s to %(newNevra)s'
+
+class UpdateReusesPackageError(UnhandledUpdateError):
+    """
+    UpdateReusesPackageError, raised when the bot tries to use an old
+    package with a newer srpm.
+    """
+    _params = ['pkgList', 'pkgNames',
+               'oldspkg', 'newspkg',
+               'oldNevra', 'newNevra']
+    _template = '%(pkgList)s reused going from %(oldNevra)s to %(newNevra)s'
 
 class GroupNotFound(UnhandledUpdateError):
     """
@@ -289,9 +303,27 @@ class ErrataSourceDataMissingError(ErrataError):
     """
 
     _params = ['broken', ]
-    _tempalte = ('Found missing information when parsing errata source. This '
+    _template = ('Found missing information when parsing errata source. This '
                  'normally means that the errat source is corrupt or incorect. '
                  '%(broken)s')
+
+class AdvisoryPackageMissingFromBucketError(ErrataError):
+    """
+    AdvisoryPackageMissingFromBucketError, raised when moving advisories between
+    buckets and the expected packages can not be found.
+    """
+
+    _params = ['nevra', ]
+    _template = 'Failed to find %(nevra)s in source update bucket.'
+
+class PackageNotFoundInBucketError(ErrataError):
+    """
+    PackageNotFoundInBucketError, raised when moving sources between buckets and
+    the specified nevra can not be found in the source bucket.
+    """
+
+    _params = ['nevra', 'bucketId', ]
+    _template = 'Can not find %(nevra)s in %(bucketId)s'
 
 class GroupManagerError(UpdateBotError):
     """
@@ -350,6 +382,54 @@ class UnknownPackageFoundInManagedGroupError(GroupManagerError):
     _template = ('The following package is not longer managed as part of the '
         'version group %(what)s, you may need to remove this package from any '
         'other static group definitions.')
+
+class NameVersionConflictsFoundError(GroupManagerError):
+    """
+    NameVersionConflictsFoundError, raised when multiple versions of the same
+    source are referenced by binaries in a managed group.
+    """
+
+    _params = ['conflicts', 'groupName', 'binPkgs', ]
+    _template = ('Multiple versions of the following sources are referenced '
+                 'in %(groupName)s: %(conflicts)s')
+
+class OldVersionsFoundError(GroupManagerError):
+    """
+    OldVersionsFoundError, raised when the latest source/build version of a
+    package is not in a group. This happens when an old package has been
+    rebuilt and has a new build count or source, but the same upstream version.
+    """
+
+    _params = ['pkgNames', 'errors', ]
+    _template = 'Newer versions of $(pkgNames)s were found.'
+
+class GroupValidationFailedError(GroupManagerError):
+    """
+    GroupValidationFailedError, raised when errors are discovered in validate
+    the group model. Contains a reference to all errors discovered.
+    """
+
+    _params = ['errors', ]
+    _template = 'Errors were discovered with the group model.'
+
+class NotCommittingOutOfDateSourceError(GroupManagerError):
+    """
+    NotCommittingOutOfDateSourceError, raised when trying to commit a group
+    model that is not the latest version of the source component.
+    """
+
+    _params = []
+    _template = 'Can not commit out of date source.'
+
+class ExpectedRemovalValidationFailedError(GroupManagerError):
+    """
+    ExpectedRemovalValidationFailedError, raised when package remove validation
+    fails.
+    """
+
+    _params = ['updateId', 'pkgNames', ]
+    _template = ('The following package names were not properly removed from '
+                 'the group model at updateId %(updateId)s: %(pkgNames)s')
 
 class ImportError(UpdateBotError):
     """
@@ -429,3 +509,21 @@ class UnableToMergeUpdatesError(ErrataFilterError):
     _params = [ 'source', 'target', 'package', ]
     _template = ('Can not merge %(source)s into %(target)s due to conflicting '
                  'package %(package)s')
+
+class ConfigurationError(UpdateBotError):
+    """
+    Generic exception class for configuration related errors.
+    """
+
+    _params = []
+    _template = 'An error has been discovered with your configuration.'
+
+class UnknownRemoveSourceError(ConfigurationError):
+    """
+    UnknownRemoveSourceError, raised when an unknown source nevra is specified
+    in the removeSource directive in the updatebotrc.
+    """
+
+    _params = ['nevra', ]
+    _template = ('The following source nevra, mentioned in a removeSource line '
+                 'in your config, was not found: %(nevra)s')
