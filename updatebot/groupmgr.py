@@ -42,6 +42,7 @@ from updatebot.errors import GroupValidationFailedError
 from updatebot.errors import UnsupportedTroveFlavorError
 from updatebot.errors import UnhandledPackageAdditionError
 from updatebot.errors import NameVersionConflictsFoundError
+from updatebot.errors import ExpectedRemovalValidationFailedError
 from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
 log = logging.getLogger('updatebot.groupmgr')
@@ -190,6 +191,10 @@ class GroupManager(object):
         # are always present.
         assert version
         assert len(flavors)
+
+        # Remove all versions and flavors of this name before adding this
+        # package. This avoids flavor change issues by replacing all flavors.
+        self.remove(name)
 
         plain = deps.parseFlavor('')
         x86 = deps.parseFlavor('is: x86')
@@ -375,6 +380,8 @@ class GroupManager(object):
                different versions.
             2. Check that the version in the group is the latest source/build
                of that version.
+            3. Check that package removals specified in the config file have
+               occured.
         """
 
         errors = []
@@ -388,6 +395,11 @@ class GroupManager(object):
             try:
                 self._checkLatestVersion(group)
             except OldVersionsFoundError, e:
+                errors.append((group, e))
+
+            try:
+                self._checkRemovals(group)
+            except ExpectedRemovalValidationFailedError, e:
                 errors.append((group, e))
 
         if errors:
@@ -523,6 +535,30 @@ class GroupManager(object):
 
         if errors:
             raise OldVersionsFoundError(pkgNames=errors.keys(), errors=errors)
+
+    def _checkRemovals(self, group):
+        """
+        Check to make sure that all configured package removals have happened.
+        """
+
+        updateId = self.getErrataState()
+
+        # get package removals from the config object.
+        removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
+        removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+
+        # take the union
+        removals = set(removePackages) | set(removeObsoleted)
+
+        errors = []
+        # Make sure these packages are not in the group model.
+        for pkgKey, pkgData in group.iteritems():
+            if pkgData.name in removals:
+                errors.append(pkgData.name)
+
+        if errors:
+            raise ExpectedRemovalValidationFailedError(updateId=updateId,
+                                                       pkgNames=errors)
 
 
 class GroupHelper(ConaryHelper):
