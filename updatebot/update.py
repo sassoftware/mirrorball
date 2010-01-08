@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -42,12 +42,15 @@ class Updater(object):
 
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
-    def getUpdates(self, updateTroves=None):
+    def getUpdates(self, updateTroves=None, expectedRemovals=None):
         """
         Find all packages that need updates and/or advisories from a top level
         binary group.
         @param updateTroves: set of troves to update
         @type updateTroves: iterable
+        @param expectedRemovals: set of package names that are expected to be
+                                 removed.
+        @type expectedRemovals: set of package names
         @return list of packages to send advisories for and list of packages
                 to update
         """
@@ -64,7 +67,8 @@ class Updater(object):
 
         for nvf, srpm in updateTroves:
             # Will raise exception if any errors are found, halting execution.
-            if self._sanitizeTrove(nvf, srpm):
+            if self._sanitizeTrove(nvf, srpm,
+                                   expectedRemovals=expectedRemovals):
                 toUpdate.append((nvf, srpm))
                 toAdvise.append((nvf, srpm))
 
@@ -179,7 +183,7 @@ class Updater(object):
         srpms.sort(util.packagevercmp)
         return srpms[-1]
 
-    def _sanitizeTrove(self, nvf, srpm):
+    def _sanitizeTrove(self, nvf, srpm, expectedRemovals=None):
         """
         Verifies the package update to make sure it looks correct and is a
         case that the bot knows how to handle.
@@ -193,6 +197,9 @@ class Updater(object):
         @type nvf: (name, versionObj, flavorObj)
         @param srpm: src pacakge object
         @type srpm: repomd.packagexml._Package
+        @param expectedRemovals: set of package names that are expected to be
+                                 removed.
+        @type expectedRemovals: set of package names
         @return needsUpdate boolean
         @raises UpdateGoesBackwardsError
         @raises UpdateRemovesPackageError
@@ -201,6 +208,8 @@ class Updater(object):
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
         metadata = None
+        removedPackages = set()
+        reusedPackages = set()
 
         try:
             manifest = self._conaryhelper.getManifest(nvf[0])
@@ -235,7 +244,7 @@ class Updater(object):
             # make sure new package is actually newer
             if util.packagevercmp(srpm, srcPkg) == -1:
                 log.warn('version goes backwards %s -> %s' %
-                         (srpm.getNevra(), srcPkg.getNevra()))
+                         (srcPkg.getNevra(), srpm.getNevra()))
                 raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
@@ -251,17 +260,47 @@ class Updater(object):
                         if x.arch == binPkg.arch ][0]
 
                 # Raise an exception if the versions of the packages aren't
-                # equal.
+                # equal or the discovered package comes from a different source.
                 if (rpmvercmp(pkg.epoch, srpm.epoch) != 0 or
-                    rpmvercmp(pkg.version, srpm.version) != 0):
+                    rpmvercmp(pkg.version, srpm.version) != 0 or
+                    # in the suse case we have to ignore release
+                    (self._cfg.reuseOldRevisions or
+                     rpmvercmp(pkg.release, srpm.release) != 0) or
+                    # binary does not come from the same source as it used to
+                    self._pkgSource.binPkgMap[pkg].name != srpm.name):
                     log.warn('update removes package (%s) %s -> %s'
                              % (pkg.name, srpm.getNevra(), srcPkg.getNevra()))
-                    raise UpdateRemovesPackageError(why='all rpms in the '
-                            'manifest should have the same version, trying '
-                            'to add %s' % (pkg, ))
 
-                log.warn('using old version of package %s' % (pkg, ))
-                self._pkgSource.srcPkgMap[srpm].add(pkg)
+                    #import epdb; epdb.st()
+
+                    # allow some packages to be removed.
+                    if expectedRemovals and pkg.name in expectedRemovals:
+                        log.info('package removal (%s) handled in configuration'
+                                 % pkg.name)
+                        continue
+
+                    removedPackages.add(pkg)
+
+                if not removedPackages:
+                    reusedPackages.add(pkg)
+                    #log.warn('using old version of package %s' % (pkg, ))
+                    #self._pkgSource.srcPkgMap[srpm].add(pkg)
+
+        if removedPackages:
+            pkgList=sorted(removedPackages)
+            raise UpdateRemovesPackageError(pkgList=pkgList,
+                pkgNames=' '.join([str(x) for x in pkgList]),
+                newspkg=srpm, oldspkg=srcPkg,
+                oldNevra=str(' '.join(srcPkg.getNevra())),
+                newNevra=str(' '.join(srpm.getNevra())))
+
+        if reusedPackages:
+            pkgList=sorted(reusedPackages)
+            raise UpdateReusesPackageError(pkgList=pkgList,
+                pkgNames=' '.join([str(x) for x in pkgList]),
+                newspkg=srpm, oldspkg=srcPkg,
+                oldNevra=str(' '.join(srcPkg.getNevra())),
+                newNevra=str(' '.join(srpm.getNevra())))
 
         return needsUpdate
 

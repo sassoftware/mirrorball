@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -140,13 +140,16 @@ class Bot(object):
 
         return trvMap, failed
 
-    def update(self, force=None, updatePkgs=None):
+    def update(self, force=None, updatePkgs=None, expectedRemovals=None):
         """
         Update the conary repository from the yum repositories.
         @param force: list of packages to update without exception
         @type force: list(pkgName, pkgName, ...)
         @param updatePkgs: set of source package objects to update
         @type updatePkgs: iterable of source package objects
+        @param expectedRemovals: set of packages that are expected to be
+                                 removed.
+        @type expectedRemovals: set of package names
         """
 
         if force is not None:
@@ -164,7 +167,9 @@ class Bot(object):
         self._pkgSource.load()
 
         # Get troves to update and send advisories.
-        toAdvise, toUpdate = self._updater.getUpdates(updateTroves=updateTroves)
+        toAdvise, toUpdate = self._updater.getUpdates(
+            updateTroves=updateTroves,
+            expectedRemovals=expectedRemovals)
 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.

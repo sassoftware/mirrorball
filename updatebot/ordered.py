@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) 2009-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -23,6 +23,7 @@ from updatebot import errata
 from updatebot import groupmgr
 from updatebot.bot import Bot as BotSuperClass
 
+from updatebot.errors import UnknownRemoveSourceError
 from updatebot.errors import PlatformNotImportedError
 from updatebot.errors import PlatformAlreadyImportedError
 
@@ -71,7 +72,7 @@ class Bot(BotSuperClass):
         """
 
         # Make sure this platform has not already been imported.
-        if self._groupmgr.getErrataState():
+        if self._groupmgr.getErrataState() is not None:
             raise PlatformAlreadyImportedError
 
         self._pkgSource.load()
@@ -119,25 +120,34 @@ class Bot(BotSuperClass):
         # Load package source.
         self._pkgSource.load()
 
+        # Sanity check errata ordering.
+        self._errata.sanityCheckOrder()
+
         updateSet = {}
         for updateId, updates in self._errata.iterByIssueDate(current=current):
             start = time.time()
             detail = self._errata.getUpdateDetailMessage(updateId)
             log.info('attempting to apply %s' % detail)
 
-            # Update package set.
-            pkgMap = self._update(*args, updatePkgs=updates, **kwargs)
+            # remove packages from config
+            removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
+            removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
 
+            # take the union of the two lists to get a unique list of packages
+            # to remove.
+            expectedRemovals = set(removePackages) | set(removeObsoleted)
+
+            # Update package set.
+            pkgMap = self._update(*args, updatePkgs=updates,
+                expectedRemovals=expectedRemovals, **kwargs)
+
+            # FIXME: we might actually want to do this one day
             # Find errata group versions.
+            #errataVersions = self._errata.getVersions(updateId)
             errataVersions = set()
-            for advisory in self._errata.getUpdateDetail(updateId):
-                # advisory names are in the form RHSA-2009:1234
-                # transform to a conary version.
-                name = advisory['name']
-                name = name.replace('-', '_')
-                name = name.replace(':', '.')
-                name += '_rolling'
-                errataVersions.add(name)
+
+            # Add timestamp version.
+            errataVersions.add(self._errata.getBucketVersion(updateId))
 
             # FIXME: Might want to re-enable this one day.
             # Get current set of source names and versions.
@@ -155,14 +165,38 @@ class Bot(BotSuperClass):
             self._groupmgr.setErrataState(updateId)
 
             # Remove any packages that are scheduled for removal.
-            if updateId in self._cfg.updateRemovesPackages:
-                pkgs = self._cfg.updateRemovesPackages[updateId]
+            # NOTE: This should always be done before adding packages so that
+            #       any packages that move between sources will be removed and
+            #       then readded.
+            if expectedRemovals:
                 log.info('removing the following packages from the managed '
-                    'group: %s' % ', '.join(pkgs))
-                for pkg in pkgs:
+                    'group: %s' % ', '.join(expectedRemovals))
+                for pkg in expectedRemovals:
                     self._groupmgr.remove(pkg)
 
-            # Make sure built troves are part of group.
+            # Handle the case of entire source being obsoleted, this causes all
+            # binaries from that source to be removed from the group model.
+            if updateId in self._cfg.removeSource:
+                # get nevras from the config
+                nevras = self._cfg.removeSource[updateId]
+
+                # get a map of source nevra to binary package list.
+                nevraMap = dict((x.getNevra(), y) for x, y in
+                                self._pkgSource.srcPkgMap.iteritems()
+                                if x.getNevra() in nevras)
+
+                for nevra in nevras:
+                    # if for some reason the nevra from the config is not in
+                    # the pkgSource, raise an error.
+                    if nevra not in nevraMap:
+                        raise UnknownRemoveSourceError(nevra=nevra)
+
+                    # remove all binary names from the group.
+                    binNames = set([ x.name for x in nevraMap[nevra] ])
+                    for name in binNames:
+                        self._groupmgr.remove(name)
+
+            # Make sure built troves are part of the group.
             self._addPackages(pkgMap)
 
             # Build various group verisons.
