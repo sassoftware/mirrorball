@@ -132,10 +132,13 @@ class Bot(BotSuperClass):
             # remove packages from config
             removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
             removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+            removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
 
             # take the union of the two lists to get a unique list of packages
             # to remove.
-            expectedRemovals = set(removePackages) | set(removeObsoleted)
+            expectedRemovals = (set(removePackages) |
+                                set(removeObsoleted) |
+                                set(removeReplaced))
 
             # Update package set.
             pkgMap = self._update(*args, updatePkgs=updates,

@@ -337,6 +337,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Dictionary of bucketIds and packages that are expected to be removed.
     updateRemovesPackages = (CfgIntDict(CfgList(CfgString)), {})
 
+    # updateId binaryPackageName
+    # Dictionary of bucketIds and packages that are expected to be moved
+    # between sources.
+    updateReplacesPackages = (CfgIntDict(CfgList(CfgString)), {})
+
     # updateId sourceNevra
     # As of updateId, remove source package specified by sourceNevra
     # from the package model

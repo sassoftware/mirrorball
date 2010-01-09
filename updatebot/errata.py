@@ -194,12 +194,14 @@ class ErrataFilter(object):
         # Play though entire update history to check for iregularities.
         current = {}
         removals = self._cfg.updateRemovesPackages
+        replaces = self._cfg.updateReplacesPackages
         currentlyRemovedBinaryNevras = set()
         foundObsoleteEdges = set()
         foundObsoleteSrcs = set()
         for updateId in sorted(self._order.keys()):
             log.info('validating %s' % updateId)
-            expectedRemovals = removals.get(updateId, None)
+            expectedRemovals = removals.get(updateId, [])
+            expectedReplaces = replaces.get(updateId, [])
             explicitSourceRemovals = self._cfg.removeSource.get(updateId, set())
             explicitBinaryRemovals = self._cfg.removeObsoleted.get(updateId, set())
             for srpm in self._order[updateId]:
@@ -208,7 +210,7 @@ class ErrataFilter(object):
                 # validate updates
                 try:
                     assert updater._sanitizeTrove(nvf, srpm,
-                        expectedRemovals=expectedRemovals)
+                        expectedRemovals=expectedRemovals + expectedReplaces)
                 except (UpdateGoesBackwardsError,
                         UpdateRemovesPackageError,
                         UpdateReusesPackageError), e:
@@ -244,6 +246,9 @@ class ErrataFilter(object):
                         for obsoleteName in pkgObsoleteNames:
                             obsoletingPkgMap[obsoleteName] = pkg
                             obsoleteNames.add(obsoleteName)
+
+            # packages that really moved from one source to another
+            removedShouldBeReplaced = set(expectedRemovals) & pkgNames
 
             for obsoleteName in explicitBinaryRemovals:
                 # these nevra-nevra edges are already handled in config,
@@ -317,6 +322,10 @@ class ErrataFilter(object):
                 log.warn('found obsolete source packages in %s' % updateId)
                 errors.setdefault(updateId, []).append(('obsoleteSources',
                                                         obsoleteSources))
+            if removedShouldBeReplaced:
+                log.warn('found removals for replacements in %s' % updateId)
+                errors.setdefault(updateId, []).append(('removedShouldBeReplaced',
+                                                        removedShouldBeReplaced))
 
         # Report errors.
         for updateId, error in sorted(errors.iteritems()):
@@ -411,13 +420,16 @@ class ErrataFilter(object):
                                      updateId, srcNevraStr,
                                      obsoletingSrcPkgNames))
                             log.info(' will remove the following: %s' % pkgList)
+                    elif e[0] == 'removedShouldBeReplaced':
+                        for pkgName in e[1]:
+                            log.warn('%s removed package %s should be replaced' % (
+                                     updateId, pkgName))
+                            log.info('? updateReplacesPackages %s %s' % (
+                                     updateId, pkgName))
 
 
         # Fail if there are any errors.
         assert not errors
-
-        import epdb; epdb.st()
-
 
     def _orderErrata(self):
         """
@@ -727,9 +739,8 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
 
     def __init__(self, cfg):
         conaryhelper.ConaryHelper.__init__(self, cfg)
-        self._client.repos = None
+        self._client = None
         self._repos = None
-        conaryhelper.checkin = None
 
     def getLatestSourceVersion(self, pkgname):
         """

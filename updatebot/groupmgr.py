@@ -341,7 +341,8 @@ class GroupManager(object):
         Get the errata state info.
         """
 
-        return self._helper.getErrataState(self._sourceName)
+        return self._helper.getErrataState(self._sourceName,
+                                           version=self._sourceVersion)
 
     def getVersions(self, pkgSet):
         """
@@ -546,9 +547,38 @@ class GroupManager(object):
         # get package removals from the config object.
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
         removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+        removeSource = [ x[0] for x in
+                         self._cfg.removeSource.get(updateId, []) ]
+
+        # get names and versions
+        troves = set()
+        for pkgKey, pkgData in group.iteritems():
+            name = str(pkgData.name)
+
+            version = None
+            if pkgData.version:
+                version = str(versions.ThawVersion(pkgData.version).asString())
+
+            flavor = None
+            troves.add((name, version, flavor))
+
+        # Get flavors and such.
+        foundTroves = set([ x for x in
+            itertools.chain(*self._helper.findTroves(troves).itervalues()) ])
+
+        # get sources for each name version pair
+        sources = self._helper.getSourceVersions(foundTroves)
+
+        # collapse to sourceName: [ binNames, ] dictionary
+        sourceNameMap = dict([ (x[0].split(':')[0], [ z[0] for z in y ])
+                               for x, y in sources.iteritems() ])
+
+        binRemovals = set(itertools.chain(*[ sourceNameMap[x]
+                                             for x in removeSource
+                                             if x in sourceNameMap ]))
 
         # take the union
-        removals = set(removePackages) | set(removeObsoleted)
+        removals = set(removePackages) | set(removeObsoleted) | binRemovals
 
         errors = []
         # Make sure these packages are not in the group model.
@@ -557,6 +587,7 @@ class GroupManager(object):
                 errors.append(pkgData.name)
 
         if errors:
+            log.info('found packages that should be removed %s' % errors)
             raise ExpectedRemovalValidationFailedError(updateId=updateId,
                                                        pkgNames=errors)
 
