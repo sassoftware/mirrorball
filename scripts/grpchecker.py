@@ -26,10 +26,17 @@ sys.path.insert(0, os.environ['HOME'] + '/hg/rbuilder-trunk/rpath-xmllib')
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
 
+from conary import versions
+from conary.conaryclient import cmdline
+
 mbdir = os.path.abspath('../')
 sys.path.insert(0, mbdir)
 
 confDir = os.path.join(mbdir, 'config', sys.argv[1])
+
+sourceVersion = None
+if len(sys.argv) == 3:
+    sourceVersion = cmdline.parseTroveSpec(sys.argv[2])[1]
 
 from updatebot import log
 from updatebot import groupmgr
@@ -39,6 +46,7 @@ from updatebot import UpdateBotConfig
 from updatebot.errors import OldVersionsFoundError
 from updatebot.errors import GroupValidationFailedError
 from updatebot.errors import NameVersionConflictsFoundError
+from updatebot.errors import ExpectedRemovalValidationFailedError
 
 import time
 import logging
@@ -82,6 +90,12 @@ def handleVersionErrors(group, error):
 
     return toRemove, toAdd
 
+def handleRemovalErrors(group, error):
+    toAdd = {}
+    toRemove = set(error.pkgNames)
+
+    return toRemove, toAdd
+
 def checkVersion(ver):
     mgr._sourceVersion = ver
     mgr._checkout()
@@ -97,6 +111,8 @@ def checkVersion(ver):
                 changes.append(handleVersionConflicts(group, error))
             elif isinstance(error, OldVersionsFoundError):
                 changes.append(handleVersionErrors(group, error))
+            elif isinstance(error, ExpectedRemovalValidationFailedError):
+                changes.append(handleRemovalErrors(group, error))
             else:
                 raise error
 
@@ -104,37 +120,72 @@ def checkVersion(ver):
 
 troves = helper.findTroves((cfg.topSourceGroup, ), getLeaves=False).values()[0]
 
+troveSpec = (cfg.topSourceGroup[0], sourceVersion, None)
+sourceVersion = helper.findTroves((troveSpec, )).values()[0][0][1]
+
 nv = []
+start = False
 for n, v, f in sorted(troves):
+    if sourceVersion and v == sourceVersion:
+        start = True
+    if not start:
+        continue
     nsv = (n, v.getSourceVersion())
     if nsv not in nv:
         nv.append(nsv)
 
+if not start:
+    raise RuntimeError
+
 toUpdate = []
 for n, v in nv:
     ver, changed = checkVersion(v)
-    if not changed:
+    # Make sure to only rebuild groups that have changed
+    # and every group after.
+    if not changed and not toUpdate:
         continue
     toUpdate.append((ver, changed))
 
-slog.critical('Before going any further, be aware that this will only rebuild '
-    'the groups that need to change, not any other existing groups, if you '
-    'want to maintain order on the devel label you will need to write that '
-    'code.')
-assert False
-
+#slog.critical('Before going any further, be aware that this will only rebuild '
+#    'the groups that need to change, not any other existing groups, if you '
+#    'want to maintain order on the devel label you will need to write that '
+#    'code.')
+#assert False
 
 jobIds = []
+removed = {}
 for ver, changed in toUpdate:
     mgr._sourceVersion = ver
     mgr._checkout()
+
+    slog.info('updating %s' % ver)
+
+    # Find all names and versions in the group model
+    nv = dict([ (y.name, versions.ThawVersion(y.version))
+                for x, y in mgr._groups[mgr._pkgGroupName].iteritems() ])
+
+    # Set of packages that should be removed
+    removals = set([ x for x, y in removed.iteritems() if nv[x] == y ])
+
+    # Remove old removals
+    for pkg in removals:
+        slog.info('removing %s' % pkg)
+        mgr.remove(pkg)
+
     for toRemove, toAdd in changed:
+        # Handle removes
         for pkg in toRemove:
             slog.info('removing %s' % pkg)
             mgr.remove(pkg)
+
+            # cache removals
+            removed[pkg] = nv[pkg]
+
+        # Handle adds
         for (n, v), flvs in toAdd.iteritems():
             slog.info('adding %s=%s' % (n, v))
             mgr.addPackage(n, v, flvs)
+
     mgr._copyVersions()
     mgr._validateGroups()
     version = mgr.save(copyToLatest=True)
@@ -144,7 +195,7 @@ for ver, changed in toUpdate:
 for jobId in jobIds:
     mgr._builder.watch(jobId)
 
-import epdb; epdb.st()
+#import epdb; epdb.st()
 
 for jobId in jobIds:
     mgr._builder.commit(jobId)
