@@ -176,6 +176,14 @@ class GroupManager(object):
 
         return self._groups[self._pkgGroupName].remove(name)
 
+    @checkout
+    def hasPackage(self, name):
+        """
+        Check if a given package name is in the group.
+        """
+
+        return name in self._groups[self._pkgGroupName]
+
     def addPackage(self, name, version, flavors):
         """
         Add a package to the model.
@@ -194,7 +202,8 @@ class GroupManager(object):
 
         # Remove all versions and flavors of this name before adding this
         # package. This avoids flavor change issues by replacing all flavors.
-        self.remove(name)
+        if self.hasPackage(name):
+            self.remove(name)
 
         plain = deps.parseFlavor('')
         x86 = deps.parseFlavor('is: x86')
@@ -800,6 +809,13 @@ class AbstractModel(object):
         """
 
         self._removeItem(name)
+
+    def __contains__(self, name):
+        """
+        Check if element name is in the model.
+        """
+
+        return name in self._nameMap
 
 
 class GroupModel(AbstractModel):
