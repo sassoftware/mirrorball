@@ -431,6 +431,8 @@ class ErrataFilter(object):
         # Fail if there are any errors.
         assert not errors
 
+        log.info('order sanity checking complete')
+
     def _orderErrata(self):
         """
         Order errata by timestamp.
