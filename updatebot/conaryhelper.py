@@ -96,6 +96,14 @@ class ConaryHelper(object):
 
         return self._ccfg
 
+    def findTrove(self, nvf, *args, **kwargs):
+        """
+        Mapped to conaryclient.repos.findTrove. Will always search buildLabel.
+        """
+
+        return self._repos.findTrove(self._ccfg.buildLabel, nvf,
+                                     *args, **kwargs)
+
     def findTroves(self, troveList, *args, **kwargs):
         """
         Mapped to conaryclient.repos.findTroves. Will always search buildLabel.
