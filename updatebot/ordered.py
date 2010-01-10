@@ -117,6 +117,14 @@ class Bot(BotSuperClass):
         if current is None:
             raise PlatformNotImportedError
 
+        # Check to see if there is a binary version if the current group.
+        # This handles restarts where the group failed to build, but we don't
+        # want to rebuild all of the packages again.
+        if not self._groupmgr.hasBinaryVersion():
+            # grpmgr.build will make sure to refresh the group model and sync
+            # up the standard group contents before building.
+            self._groupmgr.build()
+
         # Load package source.
         self._pkgSource.load()
 

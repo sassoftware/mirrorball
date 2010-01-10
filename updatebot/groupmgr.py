@@ -145,6 +145,30 @@ class GroupManager(object):
 
     save = _commit
 
+    def hasBinaryVersion(self):
+        """
+        Check if there is a binary version for the current source version.
+        """
+
+        # Get a mapping of all source version to binary versions for all
+        # existing binary versions.
+        srcVersions = dict([ (x[1].getSourceVersion(), x[1])
+            for x in self._helper.findTrove(
+                (self._sourceName, None, None),
+                getLeaves=False
+            )
+        ])
+
+        # Get the version of the specified source, usually the latest
+        # source version.
+        srcVersion = self._helper.findTrove(('%s:source' % self._sourceName,
+                                             self._sourceVersion, None))[0][1]
+
+        # Check to see if the latest source version is in the map of
+        # binary versions.
+        return srcVersion in srcVersions
+
+    @checkout
     @commit
     def build(self):
         """
