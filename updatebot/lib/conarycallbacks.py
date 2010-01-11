@@ -87,8 +87,21 @@ class UpdateBotCloneCallback(BaseCallback, CloneCallback):
     def sendingChangset(self, got, need):
         self._message('uploading changeset')
 
+    @callonce
+    def downloadingChangeSet(self, got, need):
+        self._message('Downloading changeset')
+
+
 class UpdateBotCookCallback(BaseCallback, CookCallback):
     def __init__(self, *args, **kwargs):
         self._log = kwargs.pop('log', log)
         BaseCallback.__init__(self, *args, **kwargs)
         CookCallback.__init__(self, *args, **kwargs)
+
+    @callonce
+    def sendingChangset(self, got, need):
+        self._message('Committing changeset')
+
+    @callonce
+    def downloadingChangeSet(self, got, need):
+        self._message('Downloading changeset')
