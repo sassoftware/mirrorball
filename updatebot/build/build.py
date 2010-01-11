@@ -313,7 +313,7 @@ class Builder(object):
 
         # Make sure troveSpecs is an iterable of three tuples.
         if (len(troveSpecs) == 3 and
-            not isinstance(troveSpec[0], (list, set, tuple))):
+            not isinstance(troveSpecs[0], (list, set, tuple))):
             # Assume that (n,v,f) was passed in
             troveSpecs = [ troveSpecs, ]
 
