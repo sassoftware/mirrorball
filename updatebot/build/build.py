@@ -312,7 +312,9 @@ class Builder(object):
         """
 
         # Make sure troveSpecs is an iterable of three tuples.
-        if not isinsatance(troveSpecs[0], (list, set, tuple)):
+        if (len(troveSpecs) == 3 and
+            not isinstance(troveSpec[0], (list, set, tuple))):
+            # Assume that (n,v,f) was passed in
             troveSpecs = [ troveSpecs, ]
 
         # Build all troves in defined contexts.
