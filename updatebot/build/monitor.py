@@ -44,7 +44,7 @@ class StartWorker(AbstractWorker):
         Start the specified build and report jobId.
         """
 
-        jobId = self.builder.start((self.trove, ))
+        jobId = self.builder.start(self.trove)
         self.status.put((MessageTypes.DATA, (jobId, self.trove)))
 
 

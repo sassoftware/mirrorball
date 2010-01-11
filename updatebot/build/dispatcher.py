@@ -82,8 +82,8 @@ class Dispatcher(object):
         if not troveSpecs:
             return {}
 
-        troves = list(troveSpecs)
-        troves.reverse()
+        # Sort troves into buckets.
+        troves = self._builder.orderJobs(troveSpecs)
 
         while troves or not self._jobDone():
             # Only create more jobs once the last batch has been started.

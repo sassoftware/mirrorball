@@ -270,6 +270,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Save all binary changesets to disk before committing them.
     saveChangeSets      = (CfgBool, False)
 
+    # Always build this list of package names in one job rather than splitting
+    # them up in the case that you are using a builder that splits by default.
+    combinePackages     = (CfgList(CfgQuotedLineList(CfgString)), [])
+
     # email information for sending advisories
     emailFromName       = CfgString
     emailFrom           = CfgString

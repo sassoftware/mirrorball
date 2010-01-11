@@ -257,6 +257,40 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
+    def orderJobs(self, troveSpecs):
+        """
+        Create a sorted list of troveSpecs, grouped according to the config.
+        @param troveSpecs: list of source name, source version, and flavor.
+        @type troveSpecs: iterable of three tuples
+        """
+
+        order = []
+
+        bucketMap = {}
+        for grouping in self._cfg.combinePackages:
+            for pkg in grouping:
+                bucketMap[pkg] = grouping
+
+        buckets = {}
+        for nvf in sorted(troveSpecs):
+            # Package has already been added.
+            if nvf[0] in buckets:
+                continue
+
+            # Process any combined packages
+            elif nvf[0] in bucketMap:
+                order.append([])
+                idx = len(order) - 1
+                for n in bucketMap[nvf[0]]:
+                    buckets[n] = idx
+                    order[idx].append(n)
+
+            # Normal packages
+            else:
+                order.append(nvf)
+
+        return order
+
     def setCommitFailed(self, jobId, reason=None):
         """
         Sets the job as failed in rmake.
@@ -276,6 +310,10 @@ class Builder(object):
         @type troveSpecs: set([(name, version, flavor), ..])
         @return list((name, version, flavor, context), ...)
         """
+
+        # Make sure troveSpecs is an iterable of three tuples.
+        if not isinsatance(troveSpecs[0], (list, set, tuple)):
+            troveSpecs = [ troveSpecs, ]
 
         # Build all troves in defined contexts.
         troves = []
