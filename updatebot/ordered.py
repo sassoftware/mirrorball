@@ -142,11 +142,18 @@ class Bot(BotSuperClass):
             removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
             removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
 
-            # take the union of the two lists to get a unique list of packages
+            # take the union of the three lists to get a unique list of packages
             # to remove.
             expectedRemovals = (set(removePackages) |
                                 set(removeObsoleted) |
                                 set(removeReplaced))
+            # The following packages are expected to exist and must be removed
+            # (removeObsoleted may be mentioned for buckets where the package
+            # is not in the model, in order to support later adding the ability
+            # for a package to re-appear if an RPM obsoletes entry disappears.)
+            requiredRemovals = (set(removePackages) |
+                                set(removeReplaced))
+
 
             # Update package set.
             pkgMap = self._update(*args, updatePkgs=updates,
@@ -179,11 +186,16 @@ class Bot(BotSuperClass):
             # NOTE: This should always be done before adding packages so that
             #       any packages that move between sources will be removed and
             #       then readded.
-            if expectedRemovals:
+            if requiredRemovals:
                 log.info('removing the following packages from the managed '
-                    'group: %s' % ', '.join(expectedRemovals))
-                for pkg in expectedRemovals:
+                    'group: %s' % ', '.join(requiredRemovals))
+                for pkg in requiredRemovals:
                     self._groupmgr.remove(pkg)
+            if removeObsoleted:
+                log.info('removing any of obsoleted packages from the managed '
+                    'group: %s' % ', '.join(removeObsoleted))
+                for pkg in removeObsoleted:
+                    self._groupmgr.remove(pkg, missingOK = True)
 
             # Handle the case of entire source being obsoleted, this causes all
             # binaries from that source to be removed from the group model.

@@ -193,12 +193,13 @@ class GroupManager(object):
         self._groups[self._pkgGroupName].add(*args, **kwargs)
 
     @checkout
-    def remove(self, name):
+    def remove(self, name, missingOk=False):
         """
         Remove a given trove from the package group contents.
         """
 
-        return self._groups[self._pkgGroupName].remove(name)
+        return self._groups[self._pkgGroupName].remove(name,
+             missingOk=missingOk)
 
     @checkout
     def hasPackage(self, name):
@@ -776,12 +777,16 @@ class AbstractModel(object):
             self._nameMap[item.name] = set()
         self._nameMap[item.name].add(item.key)
 
-    def _removeItem(self, name):
+    def _removeItem(self, name, missingOk=False):
         """
         Remove an item from the appropriate structures.
         """
 
-        keys = self._nameMap.pop(name)
+        if missingOk:
+            keys = self._nameMap.pop(name, [])
+        else:
+            keys = self._nameMap.pop(name)
+
         for key in keys:
             self._data.pop(key)
 
@@ -827,12 +832,12 @@ class AbstractModel(object):
         obj = self.elementClass(*args, **kwargs)
         self._addItem(obj)
 
-    def remove(self, name):
+    def remove(self, name, missingOk=False):
         """
         Remove data element.
         """
 
-        self._removeItem(name)
+        self._removeItem(name, missingOk=missingOk)
 
     def __contains__(self, name):
         """
