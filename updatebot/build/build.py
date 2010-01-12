@@ -269,23 +269,21 @@ class Builder(object):
         bucketMap = {}
         for grouping in self._cfg.combinePackages:
             for pkg in grouping:
-                bucketMap[pkg] = grouping
+                bucketMap[pkg] = self._cfg.combinePackages.index(grouping)
 
         buckets = {}
         for nvf in sorted(troveSpecs):
-            # Package has already been added.
-            if nvf[0] in buckets:
-                continue
+            name = nvf[0]
+            if name in bucketMap:
+                if name not in buckets:
+                    order.append([])
+                    idx = len(order) - 1
 
-            # Process any combined packages
-            elif nvf[0] in bucketMap:
-                order.append([])
-                idx = len(order) - 1
-                for n in bucketMap[nvf[0]]:
-                    buckets[n] = idx
-                    order[idx].append(n)
+                    for pkg in self._cfg.combinePackages[bucketMap[name]]:
+                        buckets[name] = idx
 
-            # Normal packages
+                idx = buckets[name]
+                order[idx].append(nvf)
             else:
                 order.append(nvf)
 
