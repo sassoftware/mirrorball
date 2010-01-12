@@ -81,6 +81,12 @@ class AbstractStatusMonitor(object):
         Add a job to the worker pool.
         """
 
+        # Make sure job is hashable.
+        if isinstance(job, list):
+            job = tuple(job)
+        elif isinstance(job, set):
+            job = frozenset(job)
+
         if job in self._workers:
             log.critical('job already being monitored: %s' % (job, ))
             import epdb; epdb.st()
