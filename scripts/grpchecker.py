@@ -118,9 +118,10 @@ def checkVersion(ver):
 
     return ver, changes
 
-troves = helper.findTroves((cfg.topSourceGroup, ), getLeaves=False).values()[0]
+srcName, srcVersion, srcFlavor = cfg.topSourceGroup
+troves = helper.findTrove(('%s:source' % srcName, srcVersion, srcFlavor), getLeaves=False)
 
-troveSpec = (cfg.topSourceGroup[0], sourceVersion, None)
+troveSpec = ('%s:source' % cfg.topSourceGroup[0], sourceVersion, None)
 sourceVersion = helper.findTroves((troveSpec, )).values()[0][0][1]
 
 nv = []
