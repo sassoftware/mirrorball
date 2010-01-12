@@ -195,7 +195,7 @@ class Bot(BotSuperClass):
                 log.info('removing any of obsoleted packages from the managed '
                     'group: %s' % ', '.join(removeObsoleted))
                 for pkg in removeObsoleted:
-                    self._groupmgr.remove(pkg, missingOK = True)
+                    self._groupmgr.remove(pkg, missingOk=True)
 
             # Handle the case of entire source being obsoleted, this causes all
             # binaries from that source to be removed from the group model.
