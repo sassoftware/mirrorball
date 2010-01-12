@@ -516,10 +516,7 @@ class ErrataFilter(object):
             # things can't be merged since all versions need to be
             # represented in the repository.
             if oldNames & newNames:
-                raise UnableToMergeUpdatesError(
-                    source=source, target=target,
-                    package=', '.join(oldNames & newNames)
-                )
+                log.warn('merge causes package overlap')
             self._order[target].update(updateSet)
 
             # merge advisory detail.
@@ -569,15 +566,30 @@ class ErrataFilter(object):
         # all in the source bucketId.
         bucketNevras = dict([ (x.getNevra(), x)
                               for x in self._order[source] ])
+
         for srpm in srpms:
+            # Make sure to only move packages if they haven't already
+            # been moved.
+            if (srpm not in self._order[source] and
+                dest in self._order and
+                srpm in self._order[dest]):
+                continue
+
             nevra = srpm.getNevra()
+
             if nevra not in bucketNevras:
                 raise AdvisoryPackageMissingFromBucketError(nevra=nevra)
             self._order[source].remove(srpm)
 
             # Make sure that each package that we are moving is only
             # mentioned in one advisory.
-            assert len(self._advPkgRevMap[srpm]) == 1
+            advisories = self._advPkgRevMap[srpm]
+            if len(advisories) > 1:
+                advisories = advisories.difference(set(advisory))
+                # Make sure all advisories this srpm is mentioned in are also
+                # scheduled to be moved to the same bucket.
+                for adv in advisories:
+                    assert (source, dest, adv) in self._cfg.reorderAdvisory
 
             # Move packages to destination bucket Id.
             self._order.setdefault(dest, set()).add(srpm)
