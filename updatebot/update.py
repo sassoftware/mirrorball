@@ -57,6 +57,8 @@ class Updater(object):
 
         log.info('searching for packages to update')
 
+        assert updateTroves is None or len(updateTroves)
+
         toAdvise = []
         toUpdate = []
 
