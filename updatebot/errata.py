@@ -204,6 +204,8 @@ class ErrataFilter(object):
             expectedReplaces = replaces.get(updateId, [])
             explicitSourceRemovals = self._cfg.removeSource.get(updateId, set())
             explicitBinaryRemovals = self._cfg.removeObsoleted.get(updateId, set())
+
+            assert len(self._order[updateId])
             for srpm in self._order[updateId]:
                 nvf = (srpm.name, None, None)
 
@@ -580,6 +582,8 @@ class ErrataFilter(object):
             if nevra not in bucketNevras:
                 raise AdvisoryPackageMissingFromBucketError(nevra=nevra)
             self._order[source].remove(srpm)
+            if not len(self._order[source]):
+                del self._order[source]
 
             # Make sure that each package that we are moving is only
             # mentioned in one advisory.
@@ -599,6 +603,8 @@ class ErrataFilter(object):
             name = dict(advInfo)['name']
             if name == advisory:
                 self._advMap[source].remove(advInfo)
+                if not len(self._advMap[source]):
+                    del self._advMap[source]
                 self._advMap.setdefault(dest, set()).add(advInfo)
                 break
 
@@ -621,10 +627,14 @@ class ErrataFilter(object):
             raise PackageNotFoundInBucketError(nevra=nevra, bucketId=source)
         srpm = bucketNevras[nevra]
         self._order[source].remove(srpm)
+        if not len(self._order[source]):
+            del self._order[source]
 
         # Remove all references to this srpm being part of an advisory
         for advisory in self._advPkgRevMap.pop(srpm, set()):
             self._advPkgMap[advisory].remove(srpm)
+            if not len(self._advPkgMap[advisory]):
+                del self._advPkgMap[advisory]
 
         # Move srpm to destination bucket
         self._order.setdefault(dest, set()).add(srpm)
