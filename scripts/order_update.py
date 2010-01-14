@@ -49,6 +49,10 @@ platform = sys.argv[1]
 if platform not in os.listdir(mirrorballDir + '/config'):
     usage()
 
+restoreFile=None
+if len(sys.argv) > 2:
+    restoreFile = sys.argv[2]
+
 confDir = mirrorballDir + '/config/' + platform
 
 cfg = config.UpdateBotConfig()
@@ -61,6 +65,6 @@ errata = rhnmirror.Errata(mcfg)
 errata.fetch()
 
 bot = ordered.Bot(cfg, errata)
-pkgMap = bot.update()
+pkgMap = bot.update(restoreFile=restoreFile)
 
 import epdb; epdb.st()
