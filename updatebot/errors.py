@@ -167,6 +167,17 @@ class NoCheckoutFoundError(UnhandledUpdateError):
     _params = ['pkgname']
     _template = 'No checked out version of %(pkgname)s was found.'
 
+class BinariesNotFoundForSourceVersion(UnhandledUpdateError):
+    """
+    BinariesNotFoundForSourceVersion, raised when querying by source name and
+    version for all binaries build from the given source version. Normally means
+    that an incorrect source name and/or version was provided or the source was
+    never built.
+    """
+
+    _params = ['srcName', 'srcVersion', ]
+    _template = 'Can not find binaries for %(srcName)s=%(srcVersion)s'
+
 class PromoteFailedError(UnhandledUpdateError):
     """
     PromoteFailedError, raised when the bot fails to promote the binary group

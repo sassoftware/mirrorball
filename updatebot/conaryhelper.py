@@ -40,6 +40,7 @@ from updatebot.errors import NoCheckoutFoundError
 from updatebot.errors import PromoteFailedError
 from updatebot.errors import PromoteMismatchError
 from updatebot.errors import MirrorFailedError
+from updatebot.errors import BinariesNotFoundForSourceVersion
 
 from updatebot.lib.conarycallbacks import UpdateBotCloneCallback
 
@@ -213,19 +214,19 @@ class ConaryHelper(object):
 
         return self.getSourceVersions(list(troves))
 
-    def getSourceVersions(self, troveSpecs):
+    def getSourceVersions(self, binTroveSpecs):
         """
         Given a list of trove specs, query the repository for all of the related
         source versions.
-        @param troveSpecs: list of troves to query for.
-        @type troveSpecs: [(name, versionObj, flavObj), ... ]
+        @param binTroveSpecs: list of troves to query for.
+        @type binTroveSpecs: [(name, versionObj, flavObj), ... ]
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
         """
 
         # check the cache for any source we have already retrieved from the
         # repository.
-        cached = set(x for x in troveSpecs if x in self._sourceVersionCache)
-        uncached = sorted(set(troveSpecs).difference(cached))
+        cached = set(x for x in binTroveSpecs if x in self._sourceVersionCache)
+        uncached = sorted(set(binTroveSpecs).difference(cached))
 
         srcTrvs = {}
         tiSourceName = trove._TROVEINFO_TAG_SOURCENAME
@@ -239,6 +240,58 @@ class ConaryHelper(object):
             srcTrvs.setdefault(self._sourceVersionCache[spec], set()).add(spec)
 
         return srcTrvs
+
+    def getBinaryVersions(self, srcTroveSpecs):
+        """
+        Given a list of source trove specs, find the latest versions of all
+        binaries generated from these sources.
+        @param srcTroveSpecs: list of source troves.
+        @type srcTroveSpecs: [(name, versionObj, None), ... ]
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ... ]}
+        """
+
+        # get all binary trove specs for the build label
+        binTrvMap = self._repos.getTroveVersionsByLabel(
+            {None: {self._ccfg.buildLabel: None}})
+        binTrvSpecs = set()
+        for n, vermap in binTrvMap.iteritems():
+            # filter out sources
+            if n.endswith(':source'):
+                continue
+            for v, flvs in vermap.iteritems():
+                for f in flvs:
+                    binTrvSpecs.add((n, v, f))
+
+        # get a map of source trove specs to binary trove specs
+        srcVerMap = self.getSourceVersions(binTrvSpecs)
+
+        srcMap = {}
+        for srcTrv in srcTroveSpecs:
+            if srcTrv not in srcVerMap:
+                log.error('can not find requested source trove in repository')
+                raise BinariesNotFoundForSourceVersion(srcName=srvTrv[0],
+                                                       srcVersion=srcTrv[1])
+
+            # Move binaries into a more convienient data structure.
+            binTrvMap = {}
+            binTrvs = srcVerMap[srcTrv]
+            for binTrv in binTrvs:
+                binTrvMap.setdefault(binTrv[1], set()).add(binTrv)
+
+            # find the latest version.
+            latest = None
+            for binVer in binTrvMap:
+                if latest is None:
+                    latest = binVer
+                    continue
+                if latest < binVer:
+                    latest = binVer
+
+            # Store latest binary versions in source version map
+            assert srcTrv not in srcMap
+            srcMap[srcTrv] = binTrvMap[latest]
+
+        return srcMap
 
     @staticmethod
     def _getTrove(cs, name, version, flavor):
@@ -740,7 +793,7 @@ class ConaryHelper(object):
         # Build the label map.
         labelMap = {fromLabel: targetLabel}
         for label in sourceLabels:
-            assert(label is not None)
+            assert label is not None
             labelMap[label] = targetLabel
 
         # mix in the extra troves
