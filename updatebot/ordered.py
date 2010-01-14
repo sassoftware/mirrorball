@@ -17,7 +17,12 @@ Module for doing updates ordered by errata information.
 """
 
 import time
+import pickle
 import logging
+import tempfile
+
+from conary import versions
+from conary.deps import deps
 
 from updatebot import errata
 from updatebot import groupmgr
@@ -66,6 +71,46 @@ class Bot(BotSuperClass):
                 flavors = list(vf[version])
                 self._groupmgr.addPackage(name, version, flavors)
 
+    def _savePackages(self, pkgMap, fn=None):
+        """
+        Save the package map to a file.
+        """
+
+        if fn is None:
+            fn = tempfile.mktemp()
+
+        log.info('saving package map to file: %s' % fn)
+
+        # freeze contents
+        frzPkgs = dict([ ((x[0], x[1].freeze(), x[2]),
+                          set([ (z[0], z[1].freeze(), z[2].freeze())
+                                for z in y]))
+                          for x, y in pkgMap.iteritems() ])
+
+        # pickle frozen contents
+        pickle.dump(frzPkgs, open(fn, 'w'))
+
+    def _restorePackages(self, fn):
+        """
+        Restore the frozen form of the package map.
+        """
+
+        log.info('restoring package map from file: %s' % fn)
+
+        thawVersion = versions.ThawVersion
+        thawFlavor = deps.ThawFlavor
+
+        # load pickle
+        frzPkgs = pickle.load(open(fn))
+
+        # thaw versions and flavors
+        pkgMap = dict([ ((x[0], thawVersion(x[1]), thawFlavor(x[2])),
+                         set([ (z[0], thawVersion(z[1]), thawFlavor(z[2]))
+                               for z in y ]))
+                        for x, y in frzPkgs.iteritems() ])
+
+        return pkgMap
+
     def create(self, *args, **kwargs):
         """
         Handle initial import case.
@@ -99,6 +144,9 @@ class Bot(BotSuperClass):
         """
         Handle update case.
         """
+
+        # Load specific kwargs
+        restoreFile = kwargs.pop('restoreFile', None)
 
         # FIXME: this should probably be provided by the errata object.
         # Method for sorting versions.
@@ -155,9 +203,18 @@ class Bot(BotSuperClass):
                                 set(removeReplaced))
 
 
+            # If recovering from a failure, restore the pkgMap from disk.
+            if restoreFile:
+                pkgMap = self._restorePackages(restoreFile)
+                restoreFile = None
+
             # Update package set.
-            pkgMap = self._update(*args, updatePkgs=updates,
-                expectedRemovals=expectedRemovals, **kwargs)
+            else:
+                pkgMap = self._update(*args, updatePkgs=updates,
+                    expectedRemovals=expectedRemovals, **kwargs)
+
+            # Save package map in case we run into trouble later.
+            self._savePackages(pkgMap)
 
             # FIXME: we might actually want to do this one day
             # Find errata group versions.
