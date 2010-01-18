@@ -138,8 +138,12 @@ for updateId, bucket in bot._errata.iterByIssueDate(current=1):
     # These are the binary trove specs that we expect to be promoted.
     expected = [ x for x in itertools.chain(*srcTrvMap.itervalues()) ]
 
+    # Get list of extra troves from the config
+    extra = cfg.expectedExtraPromoteTroves.get(updateId, [])
+
     # Create and validate promote changeset
     packageList = helper.promote(toPromote, expected, cfg.sourceLabel,
-                                 cfg.targetLabel, commit=True)
+                                 cfg.targetLabel, commit=True,
+                                 expectedExtraPromoteTroves=extra)
 
 import epdb; epdb.st()

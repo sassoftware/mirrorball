@@ -210,6 +210,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Packages other than the topGroup that need to be promoted.
     extraPromoteTroves  = (CfgList(CfgTroveSpec), [])
 
+    # Extra packages that are expected to be in the promote result set at a
+    # given bucketId. These are normally packages that for some reason or
+    # another, usually deps, we had to rebuild.
+    extraExpectedPromoteTroves = (CfgIntDict(CfgList(CfgTroveSpec)), {})
+
     # Packages to import
     package             = (CfgList(CfgString), [])
 
