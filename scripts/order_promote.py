@@ -99,12 +99,12 @@ for updateId, bucket in bot._errata.iterByIssueDate(current=1):
         slog.info('%s found on target label, skipping' % upver)
         continue
 
-    slog.info('starting promote of %s' % upver)
-
     # make sure version has been imported
     if upver not in latestMap:
         missing = upver
         continue
+
+    slog.info('starting promote of %s' % upver)
 
     # If we find a missing version and then find a version in the
     # repository report an error.
