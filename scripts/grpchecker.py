@@ -153,6 +153,8 @@ for n, v in nv:
 #    'code.')
 #assert False
 
+import epdb; epdb.st()
+
 jobIds = []
 removed = {}
 for ver, changed in toUpdate:
