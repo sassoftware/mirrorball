@@ -757,7 +757,7 @@ class ConaryHelper(object):
 
     def promote(self, trvLst, expected, sourceLabels, targetLabel,
                 checkPackageList=True, extraPromoteTroves=None,
-                expectedExtraPromoteTroves=None, commit=True):
+                extraExpectedPromoteTroves=None, commit=True):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -775,11 +775,11 @@ class ConaryHelper(object):
         @param extraPromoteTroves: troves to promote in addition to the troves
                                    that have been built.
         @type extraPromoteTroves: list of trove specs.
-        @param expectedExtraPromoteTroves: list of trove nvfs that are expected
+        @param extraExpectedPromoteTroves: list of trove nvfs that are expected
                                            to be promoted, but are only filtered
                                            by name, rather than version and
                                            flavor.
-        @type expectedExtraPromoteTroves: list of name, version, flavor tuples
+        @type extraExpectedPromoteTroves: list of name, version, flavor tuples
                                           where version and flavor may be None.
         @param commit: commit the promote changeset or just return it.
         @type commit: boolean
@@ -793,9 +793,9 @@ class ConaryHelper(object):
         if extraPromoteTroves is None:
             extraPromoteTroves = []
 
-        # make expectedExtraPromoteTroves a list if it is not specified.
-        if expectedExtraPromoteTroves is None:
-            expectedExtraPromoteTroves = []
+        # make extraExpectedPromoteTroves a list if it is not specified.
+        if extraExpectedPromoteTroves is None:
+            extraExpectedPromoteTroves = []
 
         # Get the label that the group is on.
         fromLabel = trvLst[0][1].trailingLabel()
@@ -847,7 +847,7 @@ class ConaryHelper(object):
                         if not x[0].endswith(':source') ])
         grpDiff = set([ x[0] for x in trvDiff.difference(grpTrvs) ])
         extraTroves = set([ x[0] for x in extraPromoteTroves |
-                                          expectedExtraPromoteTroves ])
+                                          extraExpectedPromoteTroves ])
         if checkPackageList and grpDiff.difference(extraTroves):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
