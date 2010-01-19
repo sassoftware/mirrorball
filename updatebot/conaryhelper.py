@@ -789,13 +789,17 @@ class ConaryHelper(object):
         log.info('starting promote')
         log.info('creating changeset')
 
-        # make extraPromoteTroves a list if it was not specified.
+        # make extraPromoteTroves a set if it was not specified.
         if extraPromoteTroves is None:
-            extraPromoteTroves = []
+            extraPromoteTroves = set()
+        else:
+            extraPromoteTroves = set(extraPromoteTroves)
 
         # make extraExpectedPromoteTroves a list if it is not specified.
         if extraExpectedPromoteTroves is None:
-            extraExpectedPromoteTroves = []
+            extraExpectedPromoteTroves = set()
+        else:
+            extraExpectedPromoteTroves = set(extraExpectedPromoteTroves)
 
         # Get the label that the group is on.
         fromLabel = trvLst[0][1].trailingLabel()
