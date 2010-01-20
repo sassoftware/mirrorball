@@ -118,6 +118,38 @@ class ErrataFilter(object):
         return version
 
     @loadErrata
+    def getModifiedErrata(self, current):
+        """
+        Get all updates that were issued before current, but have been modified
+        after current.
+        @param current: the current state, start iterating after this state has
+                        been reached.
+        @type current: int
+        """
+
+        # Get modified errata from the model
+        modified = self._errata.getModifiedErrata(current)
+
+        # Map this errata to srpms
+        modMap = {}
+        for e in modified:
+            advisory = e.advisory
+            last_modified = e.last_modified_date
+            issue_date = e.issue_date
+            pkgs = self._advPkgMap[advisory]
+
+            assert advisory not in modMap
+
+            modMap[advisory] = {
+                'advisory': advisory,
+                'last_modified': last_modified,
+                'issue_date': issue_date,
+                'srpms': pkgs,
+            }
+
+        return modMap
+
+    @loadErrata
     def iterByIssueDate(self, current=None):
         """
         Yield sets of srcPkgs by errata release date.
