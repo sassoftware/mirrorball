@@ -191,6 +191,8 @@ class Bot(BotSuperClass):
                 log.info('validating %s' % advisory)
                 for srpm in advInfo['srpms']:
                     log.info(srpm)
+                    # This will raise an exception if any inconsistencies are
+                    # detected.
                     self._updater.sanityCheckSource(srpm)
 
         updateSet = {}
