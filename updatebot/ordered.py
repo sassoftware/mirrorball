@@ -179,6 +179,20 @@ class Bot(BotSuperClass):
         # Sanity check errata ordering.
         self._errata.sanityCheckOrder()
 
+        # Check for updated errata that may require some manual changes to the
+        # repository. These are errata that were issued before the current
+        # errata state, but have been modified in the upstream errata source.
+        changed = self._errata.getModifiedErrata(current)
+        # Iterate through changed and verify the current conary repository
+        # contents against any changes.
+        if changed:
+            log.info('found modified updates, validating repository state')
+            for advisory, advInfo in changed.iteritems():
+                log.info('validating %s' % advisory)
+                for srpm in advInfo['srpms']:
+                    log.info(srpm)
+                    self._updater.sanityCheckSource(srpm)
+
         updateSet = {}
         for updateId, updates in self._errata.iterByIssueDate(current=current):
             start = time.time()
