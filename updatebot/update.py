@@ -214,7 +214,7 @@ class Updater(object):
         reusedPackages = set()
 
         try:
-            manifest = self._conaryhelper.getManifest(nvf[0])
+            manifest = self._conaryhelper.getManifest(nvf[0], version=nvf[1])
         except NoManifestFoundError, e:
             # Create packages that do not have manifests.
             # TODO: might want to make this a config option?
@@ -230,7 +230,8 @@ class Updater(object):
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             else:
                 if metadata is None:
-                    pkgs = self._getMetadataFromConaryRepository(nvf[0])
+                    pkgs = self._getMetadataFromConaryRepository(nvf[0],
+                                                                 verison=nvf[1])
                     metadata = util.Metadata(pkgs)
                 if metadata:
                     binPkg = metadata.locationMap[line]
@@ -273,8 +274,6 @@ class Updater(object):
                     log.warn('update removes package (%s) %s -> %s'
                              % (pkg.name, srpm.getNevra(), srcPkg.getNevra()))
 
-                    #import epdb; epdb.st()
-
                     # allow some packages to be removed.
                     if expectedRemovals and pkg.name in expectedRemovals:
                         log.info('package removal (%s) handled in configuration'
@@ -305,6 +304,27 @@ class Updater(object):
                 newNevra=str(' '.join(srpm.getNevra())))
 
         return needsUpdate
+
+    def sanityCheckSource(self, srpm):
+        """
+        Look up the matching source version in the conary repository and verify
+        that the manifest matches the package list in the package source.
+        @param srpm: src pacakge object
+        @type srpm: repomd.packagexml._Package
+        """
+
+        nvflst = self._conaryhelper.findTrove(('%s:source' % srpm.name,
+                                               srpm.getConaryVersion(), None))
+
+        assert len(nvflst) == 1
+        n, v, f = nvflst[0]
+        nvf = (n.split(':')[0], v, None)
+
+        needsUpdate = self._sanitizeTrove(nvf, srpm)
+
+        # If anything has chnaged raise an error.
+        if needsUpdate:
+            raise RepositoryPackageSourceInconsistencyError(nvf=nvf, srpm=srpm)
 
     @staticmethod
     def _getLatestOfAvailableArches(pkgLst):
@@ -542,15 +562,17 @@ class Updater(object):
 
         return self._pkgSource.srcPkgMap[srcPkg]
 
-    def _getMetadataFromConaryRepository(self, pkgName):
+    def _getMetadataFromConaryRepository(self, pkgName, version=None):
         """
         Get the metadata from the repository and generate required mappings.
         @param pkgName: source package name
         @type pkgName: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         @return dictionary of infomation that looks like a pkgsource.
         """
 
-        return self._conaryhelper.getMetadata(pkgName)
+        return self._conaryhelper.getMetadata(pkgName, version=version)
 
     def _getBuildRequiresFromPkgSource(self, srcPkg):
         """

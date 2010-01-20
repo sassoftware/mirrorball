@@ -178,6 +178,21 @@ class BinariesNotFoundForSourceVersion(UnhandledUpdateError):
     _params = ['srcName', 'srcVersion', ]
     _template = 'Can not find binaries for %(srcName)s=%(srcVersion)s'
 
+class RepositoryPackageSourceInconsistencyError(UnhandledUpdateError):
+    """
+    RepositoryPackageSourceInconsistencyError, raised when the manifest for a
+    given source component does not match the state of the package source. This
+    should only be triggered when the upstream provider of updates has gone back
+    and changed the package set for an update that has already been imported
+    into the conary repository.
+    """
+
+    _params = ['nvf', 'srpm', ]
+    _template = ('An inconsistency has been discovered between the conary '
+        'repository contents and the upstream package source for %(srpm)s. '
+        'This is normally due to upstream modifying the package set for an '
+        'update that has already been imported into the conary repository.')
+
 class PromoteFailedError(UnhandledUpdateError):
     """
     PromoteFailedError, raised when the bot fails to promote the binary group
