@@ -80,10 +80,14 @@ def getUpstreamVersionMap(groupvers):
         latestMap[upver] = vers[latest]
     return latestMap
 
-# Get all of the binary versions of the top level group
-slog.info('querying repository for all group versions')
-groupvers = helper.findTrove(cfg.topGroup, getLeaves=False)
-latestMap = getUpstreamVersionMap(groupvers)
+def updateLatestMap():
+    # Get all of the binary versions of the top level group
+    slog.info('querying repository for all group versions')
+    groupvers = helper.findTrove(cfg.topGroup, getLeaves=False)
+    latestMap = getUpstreamVersionMap(groupvers)
+    return latestMap
+
+latestMap = updateLatestMap()
 
 # Get all target versions
 slog.info('querying target label for all group versions')
@@ -145,5 +149,8 @@ for updateId, bucket in bot._errata.iterByIssueDate(current=1):
     packageList = helper.promote(toPromote, expected, cfg.sourceLabel,
                                  cfg.targetLabel, commit=True,
                                  extraExpectedPromoteTroves=extra)
+
+    # Update latest map for the next loop
+    latestMap = updateLatestMap()
 
 import epdb; epdb.st()
