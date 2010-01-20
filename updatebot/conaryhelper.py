@@ -313,17 +313,19 @@ class ConaryHelper(object):
         trv = trove.Trove(troveCs, skipIntegrityChecks=True)
         return trv
 
-    def getManifest(self, pkgname):
+    def getManifest(self, pkgname, version=None):
         """
         Get the contents of the manifest file from the source component for a
         given package.
         @param pkgname: name of the package to retrieve
         @type pkgname: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         @return manifest for pkgname
         """
 
         log.info('retrieving manifest for %s' % pkgname)
-        recipeDir = self._edit(pkgname)
+        recipeDir = self._edit(pkgname, version=version)
         manifestFileName = util.join(recipeDir, 'manifest')
 
         if not os.path.exists(manifestFileName):
@@ -355,16 +357,18 @@ class ConaryHelper(object):
         # Make sure manifest file has been added.
         self._addFile(recipeDir, 'manifest')
 
-    def getMetadata(self, pkgname):
+    def getMetadata(self, pkgname, version=None):
         """
         Get the metadata.xml file from a source componet named pkgname.
         @param pkgname name of the package to checkout
         @type pkgname string
         @return list like object
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         """
 
         log.info('retrieving metadata for %s' % pkgname)
-        recipeDir = self._edit(pkgname)
+        recipeDir = self._edit(pkgname, version=version)
         metadataFileName = util.join(recipeDir, 'metadata.xml')
 
         if not os.path.exists(metadataFileName):
@@ -452,6 +456,8 @@ class ConaryHelper(object):
         file in the source component, otherwise return None.
         @param pkgname: name of hte package to edit
         @type pkgname: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
         """
 
         log.info('getting version info for %s' % pkgname)
