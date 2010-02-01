@@ -485,19 +485,34 @@ class ErrataFilter(object):
             srcMap[src].append(pkg)
 
         # insert bins by buildstamp
+        extras = {}
         for src, bins in srcMap.iteritems():
+            # Pull out any package sets that look like they are incomplete.
+            if len(bins) != len(self._pkgSource.srcPkgMap[src]) - 1:
+                extras[src] = bins
+                continue
+
             buildstamp = int(sorted(bins)[0].buildTimestamp)
             if buildstamp not in buckets:
                 buckets[buildstamp] = []
             buckets[buildstamp].extend(bins)
 
         # get sources to build
+        srpmToBucketId = {}
         for bucketId in sorted(buckets.keys()):
             bucket = buckets[bucketId]
             self._order[bucketId] = set()
             for pkg in bucket:
                 src = self._pkgSource.binPkgMap[pkg]
                 self._order[bucketId].add(src)
+                srpmToBucketId[src] = bucketId
+
+        # Make sure extra packages are already included in the order.
+        for src, bins in extras.iteritems():
+            assert src in srpmToBucketId
+            assert src in self._order[srpmToBucketId[src]]
+            for bin in bins:
+                assert bin in self._pkgSource.srcPkgMap[src]
 
         ##
         # Start order munging here
@@ -508,6 +523,11 @@ class ErrataFilter(object):
         pkgs = set()
         for pkgSet in self._order.itervalues():
             pkgs.update(pkgSet)
+
+        # This assert validates that no one srpm is mentioned in more than
+        # one bucket. This can happen when a partial set of packages was
+        # released and the code tried to fill in the other packages by build
+        # time.
         assert len(pkgs) == totalPkgs
 
         # fold together updates to preserve dep closure.
