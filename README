@@ -1,9 +1,79 @@
-Date: 2008-09-02
-Author: Elliot Peele <elliot@rpath.com>
+Mirrorball README
+
+================
+= Introduction =
+================
+
+Mirrorball is a tool for importing external projects with two main
+facets:
+ o  updatebot: a maintenance tool for automatically processing updates
+ o  scripts for initial import and for resolving maintenance exceptions
+
+Mirrorball is a toolkit, not a product.  When mirrorball finds an
+exceptional case, it drops you into a debugger.  This is not a bug
+in mirrorball; it is an opportunity to use the data structures in
+mirrorball to understand what caused the exception and determine
+the best way to resolve it.  Automating (or partially automating)
+exception handling is good; adding debugging output with potential
+solutions is good, but the debugger is part of the toolkit.  It is
+common when using the scripts for initial import and resolving
+exceptions during maintenance to add breakpoints to the scripts
+and verify what they are going to do in the debugger, and then
+let the scripts continue and do the work.
+
+To successfully use mirrororball, you need to understand its theory
+of operation.  Mirrorball synchronizes sources of package data,
+including packages and advisories, with associated Conary repositories.
+It uses Conary and rMake as the main underlying tools to drive the
+process of converting upstream packages into content in a Conary
+repository.
+
+Mirrorball has two main way of representing upstream package state
+in a Conary repository.  In the first ("latest"), if the latest
+versions of upstream packages differ from what is in the Conary
+repository, mirrorball represents the latest state of the upstream
+packages in the Conary repository.  In the second ("ordered"),
+mirrorball represents a view of the entire history of the upstream
+package source in the Conary repository.
+
+Using the "latest" model is easiest; it can often be done without
+writing new code in mirrorball.  It requires a source of packages
+that it recognizes (for example, a yum repository of RPMs), a
+configuration that tells it what to do with the packages, and
+a conary repository to put the packages into.  (It also requires
+a source of packages to use for building, and the bootstrap
+process of making this source available is an advanced topic.)
+
+Using the "ordered" model is more demanding.  In order to represent
+all the packages in the historical record, it needs a source of
+data for the ordering.  One potential source of data is errata
+advisories with dates attached to them somehow.  In order to use
+such advisories, code has to be written to import critical data
+into mirrorball's "errata" representation.  Then the import process
+has to create a complete ordering representing the entire history,
+validate that history, warn about conditions in the history that
+require manual adjustment, and then apply all history past the
+current state of the repository to the repository.
+
+In both models, there are multiple configuration files that need
+to be written: essentially, one for each tool used.  These will
+include conary configuration (e.g. flavors, superclass packages,
+installLabelPath, buildLabel), rmake configuration (e.g. rmakeUrl,
+resolveTroves, defaultBuildReqs), and elements of mirrorball per
+set (e.g. errata sources and updatebot configuration)
+
+In both models, there are bootstrap requirements: Conary packages
+representing sufficient binaries to build with in a repository,
+and all necessary Conary superclass and factory packages in the
+repository.  Mirrorball does not automatically create these things;
+creating the prerequisites for the platform is the responsibility
+of the packager.
+
 
 This document is meant as a guide to get people up and running with a
 working updatebot configuration and some basic usage information to get
-people started.
+people started.  It is currently insufficient, so after reading this
+document, join #conary on irc.freenode.net and ask for help.
 
 * Setting up updatebot to work in your environment.
 * How to do:
