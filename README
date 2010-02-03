@@ -28,7 +28,7 @@ It uses Conary and rMake as the main underlying tools to drive the
 process of converting upstream packages into content in a Conary
 repository.
 
-Mirrorball has two main way of representing upstream package state
+Mirrorball has two main ways of representing upstream package state
 in a Conary repository.  In the first ("latest"), if the latest
 versions of upstream packages differ from what is in the Conary
 repository, mirrorball represents the latest state of the upstream
@@ -60,7 +60,7 @@ to be written: essentially, one for each tool used.  These will
 include conary configuration (e.g. flavors, superclass packages,
 installLabelPath, buildLabel), rmake configuration (e.g. rmakeUrl,
 resolveTroves, defaultBuildReqs), and elements of mirrorball per
-set (e.g. errata sources and updatebot configuration)
+say (e.g. errata sources and updatebot configuration)
 
 In both models, there are bootstrap requirements: Conary packages
 representing sufficient binaries to build with in a repository,
