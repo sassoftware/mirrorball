@@ -58,6 +58,6 @@ sorder = sorted(order)
 def tconv(tstamp):
     return time.strftime('%m-%d-%Y %H:%M:%S', time.localtime(tstamp))
 
-bot._errata.sanityCheckOrder()
+childPackages, parentPackages = bot._errata.sanityCheckOrder()
 
 import epdb; epdb.st()
