@@ -197,6 +197,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # The top level source group.
     topSourceGroup      = CfgTroveSpec
 
+    # Path to search for packages to be included in the platform.
+    platformSearchPath  = (CfgQuotedLineList(CfgLabel), [])
+
     # Group contents info.
     groupContents       = (CfgDict(CfgDict(CfgString)), {})
 
@@ -401,7 +404,8 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
 
         # Find configPath.
         ret = cfg.SectionedConfigFile.read(self, *args, **kwargs)
-        if not self.configPath.startswith(os.sep):
+        if (not self.configPath.startswith(os.sep) and
+            args[0].endswith('updatebotrc')):
             # configPath is relative
             dirname = os.path.dirname(args[0])
             self.configPath = os.path.normpath(os.path.join(dirname,

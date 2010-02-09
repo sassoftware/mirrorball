@@ -109,15 +109,16 @@ class Bot(object):
 
 
         # Import sources into repository.
-        toBuild, fail = self._updater.create(toPackage,
-                                             buildAll=rebuild,
-                                             recreate=bool(recreate),
-                                             toCreate=toCreate)
+        toBuild, parentPkgMap, fail = self._updater.create(
+            toPackage,
+            buildAll=rebuild,
+            recreate=bool(recreate),
+            toCreate=toCreate)
 
         log.info('failed to create %s packages' % len(fail))
         log.info('found %s packages to build' % len(toBuild))
 
-        trvMap = []
+        trvMap = {}
         failed = ()
         if len(toBuild):
             if not rebuild or (rebuild and toCreate):
@@ -137,6 +138,9 @@ class Bot(object):
                      'configuration issue')
 
         log.info('elapsed time %s' % (time.time() - start, ))
+
+        # Add any platform packages to the trove map.
+        trvMap.update(parentPkgMap)
 
         return trvMap, failed
 
@@ -198,10 +202,17 @@ class Bot(object):
             self._advisor.check(toAdvise)
 
         # Update source
+        parentPackages = set()
         for nvf, srcPkg in toUpdate:
             toAdvise.remove((nvf, srcPkg))
             newVersion = self._updater.update(nvf, srcPkg)
-            toAdvise.append(((nvf[0], newVersion, nvf[2]), srcPkg))
+            if self._updater.isPlatformTrove(newVersion):
+                toAdvise.append(((nvf[0], newVersion, nvf[2]), srcPkg))
+            else:
+                parentPackages.add((nvf[0], newVersion, nvf[2]))
+
+        parentPkgMap = self._updater.getBinaryVersions(parentPackages,
+            labels=self._platformSearchPath)
 
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
@@ -243,5 +254,8 @@ class Bot(object):
         log.info('updated %s packages and sent %s advisories'
                  % (len(toUpdate), len(toAdvise)))
         log.info('elapsed time %s' % (time.time() - start, ))
+
+        # Add any platform packages to the trove map.
+        trvMap.update(parentPkgMap)
 
         return trvMap

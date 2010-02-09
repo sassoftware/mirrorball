@@ -30,6 +30,7 @@ from conary import conarycfg
 from conary import conaryclient
 from conary.lib import log as clog
 from conary.conaryclient import mirror
+from conary import errors as conaryerrors
 
 from updatebot.lib import util
 from updatebot.lib import xobjects
@@ -97,21 +98,47 @@ class ConaryHelper(object):
 
         return self._ccfg
 
-    def findTrove(self, nvf, *args, **kwargs):
+    def findTrove(self, nvf, labels=None, *args, **kwargs):
         """
         Mapped to conaryclient.repos.findTrove. Will always search buildLabel.
         """
 
-        return self._repos.findTrove(self._ccfg.buildLabel, nvf,
-                                     *args, **kwargs)
+        if not labels:
+            labels = self._ccfg.buildLabel
 
-    def findTroves(self, troveList, *args, **kwargs):
+        try:
+            return self._repos.findTrove(labels, nvf, *args, **kwargs)
+        except conaryerrors.TroveNotFound, e:
+            return []
+
+    def findTroves(self, troveList, labels=None, *args, **kwargs):
         """
         Mapped to conaryclient.repos.findTroves. Will always search buildLabel.
         """
 
-        return self._repos.findTroves(self._ccfg.buildLabel, troveList,
-                                      *args, **kwargs)
+        if not labels:
+            labels = self._ccfg.buildLabel
+
+        try:
+            return self._repos.findTroves(labels, troveList, *args, **kwargs)
+        except conaryerrors.TroveNotFound, e:
+            return {}
+
+    def isOnBuildLabel(self, version):
+        """
+        Check if version is on the build label.
+        @param version: conary version object
+        @type version: conary.versions.Version
+        @return True if version is on the buildLabel.
+        @rtype boolean
+        """
+
+        if hasattr(version, 'label'):
+            label = version.label()
+        else:
+            label = version.trailingLabel()
+
+        return self._ccfg.buildLabel == label
 
     def getSourceTroves(self, group):
         """
@@ -241,18 +268,26 @@ class ConaryHelper(object):
 
         return srcTrvs
 
-    def getBinaryVersions(self, srcTroveSpecs):
+    def getBinaryVersions(self, srcTroveSpecs, labels=None):
         """
         Given a list of source trove specs, find the latest versions of all
         binaries generated from these sources.
         @param srcTroveSpecs: list of source troves.
         @type srcTroveSpecs: [(name, versionObj, None), ... ]
+        @param labels: list of labels to search, defaults to the buildLabel
+        @type labels: list(conary.versions.Label, ...)
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ... ]}
         """
 
-        # get all binary trove specs for the build label
-        binTrvMap = self._repos.getTroveVersionsByLabel(
-            {None: {self._ccfg.buildLabel: None}})
+        # default to the build label if not other labels were specified
+        if not labels:
+            labels = [ self._ccfg.buildLabel, ]
+
+        # get all binary trove specs for the specified labels
+        req = {None: dict([ (x, None) for x in labels ])}
+        binTrvMap = self._repos.getTroveVersionsByLabel(req)
+
+        # build a list of the binary troves on the labels
         binTrvSpecs = set()
         for n, vermap in binTrvMap.iteritems():
             # filter out sources
@@ -544,7 +579,8 @@ class ConaryHelper(object):
             return self._checkoutCache[pkgkey]
 
         # Figure out if we should create or update.
-        if not self.getLatestSourceVersion(pkgname):
+        if (not self.getLatestSourceVersion(pkgname) and
+            (version is None or self.isOnBuildLabel(version))):
             assert version is None
             recipeDir = self._newpkg(pkgname)
         else:

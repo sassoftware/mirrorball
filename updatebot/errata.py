@@ -225,6 +225,8 @@ class ErrataFilter(object):
 
         # Play though entire update history to check for iregularities.
         current = {}
+        childPackages = []
+        parentPackages = []
         removals = self._cfg.updateRemovesPackages
         replaces = self._cfg.updateReplacesPackages
         currentlyRemovedBinaryNevras = set()
@@ -255,7 +257,13 @@ class ErrataFilter(object):
                     log.error('Removing %s in %s would cause it never to be promoted' %
                               (str(' '.join(srpm.getNevra())), updateId))
                 current[srpm.name] = srpm
-                assert not updater.update(nvf, srpm)
+                version = updater.update(nvf, srpm)
+                assert (not version or
+                        not updater.isPlatformTrove((None, version, None))) 
+                if version:
+                    parentPackages.append(((nvf, srpm), version))
+                else:
+                    childPackages.append(((nvf, srpm), None))
 
             # all package names obsoleted by packages in the current set
             obsoleteNames = set()
@@ -466,6 +474,8 @@ class ErrataFilter(object):
         assert not errors
 
         log.info('order sanity checking complete')
+
+        return childPackages, parentPackages
 
     def _orderErrata(self):
         """
@@ -816,7 +826,6 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
     def __init__(self, cfg):
         conaryhelper.ConaryHelper.__init__(self, cfg)
         self._client = None
-        self._repos = None
 
     def getLatestSourceVersion(self, pkgname):
         """
@@ -837,12 +846,14 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
     getSourceTroves = _not_implemented
     getSourceVersions = _not_implemented
 
-    def _checkout(self, pkgname):
+    def _checkout(self, pkgname, version=None):
         """
         Checkout stub.
         """
 
-        #log.info('checking out %s' % pkgname)
+        if version and not self.isOnBuildLabel(version):
+            return conaryhelper.ConaryHelper._checkout(self, pkgname,
+                                                       version=version)
 
         recipeDir = self._getRecipeDir(pkgname)
         return recipeDir
@@ -854,8 +865,6 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
         """
         addFile stub.
         """
-
-        #log.info('adding file %s' % fileName)
 
     _removeFile = _addFile
 

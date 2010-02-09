@@ -28,6 +28,7 @@ from updatebot.errors import NoManifestFoundError
 from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
+from updatebot.errors import ParentPlatformManifestInconsistencyError
 
 log = logging.getLogger('updatebot.update')
 
@@ -172,6 +173,30 @@ class Updater(object):
                       for x, y, z in sourceVersions.iterkeys()
                       if not self._fltrPkg(x.split(':')[0])
                     ])
+
+    def getBinaryVersions(self, srcTrvSpecs, labels=None):
+        """
+        Find the latest version of all binaries built from the specified
+        sources.
+        @param srcTroveSpecs: list of source troves.
+        @type srcTroveSpecs: [(name, versionObj, None), ... ]
+        @param labels: list of labels to search, defaults to the buildLabel
+        @type labels: list(conary.versions.Label, ...)
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ... ]}
+        """
+
+        # Short circuit trove caching if trove list is empty.
+        if not srcTrvSpecs:
+            return {}
+
+        # Make sure all sources end in :source
+        req = []
+        for n, v, f in srcTrvSpecs:
+            if not n.endswith(':source'):
+                n = '%s:source' % n
+            req.append((n, v, f))
+
+        return self._conaryhelper.getBinaryVersions(req, labels=labels)
 
     def _getLatestSource(self, name):
         """
@@ -418,6 +443,7 @@ class Updater(object):
         # Update all of the unique sources.
         fail = set()
         toBuild = set()
+        parentPackages = set()
         for pkg in sorted(toCreate):
             try:
                 # Only import packages that haven't been imported before
@@ -427,7 +453,10 @@ class Updater(object):
                     version = self.update((pkg.name, None, None), pkg)
 
                 if not verCache.get(pkg.name) or buildAll or recreate:
-                    toBuild.add((pkg.name, version, None))
+                    if self._isPlatformTrove(version):
+                        toBuild.add((pkg.name, version, None))
+                    else:
+                        parentPackages.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
             except Exception, e:
@@ -440,7 +469,10 @@ class Updater(object):
                   for x in pkgs if not self._fltrPkg(x) ]
             )
 
-        return toBuild, fail
+        parentPkgMap = self.getBinaryVersions(parentPackages,
+            labels=self._cfg.platformSearchPath)
+
+        return toBuild, parentPkgMap, fail
 
     def _getExistingPackageNames(self):
         """
@@ -514,6 +546,13 @@ class Updater(object):
         @return version of the updated source trove
         """
 
+        # Try to use package from a parent platform if the manifests match,
+        # unless there is already a version on the platform label.
+        parentVersion = self._getUpstreamPackageVersion(nvf, srcPkg)
+        if parentVersion:
+            log.info('using version from parent platform %s' % parentVersion)
+            return parentVersion
+
         manifest = self._getManifestFromPkgSource(srcPkg)
         self._conaryhelper.setManifest(nvf[0], manifest)
 
@@ -532,6 +571,61 @@ class Updater(object):
         newVersion = self._conaryhelper.commit(nvf[0],
                                     commitMessage=self._cfg.commitMessage)
         return newVersion
+
+    def _getUpstreamPackageVersion(self, nvf, srcPkg):
+        """
+        Check if a package is maintained as part of an upstream platform.
+        @param nvf: name, version, flavor tuple of source trove
+        @type nvf: tuple(name, versionObj, flavorObj)
+        @param srcPkg: package object for source rpm
+        @type srcPkg: repomd.packagexml._Package
+        """
+
+        # If there is no parent platform search path definied, don't
+        # bother looking.
+        if not self._cfg.platformSearchPath:
+            return None
+
+        srcName = '%s:source' % nvf[0]
+
+        # Check if this package is maintained as part of the current platform.
+        hasName = self._conaryhelper.findTrove((srcName, None, None))
+
+        # This is an existing source on the child label
+        if hasName:
+            return None
+
+        # Search for source upstream
+        srcSpec = (srcName, srcPkg.getConaryVersion(), None)
+        srcTrvs = self._conaryhelper.findTrove(srcSpec,
+            labels=self._cfg.platformSearchPath)
+
+        # This is a new package on the child label
+        if not srcTrvs:
+            return None
+
+        assert len(srcTrvs) == 1
+        srcVersion = srcTrvs[0][1]
+
+        manifest = self._getManifestFromPkgSource(srcPkg)
+        parentManifest = self._conaryhelper.getManifest(nvf[0],
+                                                        version=srcVersion)
+
+        # FIXME: This assumes that if the rpm filenames are the same the rpm
+        #        contents are the same.
+
+        # Take the basename of all paths in the manifest since the same rpm will
+        # be in different repositories for each platform.
+        baseManifest = sorted([ os.path.basename(x) for x in manifest ])
+        parentBaseManifest = sorted([ os.path.basename(x)
+                                      for x in parentManifest ])
+
+        if baseManifest != parentBaseManifest:
+            log.error('found matching parent trove, but manifests differ')
+            raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg,
+                manifest=manifest, parentManifest=parentManifest)
+
+        return srcVersion
 
     def _getManifestFromPkgSource(self, srcPkg):
         """
@@ -665,3 +759,14 @@ class Updater(object):
             desc=srcPkg.description,
             shortDesc=srcPkg.summary,
         )
+
+    def isPlatformTrove(self, nvf):
+        """
+        Check if the version is on the platform label.
+        @param nvf: name, version, and flavor of a trove
+        @type nvf: (str, versionObj, flavorObj)
+        @return True if the version part is on the build label
+        @rtype boolean
+        """
+
+        return self._conaryhelper.isOnBuildLabel(nvf[1])
