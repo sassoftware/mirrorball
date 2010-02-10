@@ -198,6 +198,9 @@ class GroupManager(object):
         Remove a given trove from the package group contents.
         """
 
+        if self._pkgGroupName not in self._groups:
+            return
+
         return self._groups[self._pkgGroupName].remove(name,
              missingOk=missingOk)
 
@@ -207,7 +210,8 @@ class GroupManager(object):
         Check if a given package name is in the group.
         """
 
-        return name in self._groups[self._pkgGroupName]
+        return (self._pkgGroupName in self._groups and
+                name in self._groups[self._pkgGroupName])
 
     def addPackage(self, name, version, flavors):
         """
