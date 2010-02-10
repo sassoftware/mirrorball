@@ -453,7 +453,7 @@ class Updater(object):
                     version = self.update((pkg.name, None, None), pkg)
 
                 if not verCache.get(pkg.name) or buildAll or recreate:
-                    if self._isPlatformTrove(version):
+                    if self.isPlatformTrove(version):
                         toBuild.add((pkg.name, version, None))
                     else:
                         parentPackages.add((pkg.name, version, None))
