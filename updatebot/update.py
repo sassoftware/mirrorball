@@ -760,13 +760,13 @@ class Updater(object):
             shortDesc=srcPkg.summary,
         )
 
-    def isPlatformTrove(self, nvf):
+    def isPlatformTrove(self, version):
         """
         Check if the version is on the platform label.
-        @param nvf: name, version, and flavor of a trove
-        @type nvf: (str, versionObj, flavorObj)
+        @param version: version of a trove
+        @type version: versionObj
         @return True if the version part is on the build label
         @rtype boolean
         """
 
-        return self._conaryhelper.isOnBuildLabel(nvf[1])
+        return self._conaryhelper.isOnBuildLabel(version)

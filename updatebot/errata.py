@@ -259,7 +259,7 @@ class ErrataFilter(object):
                 current[srpm.name] = srpm
                 version = updater.update(nvf, srpm)
                 assert (not version or
-                        not updater.isPlatformTrove((None, version, None))) 
+                        not updater.isPlatformTrove(version))
                 if version:
                     parentPackages.append(((nvf, srpm), version))
                 else:
