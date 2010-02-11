@@ -153,6 +153,9 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
+        if not troveSpecs:
+            return {}
+
         troves = self._formatInput(troveSpecs)
         jobId = self._startJob(troves)
         self._monitorJob(jobId, retry=2)
@@ -187,6 +190,9 @@ class Builder(object):
         @type troveSpecs: [(name, versionObj, flavorObj), ...]
         @return troveMap: dictionary of troveSpecs to built troves
         """
+
+        if not troveSpecs:
+            return {}
 
         # Split troves by context.
         jobs = {}
