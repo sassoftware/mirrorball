@@ -452,12 +452,15 @@ class GroupManager(object):
 
         # get names and versions
         troves = set()
+        labels = set()
         for pkgKey, pkgData in group.iteritems():
             name = str(pkgData.name)
 
             version = None
             if pkgData.version:
-                version = str(versions.ThawVersion(pkgData.version).asString())
+                versionObj = versions.ThawVersion(pkgData.version)
+                labels.add(versionObj.branch().label())
+                version = str(versionObj.asString())
 
             flavor = None
             # FIXME: At some point we might want to add proper flavor handling,
@@ -470,7 +473,8 @@ class GroupManager(object):
 
         # Get flavors and such.
         foundTroves = set([ x for x in
-            itertools.chain(*self._helper.findTroves(troves).itervalues()) ])
+            itertools.chain(*self._helper.findTroves(troves,
+                                                labels=labels).itervalues()) ])
 
         # get sources for each name version pair
         sources = self._helper.getSourceVersions(foundTroves)
@@ -504,12 +508,14 @@ class GroupManager(object):
 
         # get names and versions
         troves = set()
+        labels = set()
         for pkgKey, pkgData in group.iteritems():
             name = str(pkgData.name)
 
             version = None
             if pkgData.version:
                 version = versions.ThawVersion(pkgData.version)
+                labels.add(version.branch().label())
                 # get upstream version
                 revision = version.trailingRevision()
                 upstreamVersion = revision.getVersion()
@@ -529,7 +535,7 @@ class GroupManager(object):
 
         # Get flavors and such.
         foundTroves = dict([ (x[0], y) for x, y in
-            self._helper.findTroves(troves).iteritems() ])
+            self._helper.findTroves(troves, labels=labels).iteritems() ])
 
         pkgs = {}
         for pkgKey, pkgData in group.iteritems():
@@ -590,19 +596,23 @@ class GroupManager(object):
 
         # get names and versions
         troves = set()
+        labels = set()
         for pkgKey, pkgData in group.iteritems():
             name = str(pkgData.name)
 
             version = None
             if pkgData.version:
-                version = str(versions.ThawVersion(pkgData.version).asString())
+                versionObj = versions.ThawVersion(pkgData.version)
+                labels.add(versionObj.branch().label())
+                version = str(versionObj.asString())
 
             flavor = None
             troves.add((name, version, flavor))
 
         # Get flavors and such.
         foundTroves = set([ x for x in
-            itertools.chain(*self._helper.findTroves(troves).itervalues()) ])
+            itertools.chain(*self._helper.findTroves(troves,
+                                                labels=labels).itervalues()) ])
 
         # get sources for each name version pair
         sources = self._helper.getSourceVersions(foundTroves)
