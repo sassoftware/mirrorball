@@ -256,7 +256,7 @@ class Updater(object):
             else:
                 if metadata is None:
                     pkgs = self._getMetadataFromConaryRepository(nvf[0],
-                                                                 verison=nvf[1])
+                                                                 version=nvf[1])
                     metadata = util.Metadata(pkgs)
                 if metadata:
                     binPkg = metadata.locationMap[line]
@@ -338,8 +338,18 @@ class Updater(object):
         @type srpm: repomd.packagexml._Package
         """
 
-        nvflst = self._conaryhelper.findTrove(('%s:source' % srpm.name,
-                                               srpm.getConaryVersion(), None))
+        srcQuery = ('%s:source' % srpm.name, srpm.getConaryVersion(), None)
+        nvflst = self._conaryhelper.findTrove(srcQuery)
+
+        # If this package was not found on the platform label, check if there
+        # are parent platforms involved.
+        if not nvflst and self._cfg.platformSearchPath:
+            nvflst = self._conaryhelper.findTrove(srcQuery,
+                labels=self._cfg.platformSearchPath)
+
+            # Trust that the parent platform has sanity checked this source.
+            if nvflst:
+                return None
 
         assert len(nvflst) == 1
         n, v, f = nvflst[0]
@@ -433,7 +443,7 @@ class Updater(object):
                 # Skip all components, including sources
                 if len(n.split(':')) > 1:
                     continue
-                # If binary is in the group and the verison on the label is the
+                # If binary is in the group and the version on the label is the
                 # same it needs to be updated.
                 if n in nv and v == nv[n][0] and nv[n][1] in toCreateMap:
                     create.add(toCreateMap[nv[n][1]])
@@ -443,6 +453,7 @@ class Updater(object):
         # Update all of the unique sources.
         fail = set()
         toBuild = set()
+        preBuiltPackages = set()
         parentPackages = set()
         for pkg in sorted(toCreate):
             try:
@@ -459,7 +470,9 @@ class Updater(object):
                         parentPackages.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
+                    preBuiltPackages.add((pkg.name, version, None))
             except Exception, e:
+                raise
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
 
@@ -469,10 +482,28 @@ class Updater(object):
                   for x in pkgs if not self._fltrPkg(x) ]
             )
 
+        # Find all of the binaries that match the upstream platform sources.
+        log.info('looking up binary versions of all parent platform packages')
         parentPkgMap = self.getBinaryVersions(parentPackages,
             labels=self._cfg.platformSearchPath)
 
-        return toBuild, parentPkgMap, fail
+        # Find all of the binaries that match the pre-built sources.
+        log.info('looking up binary version information for all prebuilt '
+                 'packages')
+        preBuiltPackageMap = self.getBinaryVersions(preBuiltPackages)
+
+        # Combine the two package maps by name where pre built packages
+        # override parent packages.
+        parentNames = dict([ (x[0], x) for x in parentPkgMap ])
+        preBuiltNames = dict([ (x[0], x) for x in preBuiltPackageMap ])
+
+        parentNames.update(preBuiltNames)
+        parentPkgMap.update(preBuiltPackageMap)
+
+        pkgMap = dict([ (parentNames[x], parentPkgMap[parentNames[x]])
+                        for x in parentNames ])
+
+        return toBuild, pkgMap, fail
 
     def _getExistingPackageNames(self):
         """
