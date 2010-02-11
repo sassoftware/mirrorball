@@ -86,9 +86,16 @@ class ConaryHelper(object):
         self._cacheDir = tempfile.mkdtemp(
             prefix='conaryhelper-%s-' % cfg.platformName)
 
-        # caches source names and versions for binaries past into getSourceVersions.
+        # caches source names and versions for binaries past into
+        # getSourceVersions.
         # binTroveSpec: sourceTroveSpec
         self._sourceVersionCache = {}
+
+        # Keep a cache of all binary versions that have been looked up in
+        # getBinaryVersions to avoid lots of expensive getTroveVersionsByLabel
+        # calls.
+        # frzenset(labels): binTroveNVFSet
+        self._binaryVerisonCache = {}
 
     def getConaryConfig(self):
         """
@@ -283,19 +290,32 @@ class ConaryHelper(object):
         if not labels:
             labels = [ self._ccfg.buildLabel, ]
 
-        # get all binary trove specs for the specified labels
-        req = {None: dict([ (x, None) for x in labels ])}
-        binTrvMap = self._repos.getTroveVersionsByLabel(req)
+        # Needs to be a frozenset so that it is hashable.
+        labels = frozenset(labels)
 
-        # build a list of the binary troves on the labels
-        binTrvSpecs = set()
-        for n, vermap in binTrvMap.iteritems():
-            # filter out sources
-            if n.endswith(':source'):
-                continue
-            for v, flvs in vermap.iteritems():
-                for f in flvs:
-                    binTrvSpecs.add((n, v, f))
+        # FIXME: If this is ever used in a long running process the cache will
+        #        need to be refreshed and/or expired.
+
+        # Check the cache before going on.
+        if labels in self._binaryVersionCache:
+            binTrvSpecs = self._binaryVersionCache[labels]
+        else:
+            # get all binary trove specs for the specified labels
+            req = {None: dict([ (x, None) for x in labels ])}
+            binTrvMap = self._repos.getTroveVersionsByLabel(req)
+
+            # build a list of the binary troves on the labels
+            binTrvSpecs = set()
+            for n, vermap in binTrvMap.iteritems():
+                # filter out sources
+                if n.endswith(':source'):
+                    continue
+                for v, flvs in vermap.iteritems():
+                    for f in flvs:
+                        binTrvSpecs.add((n, v, f))
+
+            # Populate cache.
+            self._binaryVersionCache[labels] = binTrvSpecs
 
         # get a map of source trove specs to binary trove specs
         srcVerMap = self.getSourceVersions(binTrvSpecs)
