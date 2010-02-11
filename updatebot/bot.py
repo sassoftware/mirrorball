@@ -211,8 +211,9 @@ class Bot(object):
             else:
                 parentPackages.add((nvf[0], newVersion, nvf[2]))
 
+        log.info('looking up binary versions of all parent platform packages')
         parentPkgMap = self._updater.getBinaryVersions(parentPackages,
-            labels=self._platformSearchPath)
+            labels=self._cfg.platformSearchPath)
 
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
