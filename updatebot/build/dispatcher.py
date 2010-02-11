@@ -80,7 +80,7 @@ class Dispatcher(object):
         # Must have at least one trove to build, otherwise will end up in
         # an infinite loop.
         if not troveSpecs:
-            return {}
+            return {}, self._failures
 
         # Sort troves into buckets.
         troves = self._builder.orderJobs(troveSpecs)
@@ -238,6 +238,11 @@ class NonCommittalDispatcher(Dispatcher):
         """
         Build all packages in seperate jobs, then commit.
         """
+
+        # Must have at least one trove to build, otherwise will end up in
+        # an infinite loop.
+        if not troveSpecs:
+            return {}, self._failures
 
         results, self._failures = Dispatcher.buildmany(self, troveSpecs)
 
