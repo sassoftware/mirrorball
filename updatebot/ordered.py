@@ -190,7 +190,7 @@ class Bot(BotSuperClass):
             for advisory, advInfo in changed.iteritems():
                 log.info('validating %s' % advisory)
                 for srpm in advInfo['srpms']:
-                    log.info(srpm)
+                    log.info('checking %s' % srpm.name)
                     # This will raise an exception if any inconsistencies are
                     # detected.
                     self._updater.sanityCheckSource(srpm)
