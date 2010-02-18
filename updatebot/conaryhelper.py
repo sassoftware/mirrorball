@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -21,9 +21,11 @@ import os
 import time
 import logging
 import tempfile
+import itertools
 
 import conary
 from conary import trove
+from conary import state
 from conary import checkin
 from conary.build import use
 from conary import conarycfg
@@ -95,7 +97,7 @@ class ConaryHelper(object):
         # getBinaryVersions to avoid lots of expensive getTroveVersionsByLabel
         # calls.
         # frzenset(labels): binTroveNVFSet
-        self._binaryVerisonCache = {}
+        self._binaryVersionCache = {}
 
     def getConaryConfig(self):
         """
@@ -105,17 +107,17 @@ class ConaryHelper(object):
 
         return self._ccfg
 
-    def findTrove(self, nvf, labels=None, *args, **kwargs):
+    def findTrove(self, nvf, *args, **kwargs):
         """
         Mapped to conaryclient.repos.findTrove. Will always search buildLabel.
         """
 
-        if not labels:
-            labels = self._ccfg.buildLabel
+        trvs = self.findTroves([ nvf, ], *args, **kwargs)
+        assert len(trvs) in (0, 1)
 
-        try:
-            return self._repos.findTrove(labels, nvf, *args, **kwargs)
-        except conaryerrors.TroveNotFound, e:
+        if trvs:
+            return trvs.values()[0]
+        else:
             return []
 
     def findTroves(self, troveList, labels=None, *args, **kwargs):
@@ -637,8 +639,9 @@ class ConaryHelper(object):
 
         log.info('checking out %s' % troveSpec)
 
-        recipeDir = self._getRecipeDir(pkgname)
-        checkin.checkout(self._repos, self._ccfg, recipeDir, [troveSpec, ])
+        req = (pkgname, version, None)
+        coMap = self._multiCheckout([ req, ])
+        recipeDir = coMap[req]
 
         return recipeDir
 
@@ -982,3 +985,131 @@ class ConaryHelper(object):
 
         metadata = [ (x, mi) for x in trvSpecs ]
         self._repos.addMetadataItems(metadata)
+
+    def _multiCheckout(self, trvSpecs):
+        """
+        Checkout several sources at once and return a map of source trove spec
+        to checkout directory.
+        @param trvSpecs: list of sources to checkout.
+        @type trvSpecs: list((name, version, None), ...)
+        @return map of source requests to checkout directories
+        @rtype dict((name, version, None)=/path/to/checkout)
+        """
+
+        # NOTE: This code is strongly based off of conary.checkin._checkout,
+        #       which should possibly be refactored to allow something like
+        #       this.
+
+        # Make sure everything is :source.
+        req = set()
+        reqMap = {}
+        for n, v, f in trvSpecs:
+            nvf = (n, v, f)
+            if not n.endswith(':source'):
+                n += ':source'
+            req.add((n, v, f))
+            reqMap[(n, v, f)] = nvf
+
+        # Find all requested versions.
+        trvMap = self._repos.findTroves(self._ccfg.buildLabel, req)
+
+        # Build rev map for later lookups.
+        revTrvMap = dict([ (y[0], x) for x, y in trvMap.iteritems() ])
+
+        # Get the list of results from the findTroves query.
+        trvList = [ x for x in itertools.chain(*trvMap.itervalues()) ]
+
+        # Build a changeset request.
+        csJob = [ (x[0], (None, None), (x[1], x[2]), True) for x in trvList ]
+
+        callback = checkin.CheckinCallback(
+            trustThreshold=self._ccfg.trustThreshold)
+
+        # Request a changeset with all of the sources except for files that are
+        # autosourced.
+        cs = self._repos.createChangeSet(csJob,
+                                         excludeAutoSource=True,
+                                         callback=callback)
+        checkin.verifyAbsoluteChangesetSignatures(cs, callback)
+
+        pathMap = {}
+        checkoutMap = {}
+        sourceStateMap = {}
+        conaryStateTargets = {}
+
+        # Prepare to unpack sources from the changeset.
+        for nvf in trvList:
+            troveCs = cs.getNewTroveVersion(*nvf)
+            trv = trove.Trove(troveCs)
+
+            # Create target directory
+            targetDir = self._getRecipeDir(nvf[0])
+            checkoutMap[reqMap[revTrvMap[nvf]]] = targetDir
+
+            # Store source state
+            sourceState = state.SourceState(nvf[0], nvf[1], nvf[1].branch())
+            sourceStateMap[trv.getNameVersionFlavor()] = sourceState
+
+            # Store conary state
+            conaryState = state.ConaryState(self._ccfg.context, sourceState)
+            conaryStateTargets[targetDir] = conaryState
+
+            # Store factory info
+            if trv.getFactory():
+                sourceState.setFactory(trv.getFactory())
+
+            # Extract file info from changeset
+            for (pathId, path, fileId, version) in troveCs.getNewFileList():
+                pathMap[(nvf, path)] = (targetDir, pathId, fileId, version)
+
+        # Explode changeset contents.
+        checkin.CheckoutExploder(cs, pathMap, sourceStateMap)
+
+        # Write out CONARY state files.
+        for targetDir, conaryState in conaryStateTargets.iteritems():
+            conaryState.write(targetDir + '/CONARY')
+
+        return checkoutMap
+
+    def cacheSources(self, label, latest=True):
+        """
+        Checkout all sources on a label and add them to the checkout cache. This
+        is significantly more efficient than requesting one sources at a time
+        when we know ahead of time that we will fetching all or almost all
+        sources.
+        @param label: label to search for sources.
+        @type label: conary.versions.Label
+        @param latest: optional, if True check only latest versions rather
+                       than all versions.
+        @type latest: boolean
+        @return map of source nvf to checkout directories
+        @rtype dict((name, version, None)=/path/to/checkout)
+        """
+
+        log.info('caching %s sources for %s'
+                 % (latest and 'latest' or 'all', label))
+
+        # Find correct query function
+        if latest:
+            query = self._repos.getTroveLeavesByLabel
+        else:
+            query = self._repos.getTroveVersionsByLabel
+
+        trvMap = query({None: {label: None}})
+
+        srcSet = set()
+        for n, verDict in trvMap.iteritems():
+            # skip anything that isn't a source
+            if not n.endswith(':source'):
+                continue
+            for v, flvs in verDict.iteritems():
+                srcSet.add((n, v, None))
+
+        coMap = self._multiCheckout(srcSet)
+
+        # Update the checkout cache.
+        self._checkoutCache.update(coMap)
+        self._checkoutCache.update(dict([ (y, x)
+                                          for x, y in coMap.iteritems() ]))
+
+        return coMap
