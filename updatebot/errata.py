@@ -191,6 +191,11 @@ class ErrataFilter(object):
         updater = update.Updater(self._cfg, pkgSource)
         updater._conaryhelper = _ConaryHelperShim(self._cfg)
 
+        if self._cfg.platformSearchPath:
+            log.info('prefetching sources for parent platform labels')
+            for label in self._cfg.platformSearchPath:
+                updater._conaryhelper.cacheSources(label, latest=False)
+
         # build a mapping of srpm to bucketId for debuging purposes
         srpmToBucketId = {}
         for bucketId, srpms in self._order.iteritems():
