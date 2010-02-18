@@ -98,7 +98,12 @@ class Bot(BotSuperClass):
         log.info('restoring package map from file: %s' % fn)
 
         thawVersion = versions.ThawVersion
-        thawFlavor = deps.ThawFlavor
+
+        def thawFlavor(flv):
+            if flv is None:
+                return flv
+            else:
+                return deps.ThawFlavor(flv)
 
         # load pickle
         frzPkgs = pickle.load(open(fn))
