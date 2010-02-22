@@ -831,6 +831,61 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
     def __init__(self, cfg):
         conaryhelper.ConaryHelper.__init__(self, cfg)
         self._client = None
+        self._findTrovesCache = {}
+
+    @staticmethod
+    def _getCacheKey(nvf):
+        n, v, f = nvf
+        if v and hasattr(v, 'asString'):
+            v = v.asString()
+        return (n, v)
+
+    def populateFindTrovesCache(self, labels):
+        """
+        Pre populate the find troves cache with all versions from all labels
+        listed.
+        """
+
+        req = { None: dict((x, None) for x in labels) }
+        trvs = self._repos.getTroveVersionsByLabel(req)
+
+        for n, vd in trvs.iteritems():
+            for v, fs in vd.iteritems():
+                key = self._getCacheKey((n, v, None))
+                self._findTrovesCache[key] = [ (n, v, f) for f in fs ]
+
+    def findTroves(self, troveList, labels=None, *args, **kwargs):
+        """
+        Aggresivly cache all findTroves queries as they are not likely to change
+        while sanity checking.
+        """
+
+        if not labels:
+            return []
+
+        # Find any requests that are already cached.
+        cached = set([ x for x in troveList
+                       if self._getCacheKey(x) in self._findTrovesCache ])
+
+        # Filter out cached requests.
+        needed = set(troveList) - cached
+
+        # Query for new requets.
+        if needed:
+            trvs = conaryhelper.ConaryHelper.findTroves(self, needed,
+                labels=None, *args, **kwargs)
+        else:
+            trvs = {}
+
+        # Cache new requests.
+        self._findTrovesCache.update(dict([ (self._getCacheKey(x), y)
+                                             for x, y in trvs.iteritems() ]))
+
+        # Pull results out of the cache.
+        res = dict([ (x, self._findTrovesCache[self._getCacheKey(x)])
+                     for x in troveList ])
+
+        return res
 
     def getLatestSourceVersion(self, pkgname):
         """
