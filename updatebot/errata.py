@@ -712,7 +712,7 @@ class ErrataFilter(object):
         """
 
         # convert nevra to yum compatible nevra
-        nevra = list(pkg.getNevra())
+        nevra = list(pkg.nevra.getNevra())
         if nevra[1] is None:
             nevra[1] = '0'
         if type(nevra[1]) == int:
@@ -750,21 +750,19 @@ class ErrataFilter(object):
             allocated = []
             bucketId = None
             #log.info('processing %s' % e.advisory)
-            for pkg in e.packages:
-                nevra = self._getNevra(pkg)
 
-                # ignore arches we don't know about.
-                if nevra[4] not in arches:
-                    continue
+            # Get unique list of nevras for which we have packages indexed and
+            # are of a supported arch.
+            errataNevras = set([ self._getNevra(x) for x in e.nevraChannels
+                                 if x.channel.label in indexedChannels and
+                                    x.nevra.arch in arches ])
 
-                # filter out channels we don't have indexed
-                channels = set([ x.label for x in pkg.channels ])
-                if not indexedChannels & channels:
-                    continue
-
+            for nevra in errataNevras:
                 # add package to advisory package map
-                self._advPkgMap.setdefault(e.advisory, set()).add(sources[nevra])
-                self._advPkgRevMap.setdefault(sources[nevra], set()).add(e.advisory)
+                self._advPkgMap.setdefault(e.advisory,
+                                           set()).add(sources[nevra])
+                self._advPkgRevMap.setdefault(sources[nevra],
+                                              set()).add(e.advisory)
 
                 # move nevra to errata buckets
                 if nevra in nevras:
@@ -784,8 +782,12 @@ class ErrataFilter(object):
             # already be in an existing bucket (bucketId != None), if there
             # aren't the errata store is probably broken.
             if not bucket and bucketId is None:
-                broken.append(e.advisory)
-                log.critical('broken advisory: %s' % e.advisory)
+                if e.advisory in self._cfg.brokenErrata:
+                    msg = log.warn
+                else:
+                    broken.append(e.advisory)
+                    msg = log.critical
+                msg('broken advisory: %s' % e.advisory)
                 continue
 
             if bucketId is None:

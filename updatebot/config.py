@@ -377,6 +377,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # srpm are not obsoleted, so we cannot use removeSource
     removeObsoleted = (CfgIntDict(CfgList(CfgString)), {})
 
+    # List of broken errata that have been researched and should be ignored
+    # when reporting errors.
+    brokenErrata = (CfgList(CfgString), [])
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
