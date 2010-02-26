@@ -379,7 +379,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # List of broken errata that have been researched and should be ignored
     # when reporting errors.
-    brokenErrata = (CfgList(CfgString), [])
+    brokenErrata = (CfgDict(CfgList(CfgNevra)), {})
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):

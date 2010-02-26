@@ -195,6 +195,10 @@ class ErrataFilter(object):
             log.info('prefetching sources for parent platform labels')
             for label in self._cfg.platformSearchPath:
                 updater._conaryhelper.cacheSources(label, latest=False)
+            log.info('prefetching findTroves information for parent platform '
+                     'labels')
+            updater._conaryhelper.populateFindTrovesCache(
+                self._cfg.platformSearchPath)
 
         # build a mapping of srpm to bucketId for debuging purposes
         srpmToBucketId = {}
@@ -501,16 +505,38 @@ class ErrataFilter(object):
 
         # insert bins by buildstamp
         extras = {}
+
+        # Build a reverse map of broken errata so that we can match packages
+        # and advisories
+        nevraAdvMap = {}
+        for adv, nevras in self._cfg.brokenErrata.iteritems():
+            for nevra in nevras:
+                assert nevra not in nevraAdvMap
+                nevraAdvMap[nevra] = adv
+
+        # Build reverse map of advisory to bucketId.
+        advRevMap = {}
+        for bucketId, advInfoList in self._advMap.iteritems():
+            for advInfo in advInfoList:
+                advDict = dict(advInfo)
+                assert advDict['name'] not in advRevMap
+                advRevMap[advDict['name']] = bucketId
+
         for src, bins in srcMap.iteritems():
             # Pull out any package sets that look like they are incomplete.
             if len(bins) != len(self._pkgSource.srcPkgMap[src]) - 1:
                 extras[src] = bins
                 continue
 
+            if src.getNevra() in nevraAdvMap:
+                advisory = nevraAdvMap[src.getNevra()]
+                bucketId = advRevMap[advisory]
+                log.info('inserting %s for advisory %s into bucket %s' % (src, advisory, bucketId))
+                buckets.setdefault(bucketId, set()).add(src)
+                continue
+
             buildstamp = int(sorted(bins)[0].buildTimestamp)
-            if buildstamp not in buckets:
-                buckets[buildstamp] = []
-            buckets[buildstamp].extend(bins)
+            buckets.setdefault(buildstamp, set()).update(set(bins))
 
         # get sources to build
         srpmToBucketId = {}
@@ -788,7 +814,6 @@ class ErrataFilter(object):
                     broken.append(e.advisory)
                     msg = log.critical
                 msg('broken advisory: %s' % e.advisory)
-                continue
 
             if bucketId is None:
                 bucketId = int(time.mktime(time.strptime(e.issue_date,
@@ -838,8 +863,8 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
     @staticmethod
     def _getCacheKey(nvf):
         n, v, f = nvf
-        if v and hasattr(v, 'asString'):
-            v = v.asString()
+        if v and hasattr(v, 'trailingRevision'):
+            v = v.trailingRevision().getVersion()
         return (n, v)
 
     def populateFindTrovesCache(self, labels):
@@ -874,17 +899,20 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
 
         # Query for new requets.
         if needed:
+            #log.critical('CACHE MISS')
+            #log.critical('request: %s' % troveList)
             trvs = conaryhelper.ConaryHelper.findTroves(self, needed,
-                labels=None, *args, **kwargs)
+                labels=labels, *args, **kwargs)
         else:
+            #log.info('CACHE HIT')
             trvs = {}
 
         # Cache new requests.
         self._findTrovesCache.update(dict([ (self._getCacheKey(x), y)
-                                             for x, y in trvs.iteritems() ]))
+                for x, y in trvs.iteritems() ]))
 
         # Pull results out of the cache.
-        res = dict([ (x, self._findTrovesCache[self._getCacheKey(x)])
+        res = dict([ (x, self._findTrovesCache.get(self._getCacheKey(x), []))
                      for x in troveList ])
 
         return res
