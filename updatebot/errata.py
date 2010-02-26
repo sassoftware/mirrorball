@@ -531,7 +531,8 @@ class ErrataFilter(object):
             if src.getNevra() in nevraAdvMap:
                 advisory = nevraAdvMap[src.getNevra()]
                 bucketId = advRevMap[advisory]
-                log.info('inserting %s for advisory %s into bucket %s' % (src, advisory, bucketId))
+                log.info('inserting %s for advisory %s into bucket %s'
+                         % (src, advisory, bucketId))
                 buckets.setdefault(bucketId, set()).add(src)
                 continue
 
