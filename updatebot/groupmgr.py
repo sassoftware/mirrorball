@@ -374,13 +374,16 @@ class GroupManager(object):
         self._helper.setErrataState(self._sourceName, state)
 
     @checkout
-    def getErrataState(self):
+    def getErrataState(self, version=None):
         """
         Get the errata state info.
         """
 
+        if version is None:
+            version = self._sourceVersion
+
         return self._helper.getErrataState(self._sourceName,
-                                           version=self._sourceVersion)
+                                           version=version)
 
     def getVersions(self, pkgSet):
         """
