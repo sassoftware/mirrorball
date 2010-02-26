@@ -155,6 +155,11 @@ class _Package(SlotNode, PackageCompare):
         if pkgcmp != 0:
             return pkgcmp
 
+        if (self.checksum and other.checksum and
+            self.checksumType == other.checksumType and
+            self.checksum == other.checksum):
+            return 0
+
         return cmp(self.location, other.location)
 
     def getNevra(self):
