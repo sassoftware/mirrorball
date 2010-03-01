@@ -848,6 +848,9 @@ class ErrataFilter(object):
 
         buckets[0] = golden
 
+        # Dump cached errata results once we are done with them.
+        self._errata.cleanup()
+
         return buckets, other
 
 
