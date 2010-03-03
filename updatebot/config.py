@@ -197,6 +197,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # The top level source group.
     topSourceGroup      = CfgTroveSpec
 
+    # Parent top level source group
+    topParentSourceGroup = CfgTroveSpec
+
     # Path to search for packages to be included in the platform.
     platformSearchPath  = (CfgQuotedLineList(CfgLabel), [])
 
@@ -380,6 +383,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # List of broken errata that have been researched and should be ignored
     # when reporting errors.
     brokenErrata = (CfgDict(CfgList(CfgNevra)), {})
+
+    # Dictionary of updateId to list of trove specs. When the bucketId has been
+    # reached, update to the version specified in the trovespec rather than the
+    # latest that matches the current rpm version.
+    useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
