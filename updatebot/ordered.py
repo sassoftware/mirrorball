@@ -48,6 +48,10 @@ class Bot(BotSuperClass):
             errataSource)
         self._groupmgr = groupmgr.GroupManager(self._cfg)
 
+        if self._cfg.platformSearchPath:
+            self._parentGroup = groupmgr.GroupManager(self._cfg,
+                                                      parentGroup=True)
+
     def _addPackages(self, pkgMap):
         """
         Add pkgMap to group.
@@ -206,6 +210,18 @@ class Bot(BotSuperClass):
             detail = self._errata.getUpdateDetailMessage(updateId)
             log.info('attempting to apply %s' % detail)
 
+            # If on a derived platform and the current updateId is greater than
+            # the parent updateId, stop applying updates.
+            if self._cfg.platformSearchPath:
+                # FIXME: This means that if there is an update the the child
+                #        platform that is not included in the parent platform,
+                #        we will not apply the update until there is a later
+                #        update to the parent platform.
+                parentState = self._parentGroup.getErrataState()
+                if parentState < updateId:
+                    log.info('reached end of parent platform update stream')
+                    continue
+
             # remove packages from config
             removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
             removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
@@ -233,6 +249,30 @@ class Bot(BotSuperClass):
             else:
                 pkgMap = self._update(*args, updatePkgs=updates,
                     expectedRemovals=expectedRemovals, **kwargs)
+
+            # When deriving from an upstream platform sometimes we don't want
+            # the latest versions.
+            oldVersions = self._cfg.useOldVersion.get(updateId, None)
+            if self._cfg.platformSearchPath and oldVersions:
+                for nvf in oldVersions:
+                    # Lookup all source and binaries that match this binary.
+                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                        nvf, labels=self._cfg.platformSearchPath, latest=False)
+
+                    # Make sure there is only one
+                    assert len(srcMap) == 1
+
+                    # Filter out any versions that don't match the version we
+                    # are looking for.
+                    curVerMap = dict((x, [ z for z in y
+                                           if z[1].asString() == nvf[1] ])
+                                     for x, y in srcMap.iteritems())
+
+                    # Make sure the version we are looking for is in the list
+                    assert curVerMap and curVerMap.values()[0]
+
+                    # Update the package map with the new versions.
+                    pkgMap.update(curVerMap)
 
             # Save package map in case we run into trouble later.
             self._savePackages(pkgMap)
