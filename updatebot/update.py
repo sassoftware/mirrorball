@@ -198,6 +198,23 @@ class Updater(object):
 
         return self._conaryhelper.getBinaryVersions(req, labels=labels)
 
+    def getSourceVersionMapFromBinaryVersion(self, (n, v, f), labels=None,
+                                             latest=False):
+        """
+        Find a mapping of source to binaries, given a single binary name,
+        version, and flavor.
+        @param nvf: binary name, version, and flavor
+        @type nvf: tuple(name, versionObj, falvorObj)
+        @param labels: list of labels to search, defaults to buildLabel
+        @type labels: list(conary.versions.Label, ...)
+        @param latest: check for only the latest versions or not
+        @type latest: boolean
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
+        """
+
+        return self._conaryhelper.getSourceVersionMapFromBinaryVersion(
+            (n, v, f), labels=labels, latest=latest)
+
     def _getLatestSource(self, name):
         """
         Get the latest src package for a given package name.
