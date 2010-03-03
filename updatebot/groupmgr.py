@@ -57,6 +57,9 @@ def checkout(func):
 
 def commit(func):
     def wrapper(self, *args, **kwargs):
+        if self._readonly:
+            return
+
         if self._checkedout:
             self._commit()
 
@@ -69,15 +72,29 @@ class GroupManager(object):
     Manage group of all packages for a platform.
     """
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, parentGroup=False):
         self._cfg = cfg
         self._helper = GroupHelper(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
 
         #self._versionFactory = VersionFactory(cfg)
 
-        self._sourceName = self._cfg.topSourceGroup[0]
-        self._sourceVersion = None
+        if parentGroup:
+            topGroup = list(self._cfg.topParentSourceGroup)
+            topGroup[0] = '%s:source' % topGroup[0]
+            trvs = self._helper.findTrove(tuple(topGroup),
+                    labels=self._cfg.platformSearchPath)
+
+            assert len(trvs)
+
+            self._sourceName = topGroup[0]
+            self._sourceVersion = trvs[0][1]
+
+            self._readonly = True
+        else:
+            self._sourceName = self._cfg.topSourceGroup[0]
+            self._sourceVersion = None
+            self._readonly = False
 
         self._pkgGroupName = 'group-%s-packages' % self._cfg.platformName
 
@@ -107,8 +124,10 @@ class GroupManager(object):
         if copyToLatest:
             log.info('copying information to latest version')
             # Get data from the old versoin
-            version = self._helper.getVersion(self._sourceName, version=self._sourceVersion)
-            errataState = self._helper.getErrataState(self._sourceName, version=self._sourceVersion)
+            version = self._helper.getVersion(self._sourceName,
+                                              version=self._sourceVersion)
+            errataState = self._helper.getErrataState(self._sourceName,
+                                              version=self._sourceVersion)
             groups = self._groups
 
             log.info('version: %s' % version)
@@ -554,6 +573,16 @@ class GroupManager(object):
 
         assert len(pkgs) == len(foundTroves)
 
+        # Get all old versions so that we can make sure any version conflicts
+        # were introduced by old version handling.
+        oldVersions = set()
+        for nvfLst in self._cfg.useOldVersion.itervalues():
+            for nvf in nvfLst:
+                srcMap = self._helper.getSourceVersionMapFromBinaryVersion(nvf,
+                        labels=self._cfg.platformSearchPath, latest=False)
+                oldVersions |= set(itertools.chain(*srcMap.itervalues()))
+
+
         errors = {}
         for name, found in foundTroves.iteritems():
             assert name in pkgs
@@ -575,6 +604,10 @@ class GroupManager(object):
                 assert n == cn
 
                 if v != cv:
+                    if (n, v, f) in oldVersions:
+                        log.info('found %s=%s[%s] in oldVersions exceptions'
+                                 % (n, v, f))
+                        continue
                     foundError = True
 
             if foundError:
