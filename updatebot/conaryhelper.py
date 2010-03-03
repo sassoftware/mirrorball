@@ -277,7 +277,7 @@ class ConaryHelper(object):
 
         return srcTrvs
 
-    def getBinaryVersions(self, srcTroveSpecs, labels=None):
+    def getBinaryVersions(self, srcTroveSpecs, labels=None, latest=True):
         """
         Given a list of source trove specs, find the latest versions of all
         binaries generated from these sources.
@@ -285,6 +285,8 @@ class ConaryHelper(object):
         @type srcTroveSpecs: [(name, versionObj, None), ... ]
         @param labels: list of labels to search, defaults to the buildLabel
         @type labels: list(conary.versions.Label, ...)
+        @param latest: get only the latest binaries.
+        @type latest: boolean
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ... ]}
         """
 
@@ -326,7 +328,7 @@ class ConaryHelper(object):
         for srcTrv in srcTroveSpecs:
             if srcTrv not in srcVerMap:
                 log.error('can not find requested source trove in repository')
-                raise BinariesNotFoundForSourceVersion(srcName=srvTrv[0],
+                raise BinariesNotFoundForSourceVersion(srcName=srcTrv[0],
                                                        srcVersion=srcTrv[1])
 
             # Move binaries into a more convienient data structure.
@@ -335,19 +337,43 @@ class ConaryHelper(object):
             for binTrv in binTrvs:
                 binTrvMap.setdefault(binTrv[1], set()).add(binTrv)
 
-            # find the latest version.
-            latest = None
-            for binVer in binTrvMap:
-                if latest is None:
-                    latest = binVer
-                    continue
-                if latest < binVer:
-                    latest = binVer
+            if latest:
+                # find the latest version.
+                latestVer = None
+                for binVer in binTrvMap:
+                    if latestVer is None:
+                        latestVer = binVer
+                        continue
+                    if latestVer < binVer:
+                        latestVer = binVer
 
-            # Store latest binary versions in source version map
-            assert srcTrv not in srcMap
-            srcMap[srcTrv] = binTrvMap[latest]
+                # Store latest binary versions in source version map
+                assert srcTrv not in srcMap
+                srcMap[srcTrv] = binTrvMap[latestVer]
+            else:
+                srcMap[srcTrv] = [ x for x in
+                                   itertools.chain(*binTrvMap.values()) ]
 
+        return srcMap
+
+    def getSourceVersionMapFromBinaryVersion(self, (n, v, f), labels=None,
+                                             latest=False):
+        """
+        Find a mapping of source to binaries, given a single binary name,
+        version, and flavor.
+        @param nvf: binary name, version, and flavor
+        @type nvf: tuple(name, versionObj, falvorObj)
+        @param labels: list of labels to search, defaults to buildLabel
+        @type labels: list(conary.versions.Label, ...)
+        @param latest: check for only the latest versions or not
+        @type latest: boolean
+        @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
+        """
+
+        trvs = self.findTrove((n, v, f), labels=labels)
+        srcVersions = self.getSourceVersions(trvs)
+        srcSpecs = srcVersions.keys()
+        srcMap = self.getBinaryVersions(srcSpecs, labels=labels, latest=latest)
         return srcMap
 
     @staticmethod
