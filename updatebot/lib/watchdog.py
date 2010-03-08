@@ -21,7 +21,7 @@ import logging
 
 log = logging.getLogger('updatebot.lib.watchdog')
 
-def runOnce(func, funcArgs):
+def runOnce(func, *args, **kwargs):
     """
     Fork and run a function.
     """
@@ -29,18 +29,17 @@ def runOnce(func, funcArgs):
     pid = os.fork()
     if not pid:
         log.info('started %s(pid %s)' % (func.__name__, os.getpid()))
-        args, kwargs = funcArgs
         rc = func(*args, **kwargs)
         os._exit(rc)
     else:
         return pid
 
-def watchOnce(func, funcArgs):
+def waitOnce(func, *args, **kwargs):
     """
     Fork and wait for a function to complete.
     """
 
-    pid = runOnce(func, funcArgs)
+    pid = runOnce(func, *args, **kwargs)
 
     log.info('waiting for %s' % pid)
     pid, status = os.waitpid(pid, 0)
@@ -48,26 +47,34 @@ def watchOnce(func, funcArgs):
         rc = os.WEXITSTATUS(status)
         return rc
 
-def watch(func, funcArgs):
+def loopwait(func, *args, **kwargs):
     """
     Run a forked function in a loop.
     """
 
     while True:
         log.info('looping %s' % func.__name__)
-        rc = watchOnce(func, funcArgs)
+        rc = waitOnce(func, *args, **kwargs)
         if not rc:
             log.info('completed function loop')
             break
 
     return rc
 
-def forknwatch(func):
+def forknloop(func):
     """
     Decorator to run a function in a forked process in a loop.
     """
 
     def wrapper(*args, **kwargs):
-        funcArgs = (args, kwargs)
-        return watch(func, funcArgs)
+        return loopwait(func, *args, **kwargs)
+    return wrapper
+
+def forknwait(func):
+    """
+    Decorator to run a function in a forked process and wait for it to complete.
+    """
+
+    def wrapper(*args, **kwargs):
+        return waitOnce(func, *args, **kwargs)
     return wrapper
