@@ -28,7 +28,7 @@ from repomd.updateinfoxml import UpdateInfoXml
 from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
-class _RepoMd(xmllib.BaseNode):
+class _RepoMd(SlotNode):
     """
     Python representation of repomd.xml from the repository metadata.
     """
@@ -60,7 +60,7 @@ class _RepoMd(xmllib.BaseNode):
             elif child.type == 'updateinfo':
                 child._parser = UpdateInfoXml(None, child.location)
                 child.parseChildren = child._parser.parse
-            xmllib.BaseNode.addChild(self, child)
+            SlotNode.addChild(self, child)
         else:
             raise UnknownElementError(child)
 
@@ -90,7 +90,7 @@ class _RepoMdDataElement(SlotNode):
     """
     __slots__ = ('location', 'checksum', 'checksumType', 'timestamp',
                  'openChecksum', 'openChecksumType', 'databaseVersion',
-                 'size', 'openSize')
+                 'size', 'openSize', 'type', '_parser', 'parseChildren', )
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.

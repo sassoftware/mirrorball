@@ -52,7 +52,7 @@ class XmlFileParser(object):
         data = self._databinder.parseFile(fn)
 
         for child in data.iterChildren():
-            if hasattr(child, '_parser'):
+            if hasattr(child, '_parser') and child._parser is not None:
                 child._parser._repository = self._repository
 
         return data

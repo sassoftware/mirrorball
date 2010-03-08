@@ -115,10 +115,12 @@ class _Patch(SlotNode):
                      self.description))
 
 
-class _Atoms(xmllib.BaseNode):
+class _Atoms(SlotNode):
     """
     Parser for the atoms element of a path-*.xml file.
     """
+
+    __slots__ = ()
 
     def addChild(self, child):
         """
@@ -128,7 +130,7 @@ class _Atoms(xmllib.BaseNode):
         n = child.getName()
         if n == 'package':
             child.type = child.getAttribute('type')
-            xmllib.BaseNode.addChild(self, child)
+            SlotNode.addChild(self, child)
         elif n == 'message':
             pass
         elif n == 'script':

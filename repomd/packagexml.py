@@ -181,10 +181,12 @@ class _Package(SlotNode, PackageCompare):
         return ver
 
 
-class _RpmEntry(xmllib.BaseNode):
+class _RpmEntry(SlotNode):
     """
     Parse any element that contains rpm:entry or suse:entry elements.
     """
+
+    __slots__ = ()
 
     def addChild(self, child):
         """
@@ -192,14 +194,6 @@ class _RpmEntry(xmllib.BaseNode):
         """
 
         if child.getName() in ('rpm:entry', 'suse:entry'):
-            child.kind = None
-            child.name = None
-            child.epoch = None
-            child.version = None
-            child.release = None
-            child.flags = None
-            child.pre = None
-
             for attr, value in child.iterAttributes():
                 if attr == 'kind':
                     child.kind = value
@@ -217,9 +211,18 @@ class _RpmEntry(xmllib.BaseNode):
                     child.pre = value
                 else:
                     raise UnknownAttributeError(child, attr)
-            xmllib.BaseNode.addChild(self, child)
+            SlotNode.addChild(self, child)
         else:
             raise UnknownElementError(child)
+
+
+class _RpmEntries(SlotNode):
+    """
+    Class to represent all rpm:entry and suse:entry types.
+    """
+
+    __slots__ = ('kind', 'name', 'epoch', 'version', 'release', 'flags',
+        'pre', )
 
 
 class _RpmRequires(_RpmEntry):
@@ -227,11 +230,15 @@ class _RpmRequires(_RpmEntry):
     Parse rpm:requires children.
     """
 
+    __slots__ = ()
+
 
 class _RpmRecommends(_RpmEntry):
     """
     Parse rpm:recommends children.
     """
+
+    __slots__ = ()
 
 
 class _RpmProvides(_RpmEntry):
@@ -239,11 +246,15 @@ class _RpmProvides(_RpmEntry):
     Parse rpm:provides children.
     """
 
+    __slots__ = ()
+
 
 class _RpmObsoletes(_RpmEntry):
     """
     Parse rpm:obsoletes children.
     """
+
+    __slots__ = ()
 
 
 class _RpmConflicts(_RpmEntry):
@@ -251,11 +262,15 @@ class _RpmConflicts(_RpmEntry):
     Parse rpm:conflicts children.
     """
 
+    __slots__ = ()
+
 
 class _RpmEnhances(_RpmEntry):
     """
     Parse rpm:enhances children.
     """
+
+    __slots__ = ()
 
 
 class _RpmSupplements(_RpmEntry):
@@ -263,17 +278,23 @@ class _RpmSupplements(_RpmEntry):
     Parse rpm:supplements children.
     """
 
+    __slots__ = ()
+
 
 class _RpmSuggests(_RpmEntry):
     """
     Parse rpm:suggests children.
     """
 
+    __slots__ = ()
+
 
 class _SuseFreshens(_RpmEntry):
     """
     Parse suse:freshens children.
     """
+
+    __slots__ = ()
 
 
 class PackageXmlMixIn(object):
@@ -293,6 +314,10 @@ class PackageXmlMixIn(object):
         self._databinder.registerType(xmllib.StringNode, name='summary')
         self._databinder.registerType(xmllib.StringNode, name='description')
         self._databinder.registerType(xmllib.StringNode, name='url')
+        self._databinder.registerType(_RpmEntries, name='entry',
+                                      namespace='rpm')
+        self._databinder.registerType(_RpmEntries, name='entry',
+                                      namespace='suse')
         self._databinder.registerType(_RpmRequires, name='requires',
                                       namespace='rpm')
         self._databinder.registerType(_RpmRecommends, name='recommends',

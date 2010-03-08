@@ -25,10 +25,12 @@ from repomd.patchxml import PatchXml
 from repomd.xmlcommon import XmlFileParser, SlotNode
 from repomd.errors import UnknownElementError
 
-class _Patches(xmllib.BaseNode):
+class _Patches(SlotNode):
     """
     Python representation of patches.xml from the repository metadata.
     """
+
+    __slots__ = ()
 
     def addChild(self, child):
         """
@@ -42,7 +44,7 @@ class _Patches(xmllib.BaseNode):
             child.id = child.getAttribute('id')
             child._parser = PatchXml(None, child.location)
             child.parseChildren = child._parser.parse
-            xmllib.BaseNode.addChild(self, child)
+            SlotNode.addChild(self, child)
         else:
             raise UnknownElementError(child)
 
@@ -59,6 +61,7 @@ class _PatchElement(SlotNode):
     """
     Parser for patch element of patches.xml.
     """
+
     __slots__ = ('id', 'checksum', 'checksumType', 'location')
 
     # All attributes are defined in __init__ by iterating over __slots__,

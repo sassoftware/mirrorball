@@ -30,6 +30,8 @@ class _Updates(SlotNode):
     Represents updates in an updateinfo.xml.
     """
 
+    __slots__ = ()
+
     def addChild(self, child):
         """
         Set attributes on child nodes.
@@ -54,7 +56,7 @@ class _Updates(SlotNode):
             else:
                 raise UnknownAttributeError(child, attr)
 
-        xmllib.BaseNode.addChild(self, child)
+        SlotNode.addChild(self, child)
 
     def getUpdateInfo(self):
         """
@@ -108,6 +110,8 @@ class _References(SlotNode):
     Represent a list of references in updateinfo.xml.
     """
 
+    __slots__ = ()
+
     def addChild(self, child):
         if child.getName() != 'reference':
             raise UnknownElementError(child)
@@ -129,13 +133,15 @@ class _References(SlotNode):
             else:
                 raise UnknownAttributeError(child, attr)
 
-        xmllib.BaseNode.addChild(self, child)
+        SlotNode.addChild(self, child)
 
 
 class _Collection(SlotNode):
     """
     Represents a pkglist collection in updateinfo.xml.
     """
+
+    __slots__ = ()
 
     def addChild(self, child):
         """
@@ -164,7 +170,7 @@ class _Collection(SlotNode):
             else:
                 raise UnknownAttributeError(child, attr)
 
-        xmllib.BaseNode.addChild(self, child)
+        SlotNode.addChild(self, child)
 
 
 class _UpdateInfoPackage(SlotNode, PackageCompare):

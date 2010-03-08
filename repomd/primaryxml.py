@@ -18,16 +18,16 @@ Module for parsing primary.xml.gz from the repository metadata.
 
 __all__ = ('PrimaryXml', )
 
-from rpath_xmllib import api1 as xmllib
-
-from repomd.xmlcommon import XmlFileParser
 from repomd.packagexml import PackageXmlMixIn
 from repomd.errors import UnknownElementError
+from repomd.xmlcommon import XmlFileParser, SlotNode
 
-class _Metadata(xmllib.BaseNode):
+class _Metadata(SlotNode):
     """
     Python representation of primary.xml.gz from the repository metadata.
     """
+
+    __slots__ = ()
 
     def addChild(self, child):
         """
@@ -36,7 +36,7 @@ class _Metadata(xmllib.BaseNode):
 
         if child.getName() == 'package':
             child.type = child.getAttribute('type')
-            xmllib.BaseNode.addChild(self, child)
+            SlotNode.addChild(self, child)
         else:
             raise UnknownElementError(child)
 
