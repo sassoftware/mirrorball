@@ -18,6 +18,7 @@ Module for managing conary groups.
 
 import os
 import copy
+import time
 import logging
 import itertools
 
@@ -46,6 +47,18 @@ from updatebot.errors import ExpectedRemovalValidationFailedError
 from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
 log = logging.getLogger('updatebot.groupmgr')
+
+GROUP_RECIPE = """\
+#
+# Copyright (c) %(year)s rPath, Inc.
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
+#
+class %%(className)s(FactoryRecipeClass):
+    \"\"\"
+    Groups require that a recipe exists.
+    \"\"\" 
+""" % {'year': time.gmtime().tm_year, }
 
 def checkout(func):
     def wrapper(self, *args, **kwargs):
@@ -187,6 +200,14 @@ class GroupManager(object):
         # binary versions.
         return srcVersion in srcVersions
 
+    @commit
+    def getBuildJob(self):
+        """
+        Get the list of trove specs to submit to the build system.
+        """
+
+        return ((self._sourceName, self._sourceVersion, None), )
+
     @checkout
     @commit
     def build(self):
@@ -194,7 +215,7 @@ class GroupManager(object):
         Build all configured flavors of the group.
         """
 
-        groupTroves = ((self._sourceName, self._sourceVersion, None), )
+        groupTroves = self.getBuildJob()
         built = self._builder.cvc.cook(groupTroves)
         return built
 
@@ -676,6 +697,18 @@ class GroupManager(object):
                                                        pkgNames=errors)
 
 
+class SingleGroupManager(GroupManager):
+    """
+    Class to manage a single group that contains only packages with no
+    subgroups.
+    """
+
+    def __init__(self, *args, **kwargs):
+        GroupManager.__init__(self, *args, **kwargs)
+        self._pkgGroupName = self._sourceName
+        self._helper._groupContents = {}
+
+
 class GroupHelper(ConaryHelper):
     """
     Modified conary helper to deal with managing group sources.
@@ -693,6 +726,24 @@ class GroupHelper(ConaryHelper):
         # considered a bug in factory-managed-group, but we don't need
         # autoLoadRecipes here anyway.
         self._ccfg.autoLoadRecipes = []
+
+    def _newpkg(self, pkgName):
+        """
+        Wrap newpkg to add a group recipe since group recipes are required.
+        """
+
+        recipeDir = ConaryHelper._newpkg(self, pkgName)
+
+        recipe = '%s.recipe' % pkgName
+        recipeFile = os.path.join(recipeDir, recipe)
+        if not os.path.exists(recipeFile):
+            className = util.convertPackageNameToClassName(pkgName)
+            fh = open(recipeFile, 'w')
+            fh.write(GROUP_RECIPE % {'className': className})
+            fh.close()
+            self._addFile(recipeDir, recipe)
+
+        return recipeDir
 
     def getModel(self, pkgName, version=None):
         """
