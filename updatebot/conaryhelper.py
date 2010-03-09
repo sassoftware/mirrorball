@@ -99,6 +99,10 @@ class ConaryHelper(object):
         # frzenset(labels): binTroveNVFSet
         self._binaryVersionCache = {}
 
+        # Cache cloned from information
+        # srcNVF: destNVF
+        self._clonedFromCache = {}
+
     def getConaryConfig(self):
         """
         Get a conary config instance.
@@ -250,6 +254,51 @@ class ConaryHelper(object):
 
         return self.getSourceVersions(list(troves))
 
+    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None):
+        """
+        Retrieve a bit of trove info for a listed trove specs and cache the
+        results.
+        @param troveSpecs: list of destination nvfs
+        @type troveSpecs: iterable of (name, verObj, flvObj) tuples.
+        @param cache: cache of trove spec to trove info
+        @type cache: dict(trvSpec=trvInfo)
+        @param tiType: trove info field to cache on
+        @type tiType: conary.trove._TROVEINFO_TAG_*
+        @param tiFunc: optional function to format trove info into the desired
+                       value. This will be passed two arguments, the trove info
+                       and the trvSpec this applies to.
+        @type tiFunc: function
+        """
+
+        # filter out already cached results
+        cached = set(x for x in troveSpecs if x in cache)
+        uncached = sorted(set(troveSpecs).difference(cached))
+
+        tiMap = {}
+        tiLst = self._repos.getTroveInfo(tiType, uncached)
+        for i, nvf in enumerate(uncached):
+            ti = tiLst[i]()
+            if tiFunc:
+                ti = tiFunc(ti, nvf)
+            tiMap.setdefault(ti, set()).add(nvf)
+            cache[nvf] = ti
+
+        for spec in cached:
+            tiMap.setdefault(cache[spec], set()).add(spec)
+
+        return tiMap
+
+    def getClonedFrom(self, troveSpecs):
+        """
+        Get a mapping of cloned from trove info for a list of trove specs in the
+        form srcSpec: destSpec.
+        @param troveSpecs: list of destination nvfs
+        @type troveSpecs: iterable of (name, verObj, flvObj) tuples.
+        """
+
+        return self._cacheTroveInfo(troveSpecs, self._clonedFromCache,
+            trove._TROVEINFO_TAG_CLONEDFROM)
+
     def getSourceVersions(self, binTroveSpecs):
         """
         Given a list of trove specs, query the repository for all of the related
@@ -259,23 +308,11 @@ class ConaryHelper(object):
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
         """
 
-        # check the cache for any source we have already retrieved from the
-        # repository.
-        cached = set(x for x in binTroveSpecs if x in self._sourceVersionCache)
-        uncached = sorted(set(binTroveSpecs).difference(cached))
+        def tiFunc(ti, nvf):
+            return (ti, nvf[0].getSourceVersion(), None)
 
-        srcTrvs = {}
-        tiSourceName = trove._TROVEINFO_TAG_SOURCENAME
-        sources = self._repos.getTroveInfo(tiSourceName, uncached)
-        for i, (n, v, f) in enumerate(uncached):
-            src = (sources[i](), v.getSourceVersion(), None)
-            srcTrvs.setdefault(src, set()).add((n, v, f))
-            self._sourceVersionCache[(n, v, f)] = src
-
-        for spec in cached:
-            srcTrvs.setdefault(self._sourceVersionCache[spec], set()).add(spec)
-
-        return srcTrvs
+        return self._cacheTroveInfo(binTroveSpecs, self._sourceVersionCache,
+            trove._TROVEINFO_TAG_SOURCENAME, tiFunc=tiFunc)
 
     def getBinaryVersions(self, srcTroveSpecs, labels=None, latest=True):
         """
