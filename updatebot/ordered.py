@@ -157,18 +157,6 @@ class Bot(BotSuperClass):
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
 
-        # FIXME: this should probably be provided by the errata object.
-        # Method for sorting versions.
-        def verCmp(a, b):
-            if a.startswith('RH') and b.startswith('RH'):
-                return cmp(a.split('_')[1], b.split('_')[1])
-            elif a.startswith('RH') and not b.startswith('RH'):
-                return 1
-            elif not a.startswith('RH') and b.startswith('RH'):
-                return -1
-            else:
-                return cmp(a, b)
-
         # Get current timestamp
         current = self._groupmgr.getErrataState()
         if current is None:
@@ -277,26 +265,6 @@ class Bot(BotSuperClass):
             # Save package map in case we run into trouble later.
             self._savePackages(pkgMap)
 
-            # FIXME: we might actually want to do this one day
-            # Find errata group versions.
-            #errataVersions = self._errata.getVersions(updateId)
-            errataVersions = set()
-
-            # Add timestamp version.
-            errataVersions.add(self._errata.getBucketVersion(updateId))
-
-            # FIXME: Might want to re-enable this one day.
-            # Get current set of source names and versions.
-            #nvMap = self._updater.getSourceVersionMap()
-            # Add in new names and versions that have just been built.
-            #for n, v, f in pkgMap.iterkeys():
-            #    n = n.split(':')[0]
-            #    nvMap[n] = v
-            #pkgSet = set(nvMap.items())
-            # Get the major distro verisons from the group manager.
-            #majorVersions = self._groupmgr.getVersions(pkgSet)
-            #import epdb; epdb.st()
-
             # Store current updateId.
             self._groupmgr.setErrataState(updateId)
 
@@ -340,27 +308,15 @@ class Bot(BotSuperClass):
             # Make sure built troves are part of the group.
             self._addPackages(pkgMap)
 
-            # Build various group verisons.
-            #expected = self._flattenSetDict(pkgMap)
-            versions = sorted(errataVersions, cmp=verCmp)
-            if not versions:
-                versions = ['unknown.%s' % updateId, ]
-            for version in versions:
-                log.info('setting version %s' % version)
-                self._groupmgr.setVersion(version)
-                grpTrvMap = self._groupmgr.build()
+            # Get timestamp version.
+            version = self._errata.getBucketVersion(updateId)
+            if not version:
+                version = 'unknown.%s' % updateId
 
-                # FIXME: enable promotes at some point
-                #log.info('promoting version %s' % version)
-                #toPublish = self._flattenSetDict(grpTrvMap)
-                #newTroves = self._updater.publish(
-                #    toPublish,
-                #    expected,
-                #    self._cfg.targetLabel
-                #)
-
-                # After the first promote, packages should not be repromoted.
-                #expected = set()
+            # Build groups.
+            log.info('setting version %s' % version)
+            self._groupmgr.setVersion(version)
+            grpTrvMap = self._groupmgr.build()
 
             updateSet.update(pkgMap)
 
