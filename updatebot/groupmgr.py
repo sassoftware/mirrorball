@@ -85,14 +85,26 @@ class GroupManager(object):
     Manage group of all packages for a platform.
     """
 
-    def __init__(self, cfg, parentGroup=False):
+    def __init__(self, cfg, parentGroup=False, targetGroup=False):
         self._cfg = cfg
         self._helper = GroupHelper(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
 
         #self._versionFactory = VersionFactory(cfg)
 
-        if parentGroup:
+        assert not (parentGroup and targetGroup)
+
+        if targetGroup:
+            srcName = '%s:source' % self._cfg.topSourceGroup[0]
+            trvs = self._helper.findTrove((srcName, None, None),
+                    labels=(self._cfg.targetLabel, ))
+
+            assert len(trvs)
+
+            self._sourceName = srcName
+            self._sourceVersion = trvs[0][1]
+            self._readonly = True
+        elif parentGroup:
             topGroup = list(self._cfg.topParentSourceGroup)
             topGroup[0] = '%s:source' % topGroup[0]
             trvs = self._helper.findTrove(tuple(topGroup),
