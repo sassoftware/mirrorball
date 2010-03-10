@@ -19,22 +19,20 @@ Module for managing conary groups.
 import logging
 import itertools
 
-from conary import versions
 from conary.deps import deps
 
 from updatebot.lib import util
 from updatebot.build import Builder
-from updatebot.errors import OldVersionsFoundError
+
 from updatebot.errors import FlavorCountMismatchError
 from updatebot.errors import UnknownBuildContextError
-from updatebot.errors import GroupValidationFailedError
 from updatebot.errors import UnsupportedTroveFlavorError
 from updatebot.errors import UnhandledPackageAdditionError
-from updatebot.errors import NameVersionConflictsFoundError
-from updatebot.errors import ExpectedRemovalValidationFailedError
+from updatebot.errors import NotCommittingOutOfDateSourceError
 from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
 from updatebot.groupmgr.helper import GroupHelper
+from updatebot.groupmgr.sanity import GroupSanityChecker
 
 log = logging.getLogger('updatebot.groupmgr')
 
@@ -64,20 +62,20 @@ class GroupManager(object):
     """
 
     _helperClass = GroupHelper
+    _sanityCheckerClass = GroupSanityChecker
 
     def __init__(self, cfg, parentGroup=False, targetGroup=False):
         self._cfg = cfg
         self._helper = self._helperClass(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
-
-        #self._versionFactory = VersionFactory(cfg)
+        self._sanity = self._sanityCheckerClass(self._cfg, self._helper)
 
         assert not (parentGroup and targetGroup)
 
         if targetGroup:
             srcName = '%s:source' % self._cfg.topSourceGroup[0]
-            trvs = self._helper.findTrove((srcName, None, None),
-                    labels=(self._cfg.targetLabel, ))
+            trvs = self._helper.findTrove(
+                (srcName, self._cfg.targetLabel, None))
 
             assert len(trvs)
 
@@ -153,7 +151,7 @@ class GroupManager(object):
         self._copyVersions()
 
         # validate group contents.
-        self._validateGroups()
+        self._sanity.check(self._groups, self.getErrataState())
 
         # write out the model data
         self._helper.setModel(self._sourceName, self._groups)
@@ -427,7 +425,6 @@ class GroupManager(object):
         """
 
         return set()
-        #return self._versionFactory.getVersions(pkgSet)
 
     def _copyVersions(self):
         """
@@ -449,244 +446,3 @@ class GroupManager(object):
                     pkg.version = pkgs[pkg.name].version
                 else:
                     raise UnknownPackageFoundInManagedGroupError(what=pkg.name)
-
-    def _validateGroups(self):
-        """
-        Validate the contents of the package group to ensure sanity:
-            1. Check for packages that have the same source name, but
-               different versions.
-            2. Check that the version in the group is the latest source/build
-               of that version.
-            3. Check that package removals specified in the config file have
-               occured.
-        """
-
-        errors = []
-        for name, group in self._groups.iteritems():
-            log.info('checking consistentcy of %s' % name)
-            try:
-                self._checkNameVersionConflict(group)
-            except NameVersionConflictsFoundError, e:
-                errors.append((group, e))
-
-            try:
-                self._checkLatestVersion(group)
-            except OldVersionsFoundError, e:
-                errors.append((group, e))
-
-            try:
-                self._checkRemovals(group)
-            except ExpectedRemovalValidationFailedError, e:
-                errors.append((group, e))
-
-        if errors:
-            raise GroupValidationFailedError(errors=errors)
-
-    def _checkNameVersionConflict(self, group):
-        """
-        Check for packages taht have the same source name, but different
-        versions.
-        """
-
-        # get names and versions
-        troves = set()
-        labels = set()
-        for pkgKey, pkgData in group.iteritems():
-            name = str(pkgData.name)
-
-            version = None
-            if pkgData.version:
-                versionObj = versions.ThawVersion(pkgData.version)
-                labels.add(versionObj.branch().label())
-                version = str(versionObj.asString())
-
-            flavor = None
-            # FIXME: At some point we might want to add proper flavor handling,
-            #        note that group flavor handling is different than what
-            #        findTroves normally does.
-            #if pkgData.flavor:
-            #    flavor = deps.ThawFlavor(str(pkgData.flavor))
-
-            troves.add((name, version, flavor))
-
-        # Get flavors and such.
-        foundTroves = set([ x for x in
-            itertools.chain(*self._helper.findTroves(troves,
-                                                labels=labels).itervalues()) ])
-
-        # get sources for each name version pair
-        sources = self._helper.getSourceVersions(foundTroves)
-
-        seen = {}
-        for (n, v, f), pkgSet in sources.iteritems():
-            binVer = list(pkgSet)[1][1]
-            seen.setdefault(n, set()).add(binVer)
-
-        binPkgs = {}
-        conflicts = {}
-        for name, vers in seen.iteritems():
-            if len(vers) > 1:
-                log.error('found multiple versions of %s' % name)
-                for binVer in vers:
-                    srcVer = binVer.getSourceVersion()
-                    nvf = (name, srcVer, None)
-                    conflicts.setdefault(name, []).append(srcVer)
-                    binPkgs[nvf] = sources[nvf]
-
-        if conflicts:
-            raise NameVersionConflictsFoundError(groupName=group.groupName,
-                                                 conflicts=conflicts,
-                                                 binPkgs=binPkgs)
-
-    def _checkLatestVersion(self, group):
-        """
-        Check to make sure each specific conary version is the latest source
-        and build count of the upstream version.
-        """
-
-        # get names and versions
-        troves = set()
-        labels = set()
-        for pkgKey, pkgData in group.iteritems():
-            name = str(pkgData.name)
-
-            version = None
-            if pkgData.version:
-                version = versions.ThawVersion(pkgData.version)
-                labels.add(version.branch().label())
-                # get upstream version
-                revision = version.trailingRevision()
-                upstreamVersion = revision.getVersion()
-
-                # FIXME: This should probably be a fully formed version
-                #        as above.
-                version = upstreamVersion
-
-            flavor = None
-            # FIXME: At some point we might want to add proper flavor handling,
-            #        note that group flavor handling is different than what
-            #        findTroves normally does.
-            #if pkgData.flavor:
-            #    flavor = deps.ThawFlavor(str(pkgData.flavor))
-
-            troves.add((name, version, flavor))
-
-        # Get flavors and such.
-        foundTroves = dict([ (x[0], y) for x, y in
-            self._helper.findTroves(troves, labels=labels).iteritems() ])
-
-        pkgs = {}
-        for pkgKey, pkgData in group.iteritems():
-            name = str(pkgData.name)
-            version = None
-            if pkgData.version:
-                version = versions.ThawVersion(pkgData.version)
-            flavor = None
-            if pkgData.flavor:
-                flavor = deps.ThawFlavor(str(pkgData.flavor))
-
-            pkgs.setdefault(name, []).append((name, version, flavor))
-
-        assert len(pkgs) == len(foundTroves)
-
-        # Get all old versions so that we can make sure any version conflicts
-        # were introduced by old version handling.
-        oldVersions = set()
-        for nvfLst in self._cfg.useOldVersion.itervalues():
-            for nvf in nvfLst:
-                srcMap = self._helper.getSourceVersionMapFromBinaryVersion(nvf,
-                        labels=self._cfg.platformSearchPath, latest=False)
-                oldVersions |= set(itertools.chain(*srcMap.itervalues()))
-
-
-        errors = {}
-        for name, found in foundTroves.iteritems():
-            assert name in pkgs
-            current = pkgs[name]
-
-            if len(current) > len(found):
-                log.warn('found more packages in the model than in the '
-                    'repository, assuming that multiversion policy will '
-                    'catch this.')
-                continue
-
-            assert len(current) == 1 or len(found) == len(current)
-
-            foundError = False
-            for i, (n, v, f) in enumerate(found):
-                if len(current) == 1:
-                    i = 0
-                cn, cv, cf = current[i]
-                assert n == cn
-
-                if v != cv:
-                    if (n, v, f) in oldVersions:
-                        log.info('found %s=%s[%s] in oldVersions exceptions'
-                                 % (n, v, f))
-                        continue
-                    foundError = True
-
-            if foundError:
-                log.error('found old version for %s' % name)
-                errors[name] = (current, found)
-
-        if errors:
-            raise OldVersionsFoundError(pkgNames=errors.keys(), errors=errors)
-
-    def _checkRemovals(self, group):
-        """
-        Check to make sure that all configured package removals have happened.
-        """
-
-        updateId = self.getErrataState()
-
-        # get package removals from the config object.
-        removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
-        removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
-        removeSource = [ x[0] for x in
-                         self._cfg.removeSource.get(updateId, []) ]
-
-        # get names and versions
-        troves = set()
-        labels = set()
-        for pkgKey, pkgData in group.iteritems():
-            name = str(pkgData.name)
-
-            version = None
-            if pkgData.version:
-                versionObj = versions.ThawVersion(pkgData.version)
-                labels.add(versionObj.branch().label())
-                version = str(versionObj.asString())
-
-            flavor = None
-            troves.add((name, version, flavor))
-
-        # Get flavors and such.
-        foundTroves = set([ x for x in
-            itertools.chain(*self._helper.findTroves(troves,
-                                                labels=labels).itervalues()) ])
-
-        # get sources for each name version pair
-        sources = self._helper.getSourceVersions(foundTroves)
-
-        # collapse to sourceName: [ binNames, ] dictionary
-        sourceNameMap = dict([ (x[0].split(':')[0], [ z[0] for z in y ])
-                               for x, y in sources.iteritems() ])
-
-        binRemovals = set(itertools.chain(*[ sourceNameMap[x]
-                                             for x in removeSource
-                                             if x in sourceNameMap ]))
-
-        # take the union
-        removals = set(removePackages) | set(removeObsoleted) | binRemovals
-
-        errors = []
-        # Make sure these packages are not in the group model.
-        for pkgKey, pkgData in group.iteritems():
-            if pkgData.name in removals:
-                errors.append(pkgData.name)
-
-        if errors:
-            log.info('found packages that should be removed %s' % errors)
-            raise ExpectedRemovalValidationFailedError(updateId=updateId,
-                                                       pkgNames=errors)
