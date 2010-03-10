@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) 2009-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -16,9 +16,6 @@
 Module for managing conary groups.
 """
 
-import os
-import copy
-import time
 import logging
 import itertools
 
@@ -27,15 +24,6 @@ from conary.deps import deps
 
 from updatebot.lib import util
 from updatebot.build import Builder
-from updatebot.pkgsource import RpmSource
-from updatebot.conaryhelper import ConaryHelper
-from updatebot.lib.xobjects import XGroup
-from updatebot.lib.xobjects import XGroupDoc
-from updatebot.lib.xobjects import XGroupList
-from updatebot.lib.xobjects import XPackageDoc
-from updatebot.lib.xobjects import XPackageData
-from updatebot.lib.xobjects import XPackageItem
-
 from updatebot.errors import OldVersionsFoundError
 from updatebot.errors import FlavorCountMismatchError
 from updatebot.errors import UnknownBuildContextError
@@ -46,19 +34,9 @@ from updatebot.errors import NameVersionConflictsFoundError
 from updatebot.errors import ExpectedRemovalValidationFailedError
 from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
-log = logging.getLogger('updatebot.groupmgr')
+from updatebot.groupmgr.helper import GroupHelper
 
-GROUP_RECIPE = """\
-#
-# Copyright (c) %(year)s rPath, Inc.
-# This file is distributed under the terms of the MIT License.
-# A copy is available at http://www.rpath.com/permanent/mit-license.html
-#
-class %%(className)s(FactoryRecipeClass):
-    \"\"\"
-    Groups require that a recipe exists.
-    \"\"\" 
-""" % {'year': time.gmtime().tm_year, }
+log = logging.getLogger('updatebot.groupmgr')
 
 def checkout(func):
     def wrapper(self, *args, **kwargs):
@@ -85,9 +63,11 @@ class GroupManager(object):
     Manage group of all packages for a platform.
     """
 
+    _helperClass = GroupHelper
+
     def __init__(self, cfg, parentGroup=False, targetGroup=False):
         self._cfg = cfg
-        self._helper = GroupHelper(self._cfg)
+        self._helper = self._helperClass(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
 
         #self._versionFactory = VersionFactory(cfg)
@@ -189,10 +169,13 @@ class GroupManager(object):
 
     save = _commit
 
-    def hasBinaryVersion(self):
+    def hasBinaryVersion(self, version=None):
         """
         Check if there is a binary version for the current source version.
         """
+
+        if not version:
+            verison = self._sourceVersion
 
         # Get a mapping of all source version to binary versions for all
         # existing binary versions.
@@ -206,7 +189,7 @@ class GroupManager(object):
         # Get the version of the specified source, usually the latest
         # source version.
         srcVersion = self._helper.findTrove(('%s:source' % self._sourceName,
-                                             self._sourceVersion, None))[0][1]
+                                             version, None))[0][1]
 
         # Check to see if the latest source version is in the map of
         # binary versions.
@@ -707,340 +690,3 @@ class GroupManager(object):
             log.info('found packages that should be removed %s' % errors)
             raise ExpectedRemovalValidationFailedError(updateId=updateId,
                                                        pkgNames=errors)
-
-
-class SingleGroupManager(GroupManager):
-    """
-    Class to manage a single group that contains only packages with no
-    subgroups.
-    """
-
-    def __init__(self, *args, **kwargs):
-        GroupManager.__init__(self, *args, **kwargs)
-        self._pkgGroupName = self._sourceName
-        self._helper._groupContents = {}
-
-
-class GroupHelper(ConaryHelper):
-    """
-    Modified conary helper to deal with managing group sources.
-    """
-
-    def __init__(self, cfg):
-        ConaryHelper.__init__(self, cfg)
-        self._configDir = cfg.configPath
-        self._newPkgFactory = 'managed-group'
-        self._groupContents = cfg.groupContents
-
-        # FIXME: autoLoadRecipes causes group versioning to go sideways
-        # The group super class in the repository has a version defined, which
-        # overrides the version from factory-version. This should probably be
-        # considered a bug in factory-managed-group, but we don't need
-        # autoLoadRecipes here anyway.
-        self._ccfg.autoLoadRecipes = []
-
-    def _newpkg(self, pkgName):
-        """
-        Wrap newpkg to add a group recipe since group recipes are required.
-        """
-
-        recipeDir = ConaryHelper._newpkg(self, pkgName)
-
-        recipe = '%s.recipe' % pkgName
-        recipeFile = os.path.join(recipeDir, recipe)
-        if not os.path.exists(recipeFile):
-            className = util.convertPackageNameToClassName(pkgName)
-            fh = open(recipeFile, 'w')
-            fh.write(GROUP_RECIPE % {'className': className})
-            fh.close()
-            self._addFile(recipeDir, recipe)
-
-        return recipeDir
-
-    def getModel(self, pkgName, version=None):
-        """
-        Get a thawed data representation of the group xml data from the
-        repository.
-        """
-
-        log.info('loading model for %s' % pkgName)
-        recipeDir = self._edit(pkgName, version=version)
-        groupFileName = util.join(recipeDir, 'groups.xml')
-
-        # load group model
-        groups = {}
-        if os.path.exists(groupFileName):
-            model = GroupModel.thaw(groupFileName)
-            for name, groupObj in model.iteritems():
-                contentFileName = util.join(recipeDir, groupObj.filename)
-                contentsModel = GroupContentsModel.thaw(contentFileName,
-                                (name, groupObj.byDefault, groupObj.depCheck))
-                contentsModel.fileName = groupObj.filename
-                groups[groupObj.name] = contentsModel
-
-        # copy in any group data
-        for name, data in self._groupContents.iteritems():
-            newGroups = [ x for x in groups.itervalues()
-                            if x.groupName == name and
-                               x.fileName == data['filename'] ]
-
-            assert len(newGroups) in (0, 1)
-
-            byDefault = data['byDefault'] == 'True' and True or False
-            depCheck = data['depCheck'] == 'True' and True or False
-
-            # load model
-            contentsModel = GroupContentsModel.thaw(
-                util.join(self._configDir, data['filename']),
-                (name, byDefault, depCheck)
-            )
-
-            # override anything from the repo, unless retriveing a
-            # specific version.
-            if version is None:
-                groups[name] = contentsModel
-
-        return groups
-
-    def setModel(self, pkgName, groups):
-        """
-        Freeze group model and save to the repository.
-        """
-
-        log.info('saving model for %s' % pkgName)
-        recipeDir = self._edit(pkgName)
-        groupFileName = util.join(recipeDir, 'groups.xml')
-
-        groupModel = GroupModel()
-        for name, model in groups.iteritems():
-            groupfn = util.join(recipeDir, model.fileName)
-
-            model.freeze(groupfn)
-            groupModel.add(name=name,
-                           filename=model.fileName,
-                           byDefault=model.byDefault,
-                           depCheck=model.depCheck)
-            self._addFile(recipeDir, model.fileName)
-
-        groupModel.freeze(groupFileName)
-        self._addFile(recipeDir, 'groups.xml')
-
-    def getErrataState(self, pkgname, version=None):
-        """
-        Get the contents of the errata state file from the specified package,
-        if file does not exist, return None.
-        """
-
-        log.info('getting errata state information from %s' % pkgname)
-
-        recipeDir = self._edit(pkgname, version=version)
-        stateFileName = util.join(recipeDir, 'erratastate')
-
-        if not os.path.exists(stateFileName):
-            return None
-
-        state = open(stateFileName).read().strip()
-        if state.isdigit():
-            state = int(state)
-        return state
-
-    def setErrataState(self, pkgname, state):
-        """
-        Set the current errata state for the given package.
-        """
-
-        log.info('storing errata state information in %s' % pkgname)
-
-        recipeDir = self._edit(pkgname)
-        stateFileName = util.join(recipeDir, 'erratastate')
-
-        # write state info
-        statefh = open(stateFileName, 'w')
-        statefh.write(str(state))
-
-        # source files must end in a trailing newline
-        statefh.write('\n')
-
-        statefh.close()
-
-        # make sure state file is part of source trove
-        self._addFile(recipeDir, 'erratastate')
-
-
-class AbstractModel(object):
-    """
-    Base object for models.
-    """
-
-    docClass = None
-    dataClass = None
-    elementClass = None
-
-    def __init__(self):
-        self._data = {}
-        self._nameMap = {}
-
-    def _addItem(self, item):
-        """
-        Add an item to the appropriate structures.
-        """
-
-        self._data[item.key] = item
-        if item.name not in self._nameMap:
-            self._nameMap[item.name] = set()
-        self._nameMap[item.name].add(item.key)
-
-    def _removeItem(self, name, missingOk=False):
-        """
-        Remove an item from the appropriate structures.
-        """
-
-        if missingOk:
-            keys = self._nameMap.pop(name, [])
-        else:
-            keys = self._nameMap.pop(name)
-
-        for key in keys:
-            self._data.pop(key)
-
-    @classmethod
-    def thaw(cls, xmlfn, args=None):
-        """
-        Thaw the model from xml.
-        """
-
-        model = cls.docClass.fromfile(xmlfn)
-        obj = args and cls(*args) or cls()
-        for item in model.data.items:
-            obj._addItem(item)
-        return obj
-
-    def freeze(self, toFile):
-        """
-        Freeze the model to a given output file.
-        """
-
-        def _srtByKey(a, b):
-            return cmp(a.key, b.key)
-
-        model = self.dataClass()
-        model.items = sorted(self._data.values(), cmp=_srtByKey)
-
-        doc = self.docClass()
-        doc.data = model
-        doc.tofile(toFile)
-
-    def iteritems(self):
-        """
-        Iterate over the model data.
-        """
-
-        return self._data.iteritems()
-
-    def add(self, *args, **kwargs):
-        """
-        Add an data element.
-        """
-
-        obj = self.elementClass(*args, **kwargs)
-        self._addItem(obj)
-
-    def remove(self, name, missingOk=False):
-        """
-        Remove data element.
-        """
-
-        self._removeItem(name, missingOk=missingOk)
-
-    def __contains__(self, name):
-        """
-        Check if element name is in the model.
-        """
-
-        return name in self._nameMap
-
-
-class GroupModel(AbstractModel):
-    """
-    Model for representing group name and file name.
-    """
-
-    docClass = XGroupDoc
-    dataClass = XGroupList
-    elementClass = XGroup
-
-
-class GroupContentsModel(AbstractModel):
-    """
-    Model for representing group data.
-    """
-
-    docClass = XPackageDoc
-    dataClass = XPackageData
-    elementClass = XPackageItem
-
-    def __init__(self, groupName, byDefault=True, depCheck=True):
-        AbstractModel.__init__(self)
-        self.groupName = groupName
-        self.byDefault = byDefault
-        self.depCheck = depCheck
-
-        # figure out file name based on group name
-        name = ''.join([ x.capitalize() for x in self.groupName.split('-') ])
-        self.fileName = name[0].lower() + name[1:] + '.xml'
-
-
-class URLVersionSource(object):
-    """
-    Class for handling the indexing and comparison of ISO contents.
-    """
-
-    def __init__(self, cfg, version, url):
-        self._cfg = cfg
-        self._version = version
-        self._url = url
-
-        pkgSource = RpmSource(cfg, )
-        pkgSource.loadFromUrl(url)
-        pkgSource.finalize()
-        pkgSource.setLoaded()
-
-        self._sourceSet = set([ x for x in pkgSource.iterPackageSet() ])
-
-    def areWeHereYet(self, pkgSet):
-        """
-        Figure out if the given package set is this version.
-        @param pkgSet: set of source names and source versions
-        @type pkgSet: set([(conarySourceName, conarySourceVersion)])
-        @return boolean
-        """
-
-        # Make sure that all versions that are on the ISO are in the conary
-        # repository. It appears to be a common case that the ISO is missing
-        # content from RHN.
-        return not self._sourceSet.difference(pkgSet)
-
-
-class VersionFactory(object):
-    """
-    Class for generating group verisons from a variety of sources.
-    """
-
-    def __init__(self, cfg):
-        self._cfg = copy.deepcopy(cfg)
-        self._cfg.synthesizeSources = True
-        self._sources = {}
-
-        for version, url in sorted(cfg.versionSources.iteritems()):
-            self._sources[version] = URLVersionSource(self._cfg, version, url)
-
-    def getVersions(self, pkgSet):
-        """
-        Given the available package sources find the current versions.
-        """
-
-        versions = []
-        for version, source in sorted(self._sources.iteritems()):
-            if source.areWeHereYet(pkgSet):
-                versions.append(version)
-        return set(versions)
