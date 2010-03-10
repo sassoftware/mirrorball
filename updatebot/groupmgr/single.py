@@ -35,7 +35,7 @@ class SingleGroupManager(GroupManager):
     subgroups.
     """
 
-    _helperClass = SingleGrouphelper
+    _helperClass = SingleGroupHelper
 
     def __init__(self, name, *args, **kwargs):
         GroupManager.__init__(self, *args, **kwargs)
