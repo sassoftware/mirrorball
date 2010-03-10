@@ -20,7 +20,7 @@ from updatebot.groupmgr.single import SingleGroupHelper
 from updatebot.groupmgr.single import SingleGroupManager
 from updatebot.groupmgr.single import SingleGroupManagerSet
 
-class ErrataGroupHelper(GroupHelper):
+class ErrataGroupHelper(SingleGroupHelper):
     """
     Class for managing errata group source troves.
     """
