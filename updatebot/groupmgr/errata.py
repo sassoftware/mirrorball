@@ -26,7 +26,7 @@ class ErrataGroupHelper(SingleGroupHelper):
     """
 
     def __init__(self, *args, **kwargs):
-        GroupHelper.__init__(self, *args, **kwargs)
+        SingleGroupHelper.__init__(self, *args, **kwargs)
         self._newPkgFactory = 'managed-errata-group'
 
 
