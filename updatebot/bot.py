@@ -18,6 +18,7 @@ Module for driving the update process.
 
 import time
 import logging
+import itertools
 
 from updatebot import build
 from updatebot import update
@@ -49,15 +50,12 @@ class Bot(object):
     def _flattenSetDict(setDict):
         """
         Convert a dictionary with values of sets to a list.
-        @param setList: dictionary of sets
-        @type setList: [set(), set(), ...]
+        @param setDict: dictionary of sets
+        @type setDict: [set(), set(), ...]
         @return list of items that were in the sets
         """
 
-        lst = []
-        for trvSet in setDict.itervalues():
-            lst.extend(list(trvSet))
-        return lst
+        return [ x for x in itertools.chain(*setDict.itervalues()) ]
 
     def create(self, rebuild=False, recreate=None, toCreate=None):
         """
