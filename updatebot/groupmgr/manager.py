@@ -79,7 +79,7 @@ class GroupManager(object):
 
             assert len(trvs)
 
-            self._sourceName = srcName
+            self._sourceName = self._cfg.topSourceGroup[0]
             self._sourceVersion = trvs[0][1]
             self._readonly = True
         elif parentGroup:
@@ -90,7 +90,7 @@ class GroupManager(object):
 
             assert len(trvs)
 
-            self._sourceName = topGroup[0]
+            self._sourceName = self._cfg.topParentSourceGroup
             self._sourceVersion = trvs[0][1]
 
             self._readonly = True
@@ -175,19 +175,27 @@ class GroupManager(object):
         if not version:
             verison = self._sourceVersion
 
+        # Search the label from the source version.
+        if self._sourceVersion:
+            labels = (self._sourceVersion.trailingLabel(), )
+        else:
+            labels = (self._cfg.topSourceGroup[1], )
+
         # Get a mapping of all source version to binary versions for all
         # existing binary versions.
         srcVersions = dict([ (x[1].getSourceVersion(), x[1])
             for x in self._helper.findTrove(
                 (self._sourceName, None, None),
-                getLeaves=False
+                getLeaves=False,
+                labels=labels,
             )
         ])
 
         # Get the version of the specified source, usually the latest
         # source version.
-        srcVersion = self._helper.findTrove(('%s:source' % self._sourceName,
-                                             version, None))[0][1]
+        srcVersion = self._helper.findTrove(
+            ('%s:source' % self._sourceName, version, None),
+            labels=labels)[0][1]
 
         # Check to see if the latest source version is in the map of
         # binary versions.
