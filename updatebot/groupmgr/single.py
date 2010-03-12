@@ -39,7 +39,7 @@ class SingleGroupManager(GroupManager):
 
     def __init__(self, name, *args, **kwargs):
         GroupManager.__init__(self, *args, **kwargs)
-        self._sourceName = name
+        self._sourceName = 'group-%s' % name
         self._pkgGroupName = self._sourceName
 
 
