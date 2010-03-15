@@ -18,6 +18,7 @@ Module for finding packages to update and updating them.
 
 import os
 import logging
+import itertools
 
 from rpmutils import rpmvercmp
 
@@ -214,6 +215,61 @@ class Updater(object):
 
         return self._conaryhelper.getSourceVersionMapFromBinaryVersion(
             (n, v, f), labels=labels, latest=latest)
+
+    def getBinaryVersionsFromSourcePackage(self, srcPkg):
+        """
+        Get a list of all packages in the conary repository that were built from
+        the given source package.
+        @param srcPkg: source package object
+        @type srcPkg: repomd.packagexml._Package
+        @return set of binary trove specs
+        @rtype set([(str, conary.versions.Version, conary.deps.deps.Flavor), ])
+        """
+
+        # Find the conary source trove
+        srcName = '%s:source' % srcPkg.name
+        srcSpec = (srcName, srcPkg.getConaryVersion(), None)
+        srcTrvs = [ (x, y, None) for x, y, z in
+            self._conaryhelper.findTrove(srcSpec, getLeaves=False) ]
+
+        # Get a mapping of binaries
+        srcMap = self._conaryhelper.getBinaryVersions(srcTrvs,
+            labels=self._cfg.platformSearchPath,
+            includeBuildLabel=True,
+            latest=False, missingOk=True)
+
+        # Return binary versions
+        bins = [ x for x in itertools.chain(*srcMap.itervalues()) ]
+        assert bins
+        return bins
+
+    def getTargetVersions(self, binTrvSpecs):
+        """
+        Given a list of binary trove specs from the devel label return a list of
+        promoted trove versions.
+        """
+
+        cfMap = self._conaryhelper.getClonedFromForLabel(self._cfg.targetLabel)
+        failed = []
+        targetSpecs = []
+        for spec in binTrvSpecs:
+            if spec not in cfMap:
+                failed.append(spec)
+            else:
+                targetSpecs.append(cfMap[spec])
+
+        seen = [ (x, y.getSourceVersion())
+                 for x, y, z in binTrvSpecs
+                 if (x, y, z) not in failed ]
+
+        fail = [ (x, y, z)
+                 for x, y, z in failed
+                 if (x, y.getSourceVersion()) not in seen ]
+
+        for spec in fail:
+            log.critical('%s=%s[%s] not found in cloned from map' % spec)
+
+        return targetSpecs, fail
 
     def _getLatestSource(self, name):
         """

@@ -30,6 +30,7 @@ from updatebot.bot import Bot as BotSuperClass
 
 from updatebot.errors import UnknownRemoveSourceError
 from updatebot.errors import PlatformNotImportedError
+from updatebot.errors import TargetVersionNotFoundError
 from updatebot.errors import PlatformAlreadyImportedError
 
 log = logging.getLogger('updatebot.ordered')
@@ -327,3 +328,109 @@ class Bot(BotSuperClass):
             log.info('published update %s in %s seconds' % (advTime, totalTime))
 
         return updateSet
+
+    def promote(self):
+        pass
+
+    def createErrataGroups(self):
+        """
+        Create groups for each advisory that only contain the versions of
+        packages that were included in that advisory. Once created, promote
+        to production branch.
+        """
+
+        # Get current timestamp
+        current = self._groupmgr.getErrataState()
+        if current is None:
+            raise PlatformNotImportedError
+
+        # Load package source.
+        self._pkgSource.load()
+
+        # Get latest errataState from the targetLabel so that we can fence group
+        # building based on the target label state.
+        targetGroup = groupmgr.GroupManager(self._cfg, targetGroup=True)
+        targetErrataState = targetGroup.getErrataState()
+
+        failures = {}
+        for updateId, updates in self._errata.iterByIssueDate(current=0):
+            # Stop if the updateId is greater than the state of the latest group
+            # on the production label.
+            if updateId > targetErrataState:
+                log.info('current updateId (%s) is newer than target label '
+                    'contents' % updateId)
+                break
+
+            # Make sure the group representing the current updateId has been
+            # imorted and promoted to the production label.
+            version = self._errata.getBucketVersion(updateId)
+            if not targetGroup.hasBinaryVersion(version=version):
+                raise TargetVersionNotFoundError(version=version,
+                                                 updateId=updateId)
+
+            # Now that we know that the packages that are part of this update
+            # should be on the target label we can separate things into
+            # advisories.
+            mgr = groupmgr.ErrataGroupManagerSet(self._cfg)
+            groupNames = self._errata.getNames(updateId)
+            for advInfo in self._errata.getUpdateDetail(updateId):
+                advisory = advInfo['name']
+                log.info('%s: processing' % advisory)
+
+                srcPkgs = self._errata.getAdvisoryPackages(advisory)
+                assert srcPkgs
+
+                grp = mgr.newGroup(groupNames[advisory])
+                grp.setVersion(version)
+                grp.setErrataState(updateId)
+
+                log.info('%s: finding built packages' % advisory)
+                binTrvs = set()
+                for srcPkg in srcPkgs:
+                    binTrvSpecs = \
+                        self._updater.getBinaryVersionsFromSourcePackage(srcPkg)
+
+                    # FIXME: Do something here to figure out what version should
+                    #        have been promoted from binTrvSpecs. Note that all
+                    #        built versions of a package will end up in
+                    #        binTrvSpecs, even if they didn't make it into a
+                    #        group.
+
+                    targetSpecs, failed = self._updater.getTargetVersions(binTrvSpecs)
+                    binTrvs.update(set(targetSpecs))
+                    failures.setdefault(advisory, list()).extend(failed)
+
+                binPkgs = {}
+                for n, v, f in binTrvs:
+                    binPkgs.setdefault(n.split(':')[0], dict()).setdefault(v, set()).add(f)
+
+                for n, vMap in binPkgs.iteritems():
+                    assert len(vMap) == 1
+
+                    # FIXME: If there are two versions of the package that have
+                    #        been promoted I would expect it to something like
+                    #        the case of setroubleshoot where we had to rebuild
+                    #        due to our deps changing. This should be mentioned
+                    #        in the config and provide an advisory to tie the
+                    #        new version to.
+
+                    for v, flvs in vMap.iteritems():
+                        log.info('%s: adding package %s=%s' % (advisory, n, v))
+                        for f in flvs:
+                            log.info('%s: %s' % (advisory, f))
+                        grp.addPackage(n, v, flvs)
+
+            log.info('%s: would be building groups here' % advisory)
+            #log.info('building groups')
+            #trvMap = mgr.build()
+
+            log.info('%s: would be promoting groups here' % advisory)
+            #log.info('promoting groups')
+            # Setting expected to an empty tuple since we don't expect anything
+            # other than groups to be promoted.
+            #expected = tuple()
+            #toPromote = self._flatenSetDict(trvMap)
+            #promoted = self._updater.publish(toPromote, expected,
+            #                                 self._cfg.targetLabel)
+
+        import epdb; epdb.st()

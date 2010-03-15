@@ -492,6 +492,16 @@ class PlatformNotImportedError(ImportError):
     _params = []
     _template = 'This platform has not yet been created.'
 
+class TargetVersionNotFoundError(ImportError):
+    """
+    TargetVersionNotFoundError, raised when a group version that is expected to
+    be on the targetLabel can not be found.
+    """
+
+    _params = ['updateId', 'version']
+    _template = ('Could not find %(version)s of the top level group on '
+        'targetLabel')
+
 class CvcError(UpdateBotError):
     """
     Generic cvc related error.
