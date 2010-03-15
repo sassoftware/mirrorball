@@ -33,6 +33,7 @@ from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
 from updatebot.groupmgr.helper import GroupHelper
 from updatebot.groupmgr.sanity import GroupSanityChecker
+from updatebot.groupmgr.model import GroupContentsModel
 
 log = logging.getLogger('updatebot.groupmgr')
 
@@ -269,6 +270,7 @@ class GroupManager(object):
         # are always present.
         assert version
         assert len(flavors)
+        flavors = list(flavors)
 
         # Remove all versions and flavors of this name before adding this
         # package. This avoids flavor change issues by replacing all flavors.
