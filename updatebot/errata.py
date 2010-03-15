@@ -95,6 +95,15 @@ class ErrataFilter(object):
             return '%s (no detail found)' % bucketId
 
     @loadErrata
+    def getAdvisoryPackages(self, advisory):
+        """
+        Give a valid advisory name, return a set of applicable source package
+        objects.
+        """
+
+        return self._advPkgMap.get(advisory, set())
+
+    @loadErrata
     def getVersions(self, bucketId):
         """
         Get a set of group versions that should be built for the given bucketId.
@@ -102,10 +111,23 @@ class ErrataFilter(object):
         @type bucketId: integer (unix time)
         """
 
-        versions = set()
-        for advisory in sellf.getUpdateDetail(bucketId):
-            versions.add(self._errata.getGroupVersion(advisory['name']))
+        versions = dict()
+        for advInfo in self.getUpdateDetail(bucketId):
+            advisory = advInfo['name']
+            versions[advisory] = self._errata.getGroupVersion(advisory)
         return versions
+
+    @loadErrata
+    def getNames(self, bucketId):
+        """
+        Get a map of group names by advisory.
+        """
+
+        names = dict()
+        for advInfo in self.getUpdateDetail(bucketId):
+            advisory = advInfo['name']
+            names[advisory] = self._errata.getGroupName(advisory)
+        return names
 
     def getBucketVersion(self, bucketId):
         """
