@@ -27,6 +27,7 @@ import conary
 from conary import trove
 from conary import state
 from conary import checkin
+from conary.deps import deps
 from conary.build import use
 from conary import conarycfg
 from conary import conaryclient
@@ -102,6 +103,7 @@ class ConaryHelper(object):
         # Cache cloned from information
         # srcNVF: destNVF
         self._clonedFromCache = {}
+        self._labelClonedFromCache = {}
 
     def getConaryConfig(self):
         """
@@ -274,8 +276,14 @@ class ConaryHelper(object):
         cached = set(x for x in troveSpecs if x in cache)
         uncached = sorted(set(troveSpecs).difference(cached))
 
+        req = []
+        for n, v, f in uncached:
+            if n.endswith(':source'):
+                f = deps.parseFlavor('')
+            req.append((n, v, f))
+
         tiMap = {}
-        tiLst = self._repos.getTroveInfo(tiType, uncached)
+        tiLst = self._repos.getTroveInfo(tiType, req)
         for i, nvf in enumerate(uncached):
             ti = tiLst[i]()
             if tiFunc:
@@ -296,8 +304,45 @@ class ConaryHelper(object):
         @type troveSpecs: iterable of (name, verObj, flvObj) tuples.
         """
 
+        def tiFunc(ti, nvf):
+            return (nvf[0], ti, nvf[2])
+
         return self._cacheTroveInfo(troveSpecs, self._clonedFromCache,
-            trove._TROVEINFO_TAG_CLONEDFROM)
+            trove._TROVEINFO_TAG_CLONEDFROM, tiFunc=tiFunc)
+
+    def getClonedFromForLabel(self, label):
+        """
+        Get a mapping of cloned from trove info for all versions on a label.
+        @param label: conary label
+        @type label: conary.versions.Label
+        """
+
+        if hasattr(label, 'label'):
+            label = label.label()
+
+        if label in self._labelClonedFromCache:
+            return self._labelClonedFromCache[label]
+
+        req = {None: {label: None}}
+        binTrvMap = self._repos.getTroveVersionsByLabel(req)
+
+        binTrvs = set()
+        for n, vMap in binTrvMap.iteritems():
+            for v, flvs in vMap.iteritems():
+                if n.endswith(':source'):
+                    binTrvs.add((n, v, None))
+                else:
+                    binTrvs.update(set((n, v, x) for x in flvs))
+
+        cfMap = self.getClonedFrom(binTrvs)
+
+        ret = {}
+        for f, t in cfMap.iteritems():
+            assert len(cfMap[f]) == 1
+            ret[f] = list(t)[0]
+
+        self._labelClonedFromCache[label] = ret
+        return ret
 
     def getSourceVersions(self, binTroveSpecs):
         """
@@ -309,12 +354,13 @@ class ConaryHelper(object):
         """
 
         def tiFunc(ti, nvf):
-            return (ti, nvf[0].getSourceVersion(), None)
+            return (ti, nvf[1].getSourceVersion(), None)
 
         return self._cacheTroveInfo(binTroveSpecs, self._sourceVersionCache,
             trove._TROVEINFO_TAG_SOURCENAME, tiFunc=tiFunc)
 
-    def getBinaryVersions(self, srcTroveSpecs, labels=None, latest=True):
+    def getBinaryVersions(self, srcTroveSpecs, labels=None, latest=True,
+        includeBuildLabel=False, missingOk=False):
         """
         Given a list of source trove specs, find the latest versions of all
         binaries generated from these sources.
@@ -324,12 +370,19 @@ class ConaryHelper(object):
         @type labels: list(conary.versions.Label, ...)
         @param latest: get only the latest binaries.
         @type latest: boolean
+        @param includeBuildLabel: search the build label in addition to
+                                  specified labels.
+        @type includeBuildLabel: boolean
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ... ]}
         """
 
         # default to the build label if not other labels were specified
         if not labels:
             labels = [ self._ccfg.buildLabel, ]
+
+        # Insert build label if it isn't already in the list
+        if includeBuildLabel and self._ccfg.buildLabel not in labels:
+            labels.insert(0, self._ccfg.buildLabel)
 
         # Needs to be a frozenset so that it is hashable.
         labels = frozenset(labels)
@@ -364,7 +417,12 @@ class ConaryHelper(object):
         srcMap = {}
         for srcTrv in srcTroveSpecs:
             if srcTrv not in srcVerMap:
-                log.error('can not find requested source trove in repository')
+                msg = ('can not find binaries for requested source trove in '
+                       'repository %s' % (srcTrv, ))
+                if missingOk:
+                    log.warn(msg)
+                    continue
+                log.error(msg)
                 raise BinariesNotFoundForSourceVersion(srcName=srcTrv[0],
                                                        srcVersion=srcTrv[1])
 
