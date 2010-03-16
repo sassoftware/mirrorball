@@ -452,7 +452,7 @@ class ConaryHelper(object):
         return srcMap
 
     def getSourceVersionMapFromBinaryVersion(self, (n, v, f), labels=None,
-                                             latest=False):
+            latest=False, includeBuildLabel=False):
         """
         Find a mapping of source to binaries, given a single binary name,
         version, and flavor.
@@ -462,13 +462,16 @@ class ConaryHelper(object):
         @type labels: list(conary.versions.Label, ...)
         @param latest: check for only the latest versions or not
         @type latest: boolean
+        @param includeBuildLabel: search the build label in addition to
+                                  specified labels.
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ...]}
         """
 
         trvs = self.findTrove((n, v, f), labels=labels)
         srcVersions = self.getSourceVersions(trvs)
         srcSpecs = srcVersions.keys()
-        srcMap = self.getBinaryVersions(srcSpecs, labels=labels, latest=latest)
+        srcMap = self.getBinaryVersions(srcSpecs, labels=labels, latest=latest,
+            includeBuildLabel=includeBuildLabel)
         return srcMap
 
     @staticmethod
