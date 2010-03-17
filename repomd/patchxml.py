@@ -35,7 +35,8 @@ class _Patch(SlotNode):
     __slots__ = ('name', 'summary', 'description', 'version',
                  'release', 'requires', 'recommends', 'rebootNeeded',
                  'licenseToConfirm', 'packageManager', 'category',
-                 'packages', 'provides', 'supplements', 'conflicts',)
+                 'packages', 'provides', 'supplements', 'conflicts',
+                 'obsoletes')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.

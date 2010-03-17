@@ -62,7 +62,8 @@ class _PatchElement(SlotNode):
     Parser for patch element of patches.xml.
     """
 
-    __slots__ = ('id', 'checksum', 'checksumType', 'location')
+    __slots__ = ('id', 'checksum', 'checksumType', 'location', '_parser',
+        'parseChildren')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
