@@ -72,7 +72,8 @@ class _Update(SlotNode):
     """
 
     __slots__ = ('status', 'emailfrom', 'type', 'id', 'title', 'release',
-        'issued', 'references', 'description', 'pkglist', 'packages')
+        'issued', 'references', 'description', 'pkglist', 'packages',
+        'summary', 'packages')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
