@@ -14,7 +14,7 @@
 #
 
 import os
-from updatebot import bot, config
+from updatebot import bot, config, display
 
 def validatePlatform(platform, configDir):
     validPlatforms = os.listdir(configDir)
@@ -39,7 +39,13 @@ def main(argv, configDir='/etc/mirrorball'):
     cfg = config.UpdateBotConfig()
     cfg.read(os.path.join(configDir, platform, 'updatebotrc'))
     obj = bot.Bot(cfg)
-    return obj.update()
+    trvMap = obj.update()
+
+    if trvMap:
+        print 'Updated the following troves:'
+        print display.displayTroveMap(trvMap)
+
+    return 0
 
 if __name__ == '__main__':
     import sys
