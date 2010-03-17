@@ -14,7 +14,8 @@
 #
 
 import os
-from updatebot import bot, config, display
+from updatebot import bot, config
+from updatebot.cmdline import display
 
 def validatePlatform(platform, configDir):
     validPlatforms = os.listdir(configDir)
