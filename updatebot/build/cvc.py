@@ -21,6 +21,7 @@ import logging
 
 log = logging.getLogger('updatebot.build.cvc')
 
+from conary import versions
 from conary import conarycfg
 from conary import conaryclient
 from conary.build import cook
@@ -105,5 +106,10 @@ class Cvc(object):
         if csFile is None:
             log.info('changeset committed to repository')
 
-        res = { (troveSpecs[0][0], troveSpecs[0][1], None): set(components) }
+        # Convert version strings to version objects to match the output from
+        # rMake builds.
+        results = set((x, versions.VersionFromString(y), z)
+                      for x, y, z in components)
+
+        res = { (troveSpecs[0][0], troveSpecs[0][1], None): results }
         return res
