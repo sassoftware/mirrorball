@@ -136,6 +136,14 @@ class _References(SlotNode):
         SlotNode.addChild(self, child)
 
 
+class _Reference(SlotNode):
+    """
+    Prepesent a single reference.
+    """
+
+    __slots__ = ('href', 'id', 'title', 'type')
+
+
 class _Collection(SlotNode):
     """
     Represents a pkglist collection in updateinfo.xml.
@@ -218,6 +226,7 @@ class UpdateInfoXml(XmlFileParser):
         self._databinder.registerType(_Updates, name='updates')
         self._databinder.registerType(_Update, name='update')
         self._databinder.registerType(_References, name='references')
+        self._databinder.registerType(_Reference, name='reference')
         self._databinder.registerType(_Collection, name='collection')
         self._databinder.registerType(_UpdateInfoPackage, name='package')
 
