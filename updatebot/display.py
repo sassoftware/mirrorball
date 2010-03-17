@@ -33,3 +33,21 @@ def displayTrovesForGroupRecipe(trvMap, indent=12):
         ret.append(' ' * indent + '\'%s\',' % name)
 
     return '\n'.join(ret)
+
+def displayTroveMap(trvMap, indent=4):
+    """
+    Format a mapping of source to binaries.
+    @param trvMap dictionary of troves from a build
+    @type trvMap: {srcTrvs: set((n, v, f), ..)}
+    @return formatted string
+    """
+
+    tab = ' ' * indent
+
+    ret = []
+    for src, bins in sorted(trvMap.iteritems()):
+        ret.append('%s=%s' % (src[0], src[1]))
+        for bin in sorted(bins):
+            ret.append('%s%s=%s[%s]' % (tab, bin[0], bin[1], bin[2]))
+
+    return '\n'.join(ret)
