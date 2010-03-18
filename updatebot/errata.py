@@ -500,6 +500,8 @@ class ErrataFilter(object):
                             log.info('? updateReplacesPackages %s %s' % (
                                      updateId, pkgName))
 
+        # Clear the cache since it would be dirty at this point.
+        updater._conaryhelper.clearCache()
 
         # Fail if there are any errors.
         assert not errors

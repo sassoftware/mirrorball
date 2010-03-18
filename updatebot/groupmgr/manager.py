@@ -180,7 +180,7 @@ class GroupManager(object):
         if self._sourceVersion:
             labels = (self._sourceVersion.trailingLabel(), )
         else:
-            labels = (self._cfg.topSourceGroup[1], )
+            labels = (self._helper.getConaryConfig().buildLabel, )
 
         # Get a mapping of all source version to binary versions for all
         # existing binary versions.
@@ -196,11 +196,14 @@ class GroupManager(object):
         # source version.
         srcVersion = self._helper.findTrove(
             ('%s:source' % self._sourceName, version, None),
-            labels=labels)[0][1]
+            labels=labels)
+
+        if not srcVersion:
+            return False
 
         # Check to see if the latest source version is in the map of
         # binary versions.
-        return srcVersion in srcVersions
+        return srcVersion[0][1] in srcVersions
 
     @commit
     def getBuildJob(self):

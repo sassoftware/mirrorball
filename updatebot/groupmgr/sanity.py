@@ -53,16 +53,19 @@ class GroupSanityChecker(object):
         for name, group in groups.iteritems():
             log.info('checking consistentcy of %s' % name)
             try:
+                log.info('checking name version conflict')
                 self._checkNameVersionConflict(group)
             except NameVersionConflictsFoundError, e:
                 errors.append((group, e))
 
             try:
+                log.info('checking latest versions')
                 self._checkLatestVersion(group)
             except OldVersionsFoundError, e:
                 errors.append((group, e))
 
             try:
+                log.info('checking removals')
                 self._checkRemovals(group, errataState)
             except ExpectedRemovalValidationFailedError, e:
                 errors.append((group, e))
@@ -185,7 +188,6 @@ class GroupSanityChecker(object):
                 srcMap = self._helper.getSourceVersionMapFromBinaryVersion(nvf,
                         labels=self._cfg.platformSearchPath, latest=False)
                 oldVersions |= set(itertools.chain(*srcMap.itervalues()))
-
 
         errors = {}
         for name, found in foundTroves.iteritems():

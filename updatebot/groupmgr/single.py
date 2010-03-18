@@ -72,18 +72,15 @@ class SingleGroupManagerSet(object):
         # Make sure there are groups defined
         assert self._groups
 
-        toBuild = set()
-        builder = None
+        pkgMap = {}
         for group in self._groups.itervalues():
-            # Select the builder from the first instance to build all groups.
-            if not builder:
-                builder = group._builder
+            pkgMap.update(group.build())
 
-            # Get the build job for each group.
-            trvSpecs = group.getBuildJob()
-            assert len(trvSpecs) == 1
-            toBuild.add(trvSpecs[0])
+        return pkgMap
 
-        # Build all groups in separate jobs, waiting until all have completed
-        # to commit.
-        return builder.buildmany(toBuild, lateCommit=True)
+    def hasGroups(self):
+        """
+        Add method for checking if a manager has any groups defined.
+        """
+
+        return bool(self._groups)

@@ -24,7 +24,7 @@ import epdb
 import signal
 import resource
 from conary.lib.util import rmtree
-from conary.lib.util import convertPackageNameToClassName
+from conary.lib.util import convertPackageNameToClassName as _pkgNameToClassName
 
 from rpmutils import rpmvercmp
 
@@ -180,3 +180,7 @@ def setupDebugHandler():
         epdb.serve()
 
     signal.signal(signal.SIGUSR1, handler)
+
+def convertPackageNameToClassName(pkgName):
+    name = _pkgNameToClassName(pkgName)
+    return name.replace('.', '_')

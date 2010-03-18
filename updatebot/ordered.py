@@ -20,6 +20,7 @@ import time
 import pickle
 import logging
 import tempfile
+import itertools
 
 from conary import versions
 from conary.deps import deps
@@ -368,6 +369,22 @@ class Bot(BotSuperClass):
                 raise TargetVersionNotFoundError(version=version,
                                                  updateId=updateId)
 
+            # Lookup any places we need to use old versions ahead of time.
+            multiVersionExceptions = {}
+            if updateId in self._cfg.useOldVersion:
+                log.info('looking up multiple version exception information')
+                oldVersions = self._cfg.useOldVersion[updateId]
+                for oldVersion in oldVersions:
+                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                        oldVersion, labels=self._cfg.platformSearchPath,
+                        latest=False, includeBuildLabel=True)
+
+                    multiVersionExceptions.update(dict([ (x[0], x[1])
+                        for x in itertools.chain(self._updater.getTargetVersions(
+                            itertools.chain(*srcMap.itervalues())
+                        )[0])
+                    ]))
+
             # Now that we know that the packages that are part of this update
             # should be on the target label we can separate things into
             # advisories.
@@ -380,6 +397,13 @@ class Bot(BotSuperClass):
                 srcPkgs = self._errata.getAdvisoryPackages(advisory)
                 assert srcPkgs
 
+                targetGrp = groupmgr.SingleGroupManager(groupNames[advisory],
+                    self._cfg, targetGroup=True)
+
+                if targetGrp.hasBinaryVersion():
+                    log.info('%s: found existing version, skipping' % advisory)
+                    continue
+
                 grp = mgr.newGroup(groupNames[advisory])
                 grp.setVersion(version)
                 grp.setErrataState(updateId)
@@ -390,29 +414,39 @@ class Bot(BotSuperClass):
                     binTrvSpecs = \
                         self._updater.getBinaryVersionsFromSourcePackage(srcPkg)
 
-                    # FIXME: Do something here to figure out what version should
-                    #        have been promoted from binTrvSpecs. Note that all
-                    #        built versions of a package will end up in
-                    #        binTrvSpecs, even if they didn't make it into a
-                    #        group.
-
-                    targetSpecs, failed = self._updater.getTargetVersions(binTrvSpecs)
+                    targetSpecs, failed = self._updater.getTargetVersions(
+                        binTrvSpecs)
                     binTrvs.update(set(targetSpecs))
                     failures.setdefault(advisory, list()).extend(failed)
 
+                # Handle attaching an update that was caused by changes that we
+                # made outside of the normal update stream to an existing
+                # advisory.
+                if advisory in self._cfg.extendAdvisory:
+                    pkgs = self._cfg.extendAdvisory[advisory]
+                    for nvf in pkgs:
+                        srcMap = \
+                            self._updater.getSourceVersionMapFromBinaryVersion(
+                            nvf, labels=self._cfg.platformSearchPath,
+                            latest=False, includeBuildLabel=True)
+                        assert len(srcMap) == 1
+                        targetVersions = self._updater.getTargetVersions(
+                            srcMap.values()[0])[0]
+                        binTrvs.update(set(targetVersions))
+
                 binPkgs = {}
                 for n, v, f in binTrvs:
-                    binPkgs.setdefault(n.split(':')[0], dict()).setdefault(v, set()).add(f)
+                    binPkgs.setdefault(n.split(':')[0],
+                                       dict()).setdefault(v, set()).add(f)
 
                 for n, vMap in binPkgs.iteritems():
-                    assert len(vMap) == 1
+                    # Handle the case where a package has been rebuilt for some
+                    # reason, but we need to use the old version of the package.
+                    if len(vMap) > 1 and n in multiVersionExceptions:
+                        vMap = dict((x, y) for x, y in vMap.iteritems()
+                                    if x == multiVersionExceptions[n])
 
-                    # FIXME: If there are two versions of the package that have
-                    #        been promoted I would expect it to something like
-                    #        the case of setroubleshoot where we had to rebuild
-                    #        due to our deps changing. This should be mentioned
-                    #        in the config and provide an advisory to tie the
-                    #        new version to.
+                    assert len(vMap) == 1
 
                     for v, flvs in vMap.iteritems():
                         log.info('%s: adding package %s=%s' % (advisory, n, v))
@@ -420,17 +454,20 @@ class Bot(BotSuperClass):
                             log.info('%s: %s' % (advisory, f))
                         grp.addPackage(n, v, flvs)
 
-            log.info('%s: would be building groups here' % advisory)
-            #log.info('building groups')
-            #trvMap = mgr.build()
+            # Make sure there are groups to build.
+            if not mgr.hasGroups():
+                log.info('%s: groups already built and promoted' % updateId)
+                continue
 
-            log.info('%s: would be promoting groups here' % advisory)
-            #log.info('promoting groups')
+            log.info('%s: building groups' % updateId)
+            trvMap = mgr.build()
+
+            log.info('%s: promoting groups' % updateId)
             # Setting expected to an empty tuple since we don't expect anything
             # other than groups to be promoted.
-            #expected = tuple()
-            #toPromote = self._flatenSetDict(trvMap)
-            #promoted = self._updater.publish(toPromote, expected,
-            #                                 self._cfg.targetLabel)
+            expected = tuple()
+            toPromote = self._flattenSetDict(trvMap)
+            promoted = self._updater.publish(toPromote, expected,
+                                             self._cfg.targetLabel)
 
         import epdb; epdb.st()

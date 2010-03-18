@@ -336,6 +336,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # move the entire update bucket.
     reorderAdvisory = (CfgList(CfgAdvisoryOrder), [])
 
+    # advisory trovespec
+    extendAdvisory = (CfgDict(CfgList(CfgTroveSpec)), {})
+
     # fromUpdateId toUpdateId sourceNevra
     # Sometimes multiple versions of the same package are released as part of a
     # single advisory. This does not fit the conary model of doing things, so we

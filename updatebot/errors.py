@@ -416,7 +416,7 @@ class UnknownPackageFoundInManagedGroupError(GroupManagerError):
     """
 
     _params = ['what', ]
-    _template = ('The following package is not longer managed as part of the '
+    _template = ('The following package is no longer managed as part of the '
         'version group %(what)s, you may need to remove this package from any '
         'other static group definitions.')
 
