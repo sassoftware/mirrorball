@@ -200,7 +200,7 @@ class Updater(object):
         return self._conaryhelper.getBinaryVersions(req, labels=labels)
 
     def getSourceVersionMapFromBinaryVersion(self, (n, v, f), labels=None,
-                                             latest=False):
+        latest=False, includeBuildLabel=False):
         """
         Find a mapping of source to binaries, given a single binary name,
         version, and flavor.
@@ -214,7 +214,8 @@ class Updater(object):
         """
 
         return self._conaryhelper.getSourceVersionMapFromBinaryVersion(
-            (n, v, f), labels=labels, latest=latest)
+            (n, v, f), labels=labels, latest=latest,
+            includeBuildLabel=includeBuildLabel)
 
     def getBinaryVersionsFromSourcePackage(self, srcPkg):
         """
@@ -226,11 +227,14 @@ class Updater(object):
         @rtype set([(str, conary.versions.Version, conary.deps.deps.Flavor), ])
         """
 
+        labels = self._cfg.platformSearchPath or None
+
         # Find the conary source trove
         srcName = '%s:source' % srcPkg.name
         srcSpec = (srcName, srcPkg.getConaryVersion(), None)
         srcTrvs = [ (x, y, None) for x, y, z in
-            self._conaryhelper.findTrove(srcSpec, getLeaves=False) ]
+            self._conaryhelper.findTrove(srcSpec, getLeaves=False,
+                labels=labels) ]
 
         # Get a mapping of binaries
         srcMap = self._conaryhelper.getBinaryVersions(srcTrvs,
