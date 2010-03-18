@@ -41,6 +41,7 @@ from updatebot import log
 from updatebot import conaryhelper
 from updatebot import OrderedBot
 from updatebot import UpdateBotConfig
+from updatebot.lib.watchdog import forknwait
 
 slog = log.addRootLogger()
 cfg = UpdateBotConfig()
@@ -94,6 +95,8 @@ slog.info('querying target label for all group versions')
 targetGroupvers = helper.findTrove((cfg.topGroup[0], cfg.targetLabel, None), getLeaves=False)
 targetLatest = getUpstreamVersionMap(targetGroupvers)
 
+searchPath = [ x for x in itertools.chain((helper._ccfg.buildLabel, ), cfg.platformSearchPath) ]
+
 # Get all updates after the first bucket.
 missing = False
 for updateId, bucket in bot._errata.iterByIssueDate(current=1):
@@ -132,12 +135,13 @@ for updateId, bucket in bot._errata.iterByIssueDate(current=1):
     # Find expected promote packages.
     csrcTrvs = [ ('%s:source' % x.name, x.getConaryVersion(), None)
                  for x in bucket ]
-    srcTrvs = helper.findTroves(csrcTrvs)
+    srcTrvs = helper.findTroves(csrcTrvs, labels=searchPath)
 
     # Map source versions to binary versions.
     slog.info('retrieving binary trove map')
     srcTrvMap = helper.getBinaryVersions([ (x, y, None) for x, y, z in
-                                       itertools.chain(*srcTrvs.itervalues()) ])
+                                       itertools.chain(*srcTrvs.itervalues()) ],
+                                       labels=searchPath)
 
     # These are the binary trove specs that we expect to be promoted.
     expected = [ x for x in itertools.chain(*srcTrvMap.itervalues()) ]
@@ -145,12 +149,19 @@ for updateId, bucket in bot._errata.iterByIssueDate(current=1):
     # Get list of extra troves from the config
     extra = cfg.extraExpectedPromoteTroves.get(updateId, [])
 
-    # Create and validate promote changeset
-    packageList = helper.promote(toPromote, expected, cfg.sourceLabel,
-                                 cfg.targetLabel, commit=True,
-                                 extraExpectedPromoteTroves=extra)
+    @forknwait
+    def promote():
+        # Create and validate promote changeset
+        packageList = helper.promote(toPromote, expected, cfg.sourceLabel,
+                                     cfg.targetLabel, commit=True,
+                                     extraExpectedPromoteTroves=extra)
+        return 1
+
+    rc = promote()
 
     # Update latest map for the next loop
     latestMap = updateLatestMap()
+
+    versions.clearVersionCache()
 
 import epdb; epdb.st()
