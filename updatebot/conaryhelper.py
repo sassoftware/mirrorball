@@ -50,35 +50,76 @@ from updatebot.lib.conarycallbacks import UpdateBotCloneCallback
 
 log = logging.getLogger('updatebot.conaryhelper')
 
+class ConaryHelperSharedCache(object):
+    def __init__(self):
+        self.clear()
+
+    def clear(self):
+        # caches source names and versions for binaries past into
+        # getSourceVersions.
+        # binTroveSpec: sourceTroveSpec
+        self.sourceVersionCache = {}
+
+        # Keep a cache of all binary versions that have been looked up in
+        # getBinaryVersions to avoid lots of expensive getTroveVersionsByLabel
+        # calls.
+        # frzenset(labels): binTroveNVFSet
+        self.binaryVersionCache = {}
+
+        # Cache cloned from information
+        # srcNVF: destNVF
+        self.clonedFromCache = {}
+        self.labelClonedFromCache = {}
+
+        self.conaryConfigCache = {}
+        self.sharedTmpDir = None
+
+
 class ConaryHelper(object):
     """
     Wrapper object for conary api.
     """
 
+    _cache = ConaryHelperSharedCache()
+
     def __init__(self, cfg):
         self._groupFlavorCount = len(cfg.groupFlavors)
 
-        self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
-        self._ccfg.read(util.join(cfg.configPath, 'conaryrc'))
-        self._ccfg.dbPath = ':memory:'
-        # Have to initialize flavors to commit to the repository.
-        self._ccfg.initializeFlavors()
+        if not self._cache.sharedTmpDir:
+            self._cache.sharedTmpDir = tempfile.mkdtemp(
+                prefix='conaryhelper-tmpdir-')
 
-        # FIXME: CNY-3256 - use unique tmp directory for lookaside until
-        #                   this issue is fixed.
-        self._ccfg.lookaside = tempfile.mkdtemp(
-            prefix='%s-lookaside-' % cfg.platformName)
-        log.info('using lookaside %s' % self._ccfg.lookaside)
+        conaryCfgFile = util.join(cfg.configPath, 'conaryrc')
+        if conaryCfgFile in self._cache.conaryConfigCache:
+            self._ccfg = self._cache.conaryConfigCache[conaryCfgFile]
+        else:
+            self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
+            self._ccfg.read(conaryCfgFile)
+            self._ccfg.dbPath = ':memory:'
+            # Have to initialize flavors to commit to the repository.
+            self._ccfg.initializeFlavors()
 
-        mirrorDir = util.join(cfg.configPath, 'mirrors')
-        if os.path.exists(mirrorDir):
-            self._ccfg.mirrorDirs.insert(0, mirrorDir)
+            # FIXME: CNY-3256 - use unique tmp directory for lookaside until
+            #                   this issue is fixed.
+            self._ccfg.lookaside = tempfile.mkdtemp(
+                dir=self._cache.sharedTmpDir,
+                prefix='%s-lookaside-' % cfg.platformName)
+            log.info('using lookaside %s' % self._ccfg.lookaside)
+
+            mirrorDir = util.join(cfg.configPath, 'mirrors')
+            if os.path.exists(mirrorDir):
+                self._ccfg.mirrorDirs.insert(0, mirrorDir)
+
+            self._cache.conaryConfigCache[conaryCfgFile] = self._ccfg
 
         self._mcfg = None
         mcfgfn = util.join(cfg.configPath, 'mirror.conf')
-        if os.path.exists(mcfgfn):
+        if mcfgfn in self._cache.conaryConfigCache:
+            self._mcfg = self._cache.conaryConfigCache[mcfgfn]
+        elif os.path.exists(mcfgfn):
             self._mcfg = mirror.MirrorFileConfiguration()
             self._mcfg.read(mcfgfn)
+            self._cache.conaryConfigCache[mcfgfn] = self._mcfg
 
         self._client = conaryclient.ConaryClient(self._ccfg)
         self._repos = self._client.getRepos()
@@ -87,23 +128,15 @@ class ConaryHelper(object):
 
         self._checkoutCache = {}
         self._cacheDir = tempfile.mkdtemp(
+            dir=self._cache.sharedTmpDir,
             prefix='conaryhelper-%s-' % cfg.platformName)
 
-        # caches source names and versions for binaries past into
-        # getSourceVersions.
-        # binTroveSpec: sourceTroveSpec
-        self._sourceVersionCache = {}
+    def clearCache(self):
+        """
+        Clear the trove query cache.
+        """
 
-        # Keep a cache of all binary versions that have been looked up in
-        # getBinaryVersions to avoid lots of expensive getTroveVersionsByLabel
-        # calls.
-        # frzenset(labels): binTroveNVFSet
-        self._binaryVersionCache = {}
-
-        # Cache cloned from information
-        # srcNVF: destNVF
-        self._clonedFromCache = {}
-        self._labelClonedFromCache = {}
+        self._cache.clear()
 
     def getConaryConfig(self):
         """
@@ -307,7 +340,7 @@ class ConaryHelper(object):
         def tiFunc(ti, nvf):
             return (nvf[0], ti, nvf[2])
 
-        return self._cacheTroveInfo(troveSpecs, self._clonedFromCache,
+        return self._cacheTroveInfo(troveSpecs, self._cache.clonedFromCache,
             trove._TROVEINFO_TAG_CLONEDFROM, tiFunc=tiFunc)
 
     def getClonedFromForLabel(self, label):
@@ -320,8 +353,8 @@ class ConaryHelper(object):
         if hasattr(label, 'label'):
             label = label.label()
 
-        if label in self._labelClonedFromCache:
-            return self._labelClonedFromCache[label]
+        if label in self._cache.labelClonedFromCache:
+            return self._cache.labelClonedFromCache[label]
 
         req = {None: {label: None}}
         binTrvMap = self._repos.getTroveVersionsByLabel(req)
@@ -341,7 +374,7 @@ class ConaryHelper(object):
             assert len(cfMap[f]) == 1
             ret[f] = list(t)[0]
 
-        self._labelClonedFromCache[label] = ret
+        self._cache.labelClonedFromCache[label] = ret
         return ret
 
     def getSourceVersions(self, binTroveSpecs):
@@ -356,7 +389,7 @@ class ConaryHelper(object):
         def tiFunc(ti, nvf):
             return (ti, nvf[1].getSourceVersion(), None)
 
-        return self._cacheTroveInfo(binTroveSpecs, self._sourceVersionCache,
+        return self._cacheTroveInfo(binTroveSpecs, self._cache.sourceVersionCache,
             trove._TROVEINFO_TAG_SOURCENAME, tiFunc=tiFunc)
 
     def getBinaryVersions(self, srcTroveSpecs, labels=None, latest=True,
@@ -391,8 +424,8 @@ class ConaryHelper(object):
         #        need to be refreshed and/or expired.
 
         # Check the cache before going on.
-        if labels in self._binaryVersionCache:
-            binTrvSpecs = self._binaryVersionCache[labels]
+        if labels in self._cache.binaryVersionCache:
+            binTrvSpecs = self._cache.binaryVersionCache[labels]
         else:
             # get all binary trove specs for the specified labels
             req = {None: dict([ (x, None) for x in labels ])}
@@ -409,7 +442,7 @@ class ConaryHelper(object):
                         binTrvSpecs.add((n, v, f))
 
             # Populate cache.
-            self._binaryVersionCache[labels] = binTrvSpecs
+            self._cache.binaryVersionCache[labels] = binTrvSpecs
 
         # get a map of source trove specs to binary trove specs
         srcVerMap = self.getSourceVersions(binTrvSpecs)
