@@ -497,7 +497,7 @@ class Bot(BotSuperClass):
                 prev = None
                 for n, v, f in self._filterBinPkgSet(binTrvs, multiVersionExceptions):
                     if prev != (n, v):
-                        log.info('%s: adding package %s=%s' % (advisory, n, v)
+                        log.info('%s: adding package %s=%s' % (advisory, n, v))
                         prev = (n, v)
                     log.info('%s: %s' % (advisory, f))
                     grp.addPackages(n, v, f)
