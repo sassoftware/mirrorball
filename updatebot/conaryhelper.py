@@ -406,6 +406,9 @@ class ConaryHelper(object):
         @param includeBuildLabel: search the build label in addition to
                                   specified labels.
         @type includeBuildLabel: boolean
+        @param missingOk: If False, raise an error when binaries can not be
+                          found for a given source trove.
+        @type missingOk: boolean
         @return {srcTrvSpec: [binTrvSpec, binTrvSpec, ... ]}
         """
 
