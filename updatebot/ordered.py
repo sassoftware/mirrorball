@@ -348,11 +348,11 @@ class Bot(BotSuperClass):
         self._pkgSource.load()
 
         log.info('querying repository for all group versions')
-        sourceLatest = self._updater.getUpstreamVersionMap(cfg.topGroup)
+        sourceLatest = self._updater.getUpstreamVersionMap(self._cfg.topGroup)
 
         log.info('querying target label for all group versions')
         targetLatest = self._updater.getUpstreamVersionMap(
-            (cfg.topGroup[0], cfg.targetLabel, None))
+            (self._cfg.topGroup[0], self._cfg.targetLabel, None))
 
         # Get all updates after the first bucket.
         missing = False
@@ -381,13 +381,15 @@ class Bot(BotSuperClass):
             toPromote = sourceLatest[upver]
 
             # Make sure we have the expected number of flavors
-            if len(set(x[2] for x in toPromote)) != len(cfg.groupFlavors):
+            if len(set(x[2] for x in toPromote)) != len(self._cfg.groupFlavors):
                 slog.error('did not find expected number of flavors')
-                raise PromoteFlavorMismatchError(cfgFlavors=cfg.groupFlavors,
-                    troves=topPromote, version=topPromote[0][1])
+                raise PromoteFlavorMismatchError(
+                    cfgFlavors=self._cfg.groupFlavors, troves=topPromote,
+                    version=topPromote[0][1])
 
             # Find excepted promote packages.
-            srcPkgMap = self._updater.getBinaryVersionsFromSourcePackages(bucket)
+            srcPkgMap = self._updater.getBinaryVersionsFromSourcePackages(
+                bucket)
             exceptions = self._getOldVersionExceptions(updateId)
 
             # These are the binary trove specs that we expect to be promoted.
@@ -395,12 +397,12 @@ class Bot(BotSuperClass):
                 itertools.chain(*srcPkgMap.itervalues()), exceptions)
 
             # Get list of extra troves from the config
-            extra = cfg.extraExpectedPromoteTroves.get(updateId, [])
+            extra = self._cfg.extraExpectedPromoteTroves.get(updateId, [])
 
             def promote():
                 # Create and validate promote changeset
                 packageList = self._updater.publish(toPromote, expected,
-                    cfg.targetLabel, extraExpectedPromoteTroves=extra)
+                    self._cfg.targetLabel, extraExpectedPromoteTroves=extra)
                 return 0
 
             rc = watchdog.waitOnce(promote)
@@ -495,7 +497,8 @@ class Bot(BotSuperClass):
                     binTrvs.update(set(targetVersions))
 
                 prev = None
-                for n, v, f in self._filterBinPkgSet(binTrvs, multiVersionExceptions):
+                for n, v, f in self._filterBinPkgSet(binTrvs,
+                                                     multiVersionExceptions):
                     if prev != (n, v):
                         log.info('%s: adding package %s=%s' % (advisory, n, v))
                         prev = (n, v)
