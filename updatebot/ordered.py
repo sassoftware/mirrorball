@@ -27,11 +27,14 @@ from conary.deps import deps
 
 from updatebot import errata
 from updatebot import groupmgr
+from updatebot.lib import watchdog
 from updatebot.bot import Bot as BotSuperClass
 
 from updatebot.errors import UnknownRemoveSourceError
 from updatebot.errors import PlatformNotImportedError
 from updatebot.errors import TargetVersionNotFoundError
+from updatebot.errors import PromoteMissingVersionError
+from updatebot.errors import PromoteFlavorMismatchError
 from updatebot.errors import PlatformAlreadyImportedError
 
 log = logging.getLogger('updatebot.ordered')
@@ -331,7 +334,72 @@ class Bot(BotSuperClass):
         return updateSet
 
     def promote(self):
-        pass
+        """
+        Promote binary groups from the devel label to the production lable in
+        the order that they were built.
+        """
+
+        # laod package source
+        self._pkgSource.load()
+
+        log.info('querying repository for all group versions')
+        sourceLatest = self._updater.getUpstreamVersionMap(cfg.topGroup)
+
+        log.info('querying target label for all group versions')
+        targetLatest = self._updater.getUpstreamVersionMap(
+            (cfg.topGroup[0], cfg.targetLabel, None))
+
+        # Get all updates after the first bucket.
+        missing = False
+        for updateId, bucket in self._errata.iterByIssueDate(current=1):
+            upver = self._errata.getBucketVersion(updateId)
+
+            # Don't try to promote buckets that have already been promoted.
+            if upver in targetLatest:
+                log.info('%s found on target label, skipping' % upver)
+                continue
+
+            # Make sure version has been imported.
+            if upver not in sourceLatest:
+                missing = upver
+                continue
+
+            # If we find a missing version and then find a version in the
+            # repository report an error.
+            if missing:
+                log.critical('found missing version %s' % missing)
+                raise PromoteMissingVersionError(missing=missing, next=upver)
+
+            log.info('starting promote of %s' % upver)
+
+            # Get conary versions to promote
+            toPromote = sourceLatest[upver]
+
+            # Make sure we have the expected number of flavors
+            if len(set(x[2] for x in toPromote)) != len(cfg.groupFlavors):
+                slog.error('did not find expected number of flavors')
+                raise PromoteFlavorMismatchError(cfgFlavors=cfg.groupFlavors,
+                    troves=topPromote, version=topPromote[0][1])
+
+            # Find excepted promote packages.
+            srcPkgMap = self._updater.getBinaryVersionsFromSourcePackages(bucket)
+            exceptions = self._getOldVersionExceptions(updateId)
+
+            # These are the binary trove specs that we expect to be promoted.
+            expected = self._filterBinPkgSet(
+                itertools.chain(*srcPkgMap.itervalues()), exceptions)
+
+            # Get list of extra troves from the config
+            extra = cfg.extraExpectedPromoteTroves.get(updateId, [])
+
+            def promote():
+                # Create and validate promote changeset
+                packageList = self._updater.publish(toPromote, expected,
+                    cfg.targetLabel, extraExpectedPromoteTroves=extra)
+                return 0
+
+            rc = watchdog.waitOnce(promote)
+
 
     def createErrataGroups(self):
         """
@@ -353,7 +421,6 @@ class Bot(BotSuperClass):
         targetGroup = groupmgr.GroupManager(self._cfg, targetGroup=True)
         targetErrataState = targetGroup.getErrataState()
 
-        failures = {}
         for updateId, updates in self._errata.iterByIssueDate(current=0):
             # Stop if the updateId is greater than the state of the latest group
             # on the production label.
@@ -370,20 +437,13 @@ class Bot(BotSuperClass):
                                                  updateId=updateId)
 
             # Lookup any places we need to use old versions ahead of time.
-            multiVersionExceptions = {}
-            if updateId in self._cfg.useOldVersion:
-                log.info('looking up multiple version exception information')
-                oldVersions = self._cfg.useOldVersion[updateId]
-                for oldVersion in oldVersions:
-                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
-                        oldVersion, labels=self._cfg.platformSearchPath,
-                        latest=False, includeBuildLabel=True)
-
-                    multiVersionExceptions.update(dict([ (x[0], x[1])
-                        for x in itertools.chain(self._updater.getTargetVersions(
-                            itertools.chain(*srcMap.itervalues())
-                        )[0])
-                    ]))
+            multiVersionExceptions = dict([
+                (x[0], x[1]) for x in itertools.chain(
+                    self._updater.getTargetVersions(itertools.chain(
+                *self._getOldVersionExceptions(updateId).itervalues()
+                    ))[0]
+                )
+            ])
 
             # Now that we know that the packages that are part of this update
             # should be on the target label we can separate things into
@@ -409,50 +469,34 @@ class Bot(BotSuperClass):
                 grp.setErrataState(updateId)
 
                 log.info('%s: finding built packages' % advisory)
-                binTrvs = set()
-                for srcPkg in srcPkgs:
-                    binTrvSpecs = \
-                        self._updater.getBinaryVersionsFromSourcePackage(srcPkg)
+                binTrvMap = \
+                    self._updater.getBinaryVersionsFromSourcePackages(srcPkgs)
 
+                binTrvs = set()
+                for srcPkg, binTrvSpecs in binTrvMap.iteritems():
                     targetSpecs, failed = self._updater.getTargetVersions(
                         binTrvSpecs)
                     binTrvs.update(set(targetSpecs))
-                    failures.setdefault(advisory, list()).extend(failed)
 
                 # Handle attaching an update that was caused by changes that we
                 # made outside of the normal update stream to an existing
                 # advisory.
-                if advisory in self._cfg.extendAdvisory:
-                    pkgs = self._cfg.extendAdvisory[advisory]
-                    for nvf in pkgs:
-                        srcMap = \
-                            self._updater.getSourceVersionMapFromBinaryVersion(
-                            nvf, labels=self._cfg.platformSearchPath,
-                            latest=False, includeBuildLabel=True)
-                        assert len(srcMap) == 1
-                        targetVersions = self._updater.getTargetVersions(
-                            srcMap.values()[0])[0]
-                        binTrvs.update(set(targetVersions))
+                for nvf in self._cfg.extendAdvisory.get(advisory, ()):
+                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                        nvf, labels=self._cfg.platformSearchPath,
+                        latest=False, includeBuildLabel=True)
+                    assert len(srcMap) == 1
+                    targetVersions = self._updater.getTargetVersions(
+                        srcMap.values()[0])[0]
+                    binTrvs.update(set(targetVersions))
 
-                binPkgs = {}
-                for n, v, f in binTrvs:
-                    binPkgs.setdefault(n.split(':')[0],
-                                       dict()).setdefault(v, set()).add(f)
-
-                for n, vMap in binPkgs.iteritems():
-                    # Handle the case where a package has been rebuilt for some
-                    # reason, but we need to use the old version of the package.
-                    if len(vMap) > 1 and n in multiVersionExceptions:
-                        vMap = dict((x, y) for x, y in vMap.iteritems()
-                                    if x == multiVersionExceptions[n])
-
-                    assert len(vMap) == 1
-
-                    for v, flvs in vMap.iteritems():
-                        log.info('%s: adding package %s=%s' % (advisory, n, v))
-                        for f in flvs:
-                            log.info('%s: %s' % (advisory, f))
-                        grp.addPackage(n, v, flvs)
+                prev = None
+                for n, v, f in self._filterBinPkgSet(binTrvs, multiVersionExceptions):
+                    if prev != (n, v):
+                        log.info('%s: adding package %s=%s' % (advisory, n, v)
+                        prev = (n, v)
+                    log.info('%s: %s' % (advisory, f))
+                    grp.addPackages(n, v, f)
 
             # Make sure there are groups to build.
             if not mgr.hasGroups():
@@ -470,4 +514,35 @@ class Bot(BotSuperClass):
             promoted = self._updater.publish(toPromote, expected,
                                              self._cfg.targetLabel)
 
-        import epdb; epdb.st()
+    def _getOldVersionExceptions(self, updateId):
+        versionExceptions = {}
+        if updateId in self._cfg.useOldVersion:
+            log.info('looking up old version exception information')
+            for oldVersion in self._cfg.useOldVersion[updateId]:
+                srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                    oldVersion, labels=self._cfg.platformSearchPath,
+                    latest=False, includeBuildLabel=True)
+                versionExceptions.update(srcMap)
+
+        return versionExceptions
+
+    def _filterBinPkgSet(self, binSet, exceptions):
+        binPkgs = {}
+        for n, v, f in binSet:
+            binPkgs.setdefault(n, dict()).setdefault(v, set()).add(f)
+
+        uniqueSet = set()
+        for n, vMap in binPkgs.iteritems():
+            # Handle the case where a package has been rebuilt for some
+            # reason, but we need to use the old version of the package.
+            pkgName = n.split(':')[0]
+            if len(vMap) > 1 and pkgName in exceptions:
+                vMap = dict((x, y) for x, y in vMap.iteritems()
+                            if x == exceptions[pkgName])
+
+            assert len(vMap) == 1
+
+            for v, flvs in vMap.iteritems():
+                uniqueSet.update(set((n, v, f) for f in flvs))
+
+        return uniqueSet
