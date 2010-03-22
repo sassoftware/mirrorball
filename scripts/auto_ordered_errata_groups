@@ -13,6 +13,8 @@
 # full details.
 #
 
+import os
+
 import rhnmirror
 
 from updatebot import OrderedBot
