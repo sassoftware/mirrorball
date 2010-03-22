@@ -13,17 +13,21 @@
 # full details.
 #
 
-from updatebot import Bot
+import rhnmirror
+
+from updatebot import OrderedBot
 from updatebot.cmdline import display
 from updatebot.cmdline.simple import main
 
-def update(cfg):
-    bot = Bot(cfg)
-    trvMap = bot.update()
+def promote(cfg):
+    mcfg = rhnmirror.MirrorConfig()
+    mcfg.read(os.path.join(cfg.configPath, 'erratarc'))
 
-    if trvMap:
-        print 'Updated the following troves:'
-        print display.displayTroveMap(trvMap)
+    errata = rhnmirror.Errata(mcfg)
+    errata.fetch()
+
+    bot = OrderedBot(cfg, errata)
+    bot.promote()
 
     return 0
 
@@ -32,5 +36,4 @@ if __name__ == '__main__':
     from conary.lib import util
     sys.excepthook = util.genExcepthook(debug=False)
 
-    # Do update
-    sys.exit(main(sys.argv, update))
+    sys.exit(main(sys.argv, promote))
