@@ -227,25 +227,50 @@ class Updater(object):
         @rtype set([(str, conary.versions.Version, conary.deps.deps.Flavor), ])
         """
 
-        labels = self._cfg.platformSearchPath or None
+        binMap = self.getBinaryVersionsFromSourcePackages((srcPkg, ))
+        assert srcPkg in binMap
+        assert binMap[srcPkg]
+        return binMap[srcPkg]
 
-        # Find the conary source trove
-        srcName = '%s:source' % srcPkg.name
-        srcSpec = (srcName, srcPkg.getConaryVersion(), None)
-        srcTrvs = [ (x, y, None) for x, y, z in
-            self._conaryhelper.findTrove(srcSpec, getLeaves=False,
-                labels=labels) ]
+    def getBinaryVersionsFromSourcePackages(self, srcPkgs):
+        """
+        Get a list of all packages in the conary repository that were built from
+        the given source package.
+        @param srcPkgs: itertable of source package objects
+        @type srcPkgs: list(repomd.packagexml._Package, ...)
+        @return dict of set of binary trove specs
+        @rtype dict((repomd.packagexml._Package,
+               set([(str, conary.versions.Version, conary.deps.deps.Flavor), ]))
+        """
+
+        labels = copy.copy(self._cfg.platformSearchPath) or list()
+        labels.insert(0, self._conaryhelper.getConaryConfig().buildLabel)
+
+        # Find the conary source troves
+        sources = dict([ (('%s:source' % x.name, x.getConaryVersion(), None), x)
+                        for x in srcPkgs ])
+        srcTrvMap = self._conaryhelper.findTroves(sources.keys(), labels=labels,
+            getLeaves=False)
+
+        srcTrvs = {}
+        for src, cSrcs in srcTrvMap.iteritems():
+            srcPkg = sources[src]
+            for n, v, f in cSrcs:
+                srcTrvs[(n, v, None)] = srcPkg
 
         # Get a mapping of binaries
-        srcMap = self._conaryhelper.getBinaryVersions(srcTrvs,
-            labels=self._cfg.platformSearchPath,
-            includeBuildLabel=True,
-            latest=False, missingOk=True)
+        srcMap = self._conaryhelper.getBinaryVersions(srcTrvs.keys(),
+            labels=labels, latest=False, missingOk=True)
 
         # Return binary versions
         bins = [ x for x in itertools.chain(*srcMap.itervalues()) ]
-        assert bins
-        return bins
+
+        binMap = {}
+        for srcTrv, binaries in srcMap.iteritems():
+            assert binaries
+            binMap.setdefault(srcTrvs[srcTrv], set()).update(set(binaries))
+
+        return binMap
 
     def getTargetVersions(self, binTrvSpecs):
         """
@@ -815,7 +840,8 @@ class Updater(object):
 
         return self._conaryhelper.getBuildRequires(pkgName)
 
-    def publish(self, trvLst, expected, targetLabel, checkPackageList=True):
+    def publish(self, trvLst, expected, targetLabel, checkPackageList=True,
+        extraExpectedPromoteTroves=None):
         """
         Publish a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -826,6 +852,12 @@ class Updater(object):
         @type targetLabel: conary Label object
         @param checkPackageList: verify list of packages being promoted or not.
         @type checkPackageList: boolean
+        @param extraExpectedPromoteTroves: list of trove nvfs that are expected
+                                           to be promoted, but are only filtered
+                                           by name, rather than version and
+                                           flavor.
+        @type extraExpectedPromoteTroves: list of name, version, flavor tuples
+                                          where version and flavor may be None.
         """
 
         return self._conaryhelper.promote(
@@ -834,7 +866,8 @@ class Updater(object):
             self._cfg.sourceLabel,
             targetLabel,
             checkPackageList=checkPackageList,
-            extraPromoteTroves=self._cfg.extraPromoteTroves
+            extraPromoteTroves=self._cfg.extraPromoteTroves,
+            extraExpectedPromoteTroves=extraExpectedPromoteTroves,
         )
 
     def mirror(self, fullTroveSync=False):
@@ -878,3 +911,70 @@ class Updater(object):
         """
 
         return self._conaryhelper.isOnBuildLabel(version)
+
+    def getUpstreamVersionMap(self, trvSpec, latest=True):
+        """
+        Get a mapping of all binary versions in the repository that match
+        the specified trove spec, keyed by upstream version.
+        @param trvSpec: trove tuple of name, version, and flavor
+        @type trvSpec: tuple(str, str, str)
+        @param latest: return only the latest versions of each upstream version.
+        @type latest: boolean
+        @return map of upstream version to nvfs
+        @rtype dict(revision=[(str, conary.versions.Version,
+                                    conary.deps.deps.Flavor), ...])
+        """
+
+        # get the mapping of source spec to binary spec.
+        srcMap = self.getSourceVersionMapFromTroveSpec(trvSpec)
+
+        # If not requesting latest versions, go ahead and return mapping of
+        # upstream versions to binary versions.
+        if not latest:
+            return dict([ (x[1].trailingRevision().getVersion(), y)
+                          for x, y in srcMap.iteritems() ])
+
+        # Build a mapping for version filtering.
+        upverMap = {}
+        for src, bins in srcMap.iteritems():
+            upver = src[1].trailingRevision().getVersion()
+            vMap = upverMap.setdefault(upver, dict())
+            for n, v, f in bins:
+                vMap.setdefault(v, set()).add((n, v, f))
+
+        # Filter out the latest versions.
+        latestMap = {}
+        for upver, vMap in upverMap.iteritems():
+            recent = None
+            for v, nvfs in vMap.iteritems():
+                if recent is None:
+                    recent = v
+                    continue
+                if recent < v:
+                    recent = v
+
+            # Store the latest versions that we need to promote
+            assert upver not in latestMap
+            latestMap[upver] = vMap[recent]
+
+        return latestMap
+
+    def getSourceVersionMapFromTroveSpec(self, trvSpec):
+        """
+        Get a mapping of source to binary versions for all troves matching the
+        specified trove spec.
+        @param trvSpec: trove tuple of name, version, and flavor
+        @type trvSpec: tuple(str, str, str)
+        @return map of source trove to binary troves
+        @rtype dict((str, conary.versions.Version, None)=[(str,
+            conary.versions.Version, conary.deps.deps.Flavor), ...])
+        """
+
+        if not trvSpec[0].endswith(':source'):
+            srcSpec = ('%s:source' % trvSpec[0], trvSpec[1], None)
+        else:
+            srcSpec = (trvSpec[0], trvSpec[1], None)
+
+        srcTrvs = self._conaryhelper.findTrove(srcSpec, getLeaves=False)
+        srcMap = self._conaryhelper.getBinaryVersions(srcTrvs, missingOk=True)
+        return srcMap
