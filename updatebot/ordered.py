@@ -339,6 +339,11 @@ class Bot(BotSuperClass):
         the order that they were built.
         """
 
+        # Get current timestamp
+        current = self._groupmgr.getErrataState()
+        if current is None:
+            raise PlatformNotImportedError
+
         # laod package source
         self._pkgSource.load()
 
@@ -399,7 +404,6 @@ class Bot(BotSuperClass):
                 return 0
 
             rc = watchdog.waitOnce(promote)
-
 
     def createErrataGroups(self):
         """
