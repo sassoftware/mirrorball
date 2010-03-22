@@ -26,19 +26,24 @@ def validatePlatform(platform, configDir):
     return True
 
 def usage(argv):
-    print 'usage: %s <platform name>' % argv[0]
+    print 'usage: %s <platform name> [logfile]' % argv[0]
     return 1
 
 def main(argv, workerFunc, configDir='/etc/mirrorball', enableLogging=True):
-    if enableLogging:
-        log.addRootLogger()
-
-    if len(argv) != 2:
+    if len(argv) < 2 or len(argv) > 3:
         return usage(argv)
+
+    logFile = None
+    if len(argv) == 3:
+        logFile = argv[2]
+
+    if enableLogging:
+        log.addRootLogger(logFile=logFile)
 
     platform = argv[1]
     if not validatePlatform(platform, configDir):
         return 1
+
 
     cfg = config.UpdateBotConfig()
     cfg.read(os.path.join(configDir, platform, 'updatebotrc'))
