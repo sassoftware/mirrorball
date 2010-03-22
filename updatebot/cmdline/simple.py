@@ -31,7 +31,7 @@ def usage(argv):
 
 def main(argv, workerFunc, configDir='/etc/mirrorball', enableLogging=True):
     if enableLogging:
-        log.setRootLogger()
+        log.addRootLogger()
 
     if len(argv) != 2:
         return usage(argv)
