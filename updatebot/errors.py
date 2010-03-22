@@ -224,6 +224,26 @@ class PromoteMismatchError(PromoteFailedError):
     _template = ('Expected to promote %(expected)s, actually tried to promote'
                  ' %(actual)s.')
 
+class PromoteMissingVersionError(PromoteFailedError):
+    """
+    PromoteMissingVersionError, raised when ordered promote finds a group that
+    should have already been promoted to the target label.
+    """
+
+    _params = ['missing', 'next']
+    _template = ('Expected to find group verison %(missing)s before %(next)s '
+        'on the target label.')
+
+class PromoteFlavorMismatchError(PromoteFailedError):
+    """
+    PromoteFlavorMismatchError, raised when the number of flavors found to
+    promote does not match the number of flavors that should have been built.
+    """
+
+    _params = ['cfgFlavors', 'troves', 'version']
+    _template = ('The number of configured group flavors did not match the '
+        'number of flavors found in the repository for %(version)s')
+
 class MirrorFailedError(UnhandledUpdateError):
     """
     MirrorFailedError, raised when the mirror process fails.
