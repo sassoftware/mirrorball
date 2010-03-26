@@ -584,26 +584,29 @@ class Updater(object):
                   for x in pkgs if not self._fltrPkg(x) ]
             )
 
-        # Find all of the binaries that match the upstream platform sources.
-        log.info('looking up binary versions of all parent platform packages')
-        parentPkgMap = self.getBinaryVersions(parentPackages,
-            labels=self._cfg.platformSearchPath)
+        # Handle parent packages if we are a child platform.
+        pkgMap = {}
+        if parentPackages:
+            # Find all of the binaries that match the upstream platform sources.
+            log.info('looking up binary versions of all parent platform packages')
+            parentPkgMap = self.getBinaryVersions(parentPackages,
+                labels=self._cfg.platformSearchPath)
 
-        # Find all of the binaries that match the pre-built sources.
-        log.info('looking up binary version information for all prebuilt '
-                 'packages')
-        preBuiltPackageMap = self.getBinaryVersions(preBuiltPackages)
+            # Find all of the binaries that match the pre-built sources.
+            log.info('looking up binary version information for all prebuilt '
+                     'packages')
+            preBuiltPackageMap = self.getBinaryVersions(preBuiltPackages)
 
-        # Combine the two package maps by name where pre built packages
-        # override parent packages.
-        parentNames = dict([ (x[0], x) for x in parentPkgMap ])
-        preBuiltNames = dict([ (x[0], x) for x in preBuiltPackageMap ])
+            # Combine the two package maps by name where pre built packages
+            # override parent packages.
+            parentNames = dict([ (x[0], x) for x in parentPkgMap ])
+            preBuiltNames = dict([ (x[0], x) for x in preBuiltPackageMap ])
 
-        parentNames.update(preBuiltNames)
-        parentPkgMap.update(preBuiltPackageMap)
+            parentNames.update(preBuiltNames)
+            parentPkgMap.update(preBuiltPackageMap)
 
-        pkgMap = dict([ (parentNames[x], parentPkgMap[parentNames[x]])
-                        for x in parentNames ])
+            pkgMap = dict([ (parentNames[x], parentPkgMap[parentNames[x]])
+                            for x in parentNames ])
 
         return toBuild, pkgMap, fail
 
