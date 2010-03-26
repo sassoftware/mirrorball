@@ -258,3 +258,10 @@ class Bot(object):
         trvMap.update(parentPkgMap)
 
         return trvMap
+
+    def mirror(self, fullTroveSync=False):
+        """
+        Mirror platform contents to production repository.
+        """
+
+        return self._updater.mirror(fullTroveSync=fullTroveSync)
