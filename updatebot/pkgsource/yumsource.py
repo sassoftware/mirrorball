@@ -375,7 +375,7 @@ class YumSource(BasePackageSource):
             log.warn('found binary without matching source name %s'
                      % list(bins)[0].name)
 
-            broken.add((nevra, bins))
+            broken.add((nevra, tuple(bins)))
 
         # Raise an exception if this ever happens. We can figure out the right
         # thing to do then, purhaps on a case by case basis.
