@@ -77,6 +77,7 @@ class JobFailedError(UpdateBotError):
     _params = ['jobId', 'why']
     _template = 'rMake job %(jobId)s failed: %(why)s'
 
+
 class JobNotCompleteError(UpdateBotError):
     """
     JobNotCompleteError, raised when the build dispatcher thinks that the job
@@ -85,6 +86,20 @@ class JobNotCompleteError(UpdateBotError):
 
     _params = ['jobId', ]
     _template = 'Build job not complete %(jobId)s'
+
+
+class UnhandledKernelModule(UpdateBotError):
+    """
+    UnhandledKernelModule, raised when trying to create a build job with a
+    package that looks as if it might be a kernel module that does not have
+    special flavors definied.
+    """
+
+    _param = ['name', ]
+    _template = ('Attempted to create build job containing %(name)s, which '
+        'appears to be a kernel module, without kernel flavors defined. Please '
+        'define the set of flavors this kernel module should be built in.')
+
 
 class UnhandledUpdateError(UpdateBotError):
     """

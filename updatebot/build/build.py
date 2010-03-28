@@ -42,6 +42,7 @@ from rmake.cmdline import monitor
 from updatebot.lib import util
 from updatebot.errors import JobFailedError
 from updatebot.errors import CommitFailedError
+from updatebot.errors import UnhandledKernelModule
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
 
@@ -355,6 +356,11 @@ class Builder(object):
             elif name in self._cfg.packageFlavors:
                 for context, flavor in self._cfg.packageFlavors[name]:
                     troves.append((name, version, flavor, context))
+
+            # Check if this looks like a kernel module source rpm that wasn't
+            # handled by the last two checks.
+            elif '-kmod' in name:
+                raise UnhandledKernelModule(name=name)
 
             # All other packages.
             else:
