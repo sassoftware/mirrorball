@@ -25,6 +25,8 @@ import repomd
 from updatebot.lib import util
 from updatebot.pkgsource.common import BasePackageSource
 
+from updatebot.errors import CanNotFindSourceForBinariesError
+
 log = logging.getLogger('updatebot.pkgsource')
 
 def loaded(func):
