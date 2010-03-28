@@ -139,7 +139,8 @@ def isKernelModulePackage(paths):
     for path in paths:
         basePath = os.path.basename(path)
         if (basePath.startswith('kmod-') or
-            basePath.startswith('kernel-module')):
+            basePath.startswith('kernel-module') or
+            '-kmod' in basePath):
             return True
     return False
 

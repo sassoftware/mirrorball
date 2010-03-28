@@ -335,6 +335,11 @@ class Builder(object):
                 for flv in self._cfg.groupFlavors:
                     troves.append((name, version, flv))
 
+            # Handle special package flavors when specified.
+            elif name in self._cfg.packageFlavors:
+                for context, flavor in self._cfg.packageFlavors[name]:
+                    troves.append((name, version, flavor, context))
+
             # Kernels are special.
             elif ((name == 'kernel' or
                    name in self._cfg.kernelModules or
@@ -350,11 +355,6 @@ class Builder(object):
                             continue
                         flavor = deps.parseFlavor(
                             str(flavor).replace('kernel', name))
-                    troves.append((name, version, flavor, context))
-
-            # Handle special package flavors when specified.
-            elif name in self._cfg.packageFlavors:
-                for context, flavor in self._cfg.packageFlavors[name]:
                     troves.append((name, version, flavor, context))
 
             # Check if this looks like a kernel module source rpm that wasn't
