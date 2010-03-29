@@ -1026,6 +1026,9 @@ class ConaryHelper(object):
         else:
             extraExpectedPromoteTroves = set(extraExpectedPromoteTroves)
 
+        # make sure trvLst is a list.
+        trvLst = list(trvLst)
+
         # Get the label that the group is on.
         fromLabel = trvLst[0][1].trailingLabel()
 
