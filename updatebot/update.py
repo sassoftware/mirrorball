@@ -17,6 +17,7 @@ Module for finding packages to update and updating them.
 """
 
 import os
+import copy
 import logging
 import itertools
 
