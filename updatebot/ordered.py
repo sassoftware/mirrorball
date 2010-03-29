@@ -197,6 +197,10 @@ class Bot(BotSuperClass):
                     # detected.
                     self._updater.sanityCheckSource(srpm)
 
+        log.info('starting update run')
+
+        count = 0
+        startime = time.time()
         updateSet = {}
         for updateId, updates in self._errata.iterByIssueDate(current=current):
             start = time.time()
@@ -330,6 +334,11 @@ class Bot(BotSuperClass):
                                     time.localtime(updateId))
             totalTime = time.time() - start
             log.info('published update %s in %s seconds' % (advTime, totalTime))
+            count += 1
+
+        log.info('update completed')
+        log.info('applied %s updates in %s seconds'
+            % (count, time.time() - startime))
 
         return updateSet
 
@@ -353,6 +362,11 @@ class Bot(BotSuperClass):
         log.info('querying target label for all group versions')
         targetLatest = self._updater.getUpstreamVersionMap(
             (self._cfg.topGroup[0], self._cfg.targetLabel, None))
+
+        log.info('starting promote')
+
+        count = 0
+        startime = time.time()
 
         # Get all updates after the first bucket.
         missing = False
@@ -406,6 +420,13 @@ class Bot(BotSuperClass):
                 return 0
 
             rc = watchdog.waitOnce(promote)
+            if rc:
+                break
+            count += 1
+
+        log.info('promote complete')
+        log.info('promoted %s groups in %s seconds'
+            % (count, time.time() - startime))
 
     def createErrataGroups(self):
         """
@@ -426,6 +447,11 @@ class Bot(BotSuperClass):
         # building based on the target label state.
         targetGroup = groupmgr.GroupManager(self._cfg, targetGroup=True)
         targetErrataState = targetGroup.getErrataState()
+
+        log.info('starting errata group processing')
+
+        count = 0
+        startime = time.time()
 
         for updateId, updates in self._errata.iterByIssueDate(current=0):
             # Stop if the updateId is greater than the state of the latest group
@@ -520,6 +546,12 @@ class Bot(BotSuperClass):
             toPromote = self._flattenSetDict(trvMap)
             promoted = self._updater.publish(toPromote, expected,
                                              self._cfg.targetLabel)
+
+            count += 1
+
+        log.info('completed errata group processing')
+        log.info('processed %s errata groups in %s seconds'
+            % (count, time.time() - startime))
 
     def _getOldVersionExceptions(self, updateId):
         versionExceptions = {}
