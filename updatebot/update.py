@@ -979,5 +979,8 @@ class Updater(object):
             srcSpec = (trvSpec[0], trvSpec[1], None)
 
         srcTrvs = self._conaryhelper.findTrove(srcSpec, getLeaves=False)
-        srcMap = self._conaryhelper.getBinaryVersions(srcTrvs, missingOk=True)
+        filteredSrcTrvs = [ (x, y, None) for x, y, z in srcTrvs ]
+        assert filteredSrcTrvs
+        srcMap = self._conaryhelper.getBinaryVersions(filteredSrcTrvs,
+            missingOk=True, labels=[filteredSrcTrvs[0][1].trailingLabel(), ])
         return srcMap
