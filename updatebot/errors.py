@@ -568,7 +568,7 @@ class CanNotFindSourceForBinariesError(PackageSourceError):
     version, and release can not be found.
     """
 
-    _parms = ['count', ]
+    _params = ['count', ]
     _template = ('Could not find %(count) sources for matching binary '
         'packages. This generally means that there is a binary package with a '
         'source of a different name and a source can not be found with a '
