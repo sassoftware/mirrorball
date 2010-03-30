@@ -284,6 +284,18 @@ class GroupManager(object):
         x86 = deps.parseFlavor('is: x86')
         x86_64 = deps.parseFlavor('is: x86_64')
 
+        # Count the flavors for later use.
+        flvCount = {x86: 0, x86_64: 0, plain: 0}
+        for flavor in flavors:
+            if flavor.satisfies(x86):
+                flvCount[x86] += 1
+            elif flavor.satisfies(x86_64):
+                flvCount[x86_64] += 1
+            elif flavor.freeze() == '':
+                flvCount[plain] += 1
+            else:
+                raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
+
         if len(flavors) == 1:
             flavor = flavors[0]
             # noarch package, add unconditionally
@@ -303,24 +315,17 @@ class GroupManager(object):
 
             return
 
-        elif len(flavors) == 2:
+        elif (len(flavors) == 2 and
+              not [ x for x, y in flvCount.iteritems() if y > 1 ]):
             # This is most likely a normal package with both x86 and x86_64, but
             # lets make sure anyway.
-            flvCount = {x86: 0, x86_64: 0, plain: 0}
-            for flavor in flavors:
-                if flavor.satisfies(x86):
-                    flvCount[x86] += 1
-                elif flavor.satisfies(x86_64):
-                    flvCount[x86_64] += 1
-                elif flavor.freeze() == '':
-                    flvCount[plain] += 1
-                else:
-                    raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
 
-            # make sure there is only one instance of x86 and once instance of
-            # x86_64 in the flavor list.
+            # An exception for python/perl where x86_64 packages are noarch, but
+            # x86 packages are flavored.
             assert (flvCount[x86_64] > 0) ^ (flvCount[plain] > 0)
-            assert len([ x for x, y in flvCount.iteritems() if y != 1 ]) == 1
+            # make sure there is only one instance of x86 and one instance of
+            # x86_64 in the flavor list.
+            assert len([ x for x, y in flvCount.iteritems() if y == 0 ]) == 1
 
             # In this case just add the package unconditionally
             self.add(name, version=version)
