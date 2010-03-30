@@ -78,6 +78,9 @@ class Bot(BotSuperClass):
                 assert len(vf) == 1
                 version = vf.keys()[0]
                 flavors = list(vf[version])
+                log.info('adding %s=%s' % (name, version))
+                for f in flavors:
+                    log.info('\t%s' % f)
                 self._groupmgr.addPackage(name, version, flavors)
 
     def _savePackages(self, pkgMap, fn=None):
@@ -522,14 +525,18 @@ class Bot(BotSuperClass):
                         srcMap.values()[0])[0]
                     binTrvs.update(set(targetVersions))
 
-                prev = None
-                for n, v, f in self._filterBinPkgSet(binTrvs,
-                                                     multiVersionExceptions):
-                    if prev != (n, v):
-                        log.info('%s: adding package %s=%s' % (advisory, n, v))
-                        prev = (n, v)
-                    log.info('%s: %s' % (advisory, f))
-                    grp.addPackages(n, v, f)
+                # Group unique versions by flavor
+                nvfMap = {}
+                for n, v, f in self._filterBinPkgSet(binTrvs, multiVersionExceptions):
+                    n = n.split(':')[0]
+                    nvfMap.setdefault((n, v), set()).add(f)
+
+                # Add packages to group model.
+                for (n, v), flvs in nvfMap.iteritems():
+                    log.info('%s: adding package %s=%s' % (advisory, n, v))
+                    for f in flvs:
+                        log.info('%s: %s' % (advisory, f))
+                    grp.addPackage(n, v, flvs)
 
             # Make sure there are groups to build.
             if not mgr.hasGroups():
