@@ -400,7 +400,7 @@ class Updater(object):
                     # binary does not come from the same source as it used to
                     self._pkgSource.binPkgMap[pkg].name != srpm.name):
                     log.warn('update removes package (%s) %s -> %s'
-                             % (pkg.name, srpm.getNevra(), srcPkg.getNevra()))
+                             % (pkg.name, srcPkg.getNevra(), srpm.getNevra()))
 
                     # allow some packages to be removed.
                     if expectedRemovals and pkg.name in expectedRemovals:
@@ -453,6 +453,11 @@ class Updater(object):
             # Trust that the parent platform has sanity checked this source.
             if nvflst:
                 return None
+
+        # Source hasn't been imported.
+        if not nvflst:
+            log.warn('source has not been imported: %s' % srpm)
+            return None
 
         assert len(nvflst) == 1
         n, v, f = nvflst[0]
