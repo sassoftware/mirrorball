@@ -23,6 +23,7 @@ import logging
 
 from updatebot import update
 from updatebot import conaryhelper
+from updatebot.errors import MissingErrataError
 from updatebot.errors import ErrataPackageNotFoundError
 from updatebot.errors import ErrataSourceDataMissingError
 from updatebot.errors import PackageNotFoundInBucketError
@@ -521,11 +522,20 @@ class ErrataFilter(object):
         # insert packages that did not have errata and were not in the initial
         # set of packages (golden bits)
         srcMap = {}
+        missing = set()
         for pkg in other:
+            if pkg.getNevra() not in self._cfg.allowMissingErrata:
+                missing.add(pkg)
+
             src = self._pkgSource.binPkgMap[pkg]
             if src not in srcMap:
                 srcMap[src] = []
             srcMap[src].append(pkg)
+
+        # Raise an error if there are any packages missing an errata that are
+        # now explicitly allowed by the config.
+        if missing:
+            raise MissingErrataError(packages=list(missing))
 
         # insert bins by buildstamp
         extras = {}

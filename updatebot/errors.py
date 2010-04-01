@@ -592,6 +592,15 @@ class UnableToMergeUpdatesError(ErrataFilterError):
     _template = ('Can not merge %(source)s into %(target)s due to conflicting '
                  'package %(package)s')
 
+class MissingErrataError(ErrataFilterError):
+    """
+    MissingErrataError, raised when packages are discovered without an
+    associated errata.
+    """
+
+    _params = [ 'packages', ]
+    _template = 'The following packages do not have an errata: %(packages)s'
+
 class ConfigurationError(UpdateBotError):
     """
     Generic exception class for configuration related errors.

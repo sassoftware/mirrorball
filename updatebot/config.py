@@ -392,6 +392,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # latest that matches the current rpm version.
     useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
 
+    # Allow updates for a given nevra to be published without matching errata.
+    allowMissingErrata = (CfgList(CfgNevra), [])
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
