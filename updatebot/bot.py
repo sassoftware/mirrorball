@@ -142,7 +142,8 @@ class Bot(object):
 
         return trvMap, failed
 
-    def update(self, force=None, updatePkgs=None, expectedRemovals=None):
+    def update(self, force=None, updatePkgs=None, expectedRemovals=None,
+        allowPackageDowngrades=None):
         """
         Update the conary repository from the yum repositories.
         @param force: list of packages to update without exception
@@ -151,6 +152,9 @@ class Bot(object):
         @type updatePkgs: iterable of source package objects
         @param expectedRemovals: set of packages that are expected to be
                                  removed.
+        @param allowPackageDowngrades: list of source nevra tuples to downgrade
+                                       from/to.
+        @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
         @type expectedRemovals: set of package names
         """
 
@@ -171,7 +175,8 @@ class Bot(object):
         # Get troves to update and send advisories.
         toAdvise, toUpdate = self._updater.getUpdates(
             updateTroves=updateTroves,
-            expectedRemovals=expectedRemovals)
+            expectedRemovals=expectedRemovals,
+            allowPackageDowngrades=allowPackageDowngrades)
 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.

@@ -27,6 +27,7 @@ from updatebot.lib import util
 from updatebot import conaryhelper
 from updatebot.errors import GroupNotFound
 from updatebot.errors import NoManifestFoundError
+from updatebot.errors import SourceNotImportedError
 from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
@@ -45,7 +46,8 @@ class Updater(object):
 
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
-    def getUpdates(self, updateTroves=None, expectedRemovals=None):
+    def getUpdates(self, updateTroves=None, expectedRemovals=None,
+        allowPackageDowngrades=None):
         """
         Find all packages that need updates and/or advisories from a top level
         binary group.
@@ -54,6 +56,9 @@ class Updater(object):
         @param expectedRemovals: set of package names that are expected to be
                                  removed.
         @type expectedRemovals: set of package names
+        @param allowPackageDowngrades: list of source nevra tuples to downgrade
+                                       from/to.
+        @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
         @return list of packages to send advisories for and list of packages
                 to update
         """
@@ -73,7 +78,8 @@ class Updater(object):
         for nvf, srpm in updateTroves:
             # Will raise exception if any errors are found, halting execution.
             if self._sanitizeTrove(nvf, srpm,
-                                   expectedRemovals=expectedRemovals):
+                    expectedRemovals=expectedRemovals,
+                    allowPackageDowngrades=allowPackageDowngrades):
                 toUpdate.append((nvf, srpm))
                 toAdvise.append((nvf, srpm))
 
@@ -313,7 +319,8 @@ class Updater(object):
         srpms.sort(util.packagevercmp)
         return srpms[-1]
 
-    def _sanitizeTrove(self, nvf, srpm, expectedRemovals=None):
+    def _sanitizeTrove(self, nvf, srpm, expectedRemovals=None,
+        allowPackageDowngrades=None):
         """
         Verifies the package update to make sure it looks correct and is a
         case that the bot knows how to handle.
@@ -330,6 +337,9 @@ class Updater(object):
         @param expectedRemovals: set of package names that are expected to be
                                  removed.
         @type expectedRemovals: set of package names
+        @param allowPackageDowngrades: list of source nevra tuples to downgrade
+                                       from/to.
+        @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
         @return needsUpdate boolean
         @raises UpdateGoesBackwardsError
         @raises UpdateRemovesPackageError
@@ -340,6 +350,9 @@ class Updater(object):
         metadata = None
         removedPackages = set()
         reusedPackages = set()
+
+        if allowPackageDowngrades is None:
+            allowPackageDowngrades = ()
 
         try:
             manifest = self._conaryhelper.getManifest(nvf[0], version=nvf[1])
@@ -374,9 +387,14 @@ class Updater(object):
 
             # make sure new package is actually newer
             if util.packagevercmp(srpm, srcPkg) == -1:
-                log.warn('version goes backwards %s -> %s' %
-                         (srcPkg.getNevra(), srpm.getNevra()))
-                raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
+                srcTuple = (srcPkg.getNevra(), srpm.getNevra())
+                log.warn('version goes backwards %s -> %s' % srcTuple)
+                if srcTuple in allowPackageDowngrades:
+                    log.info('found version downgrade exception in '
+                             'configuration')
+                    needsUpdate = True
+                else:
+                    raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
             if ((binPkg.name, binPkg.arch) not in newNames and
@@ -433,12 +451,15 @@ class Updater(object):
 
         return needsUpdate
 
-    def sanityCheckSource(self, srpm):
+    def sanityCheckSource(self, srpm, allowPackageDowngrades=None):
         """
         Look up the matching source version in the conary repository and verify
         that the manifest matches the package list in the package source.
         @param srpm: src pacakge object
         @type srpm: repomd.packagexml._Package
+        @param allowPackageDowngrades: list of source nevra tuples to downgrade
+                                       from/to.
+        @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
         """
 
         srcQuery = ('%s:source' % srpm.name, srpm.getConaryVersion(), None)
@@ -456,14 +477,15 @@ class Updater(object):
 
         # Source hasn't been imported.
         if not nvflst:
-            log.warn('source has not been imported: %s' % srpm)
-            return None
+            log.error('source has not been imported: %s' % srpm)
+            raise SourceNotImportedError(srpm=srpm)
 
         assert len(nvflst) == 1
         n, v, f = nvflst[0]
         nvf = (n.split(':')[0], v, None)
 
-        needsUpdate = self._sanitizeTrove(nvf, srpm)
+        needsUpdate = self._sanitizeTrove(nvf, srpm,
+            allowPackageDowngrades=allowPackageDowngrades)
 
         # If anything has chnaged raise an error.
         if needsUpdate:

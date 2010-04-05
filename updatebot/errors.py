@@ -182,6 +182,29 @@ class NoCheckoutFoundError(UnhandledUpdateError):
     _params = ['pkgname']
     _template = 'No checked out version of %(pkgname)s was found.'
 
+class SourceNotImportedError(UnhandledUpdateError):
+    """
+    SourceNotImportedError, raised when sanity checking an existing source
+    package that can not be found in the conary repository.
+    """
+
+    _params = ['srpm', ]
+    _template = ('Source package (%(srpm)s) has not been imported. This '
+        'usually means that something in the order stream is in an unexpected '
+        'state.')
+
+class FoundModifiedNotImportedErrataError(UnhandledUpdateError):
+    """
+    FoundModifiedNotImportedErrataError, raised when an errata is found that
+    should have already been imported and has changed in the upstream data
+    source.
+    """
+
+    _params = ['adivsories', ]
+    _template = ('The following advisories have been modified upstream, but '
+        'should have already been imported. Check to make sure the '
+        'modifications are not important: %(advisories)s')
+
 class BinariesNotFoundForSourceVersion(UnhandledUpdateError):
     """
     BinariesNotFoundForSourceVersion, raised when querying by source name and

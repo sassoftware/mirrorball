@@ -108,7 +108,7 @@ class CfgNevra(CfgString):
         return splt
 
 
-class CfgObsoletes(CfgString):
+class CfgNevraTuple(CfgString):
     """
     Class for parsing obsolete mappings:
     <obsoleting nevra> <obsoleted nevra>
@@ -376,7 +376,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # but CfgSet and CfgTuple do not exist at this point;
     # maybe we can add them later.
     # keepObsolete <obsoleting nevra> <obsoleted nevra>
-    keepObsolete = (CfgList(CfgObsoletes), [])
+    keepObsolete = (CfgList(CfgNevraTuple), [])
 
     # updateId packageName [packageName ...]
     # remove obsoleted packages when other subpackages of the same
@@ -394,6 +394,14 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # Allow updates for a given nevra to be published without matching errata.
     allowMissingErrata = (CfgList(CfgNevra), [])
+
+    # Allow updates to have versions that go backwards.
+    # updateId: [ (from srcTrvSpec, to srcTrvSpec), ... ]
+    allowPackageDowngrades = (CfgIntDict(CfgList(CfgNevraTuple)), {})
+
+    # Add a source to a specific updateId. This is used to move updates forward
+    # after allowing an update to downgrade the version.
+    addSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):

@@ -30,12 +30,14 @@ from updatebot import groupmgr
 from updatebot.lib import watchdog
 from updatebot.bot import Bot as BotSuperClass
 
+from updatebot.errors import SourceNotImportedError
 from updatebot.errors import UnknownRemoveSourceError
 from updatebot.errors import PlatformNotImportedError
 from updatebot.errors import TargetVersionNotFoundError
 from updatebot.errors import PromoteMissingVersionError
 from updatebot.errors import PromoteFlavorMismatchError
 from updatebot.errors import PlatformAlreadyImportedError
+from updatebot.errors import FoundModifiedNotImportedErrataError
 
 log = logging.getLogger('updatebot.ordered')
 
@@ -191,6 +193,9 @@ class Bot(BotSuperClass):
         # Iterate through changed and verify the current conary repository
         # contents against any changes.
         if changed:
+            notimported = set()
+            expectedDowngrades = [ x for x in
+                itertools.chain(*self._cfg.allowPacakgeDowngrades.values()) ]
             log.info('found modified updates, validating repository state')
             for advisory, advInfo in changed.iteritems():
                 log.info('validating %s' % advisory)
@@ -198,7 +203,17 @@ class Bot(BotSuperClass):
                     log.info('checking %s' % srpm.name)
                     # This will raise an exception if any inconsistencies are
                     # detected.
-                    self._updater.sanityCheckSource(srpm)
+                    try:
+                        self._updater.sanityCheckSource(srpm,
+                            allowPackageDowngrades=expectedDowngrades)
+                    except SourceNotImportedError, e:
+                        notimported.add(advisory)
+
+            if notimported:
+                raise FoundModifiedNotImportedErrataError(
+                    advisories=notimported)
+
+            import epdb; epdb.st()
 
         log.info('starting update run')
 
@@ -239,6 +254,8 @@ class Bot(BotSuperClass):
             requiredRemovals = (set(removePackages) |
                                 set(removeReplaced))
 
+            # Get the list of package that are allowed to be downgraded.
+            allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
 
             # If recovering from a failure, restore the pkgMap from disk.
             if restoreFile:
@@ -248,7 +265,8 @@ class Bot(BotSuperClass):
             # Update package set.
             else:
                 pkgMap = self._update(*args, updatePkgs=updates,
-                    expectedRemovals=expectedRemovals, **kwargs)
+                    expectedRemovals=expectedRemovals,
+                    allowPackageDowngrades=allowDowngrades, **kwargs)
 
             # When deriving from an upstream platform sometimes we don't want
             # the latest versions.
@@ -319,6 +337,9 @@ class Bot(BotSuperClass):
 
             # Make sure built troves are part of the group.
             self._addPackages(pkgMap)
+
+            if updateId == 1270008000:
+                import epdb; epdb.st()
 
             # Get timestamp version.
             version = self._errata.getBucketVersion(updateId)

@@ -261,6 +261,7 @@ class ErrataFilter(object):
         parentPackages = []
         removals = self._cfg.updateRemovesPackages
         replaces = self._cfg.updateReplacesPackages
+        downgraded = self._cfg.allowPackageDowngrades
         currentlyRemovedBinaryNevras = set()
         foundObsoleteEdges = set()
         foundObsoleteSrcs = set()
@@ -270,6 +271,7 @@ class ErrataFilter(object):
             expectedReplaces = replaces.get(updateId, [])
             explicitSourceRemovals = self._cfg.removeSource.get(updateId, set())
             explicitBinaryRemovals = self._cfg.removeObsoleted.get(updateId, set())
+            explicitPackageDowngrades = downgraded.get(updateId, None)
 
             assert len(self._order[updateId])
             for srpm in self._order[updateId]:
@@ -278,7 +280,8 @@ class ErrataFilter(object):
                 # validate updates
                 try:
                     assert updater._sanitizeTrove(nvf, srpm,
-                        expectedRemovals=expectedRemovals + expectedReplaces)
+                        expectedRemovals=expectedRemovals + expectedReplaces,
+                        allowPackageDowngrades=explicitPackageDowngrades)
                 except (UpdateGoesBackwardsError,
                         UpdateRemovesPackageError,
                         UpdateReusesPackageError), e:
@@ -622,13 +625,23 @@ class ErrataFilter(object):
         for source, dest, nevra in self._cfg.reorderSource:
             self._reorderSource(source, dest, nevra)
 
+        # add a source to a specific bucket, used to "promote" newer versions
+        # forward.
+        nevras = dict([ (x.getNevra(), x)
+                         for x in self._pkgSource.srcPkgMap ])
+        diffCount = 0
+        for updateId, srcNevras in self._cfg.addSource.iteritems():
+            sources = set(nevras[x] for x in srcNevras)
+            self._order.setdefault(updateId, set()).update(sources)
+            diffCount += len(srcNevras)
+
         # Make sure we don't drop any updates
         totalPkgs2 = sum([ len(x) for x in self._order.itervalues() ])
         pkgs = set()
         for pkgSet in self._order.itervalues():
             pkgs.update(pkgSet)
-        assert len(pkgs) == totalPkgs2
-        assert totalPkgs2 == totalPkgs
+        assert len(pkgs) == totalPkgs2 - diffCount
+        assert totalPkgs2 == totalPkgs + diffCount 
 
     def _mergeUpdates(self, mergeList):
         """
