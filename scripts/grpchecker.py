@@ -104,7 +104,7 @@ def checkVersion(ver):
     changes = []
 
     try:
-        mgr._validateGroups()
+        mgr._sanity.check(mgr._groups, mgr.getErrataState())
     except GroupValidationFailedError, e:
         for group, error in e.errors:
             if isinstance(error, NameVersionConflictsFoundError):
@@ -190,7 +190,7 @@ for ver, changed in toUpdate:
             mgr.addPackage(n, v, flvs)
 
     mgr._copyVersions()
-    mgr._validateGroups()
+    mgr._sanity.check(mgr._groups, mgr.getErrataState())
     version = mgr.save(copyToLatest=True)
     jobId = mgr._builder.start(((mgr._sourceName, version, None), ))
     jobIds.append(jobId)
