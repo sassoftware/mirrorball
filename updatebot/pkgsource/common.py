@@ -53,6 +53,9 @@ class BasePackageSource(object):
         # {binPkg: set(binNames) }
         self.obsoletesMap = dict()
 
+        # {(binName, srcConaryVersion, archStr): [archStr, archStr, ...]}
+        self.useMap = dict()
+
     def __copy__(self):
         log.info('copying pkgsource')
         cls = self.__class__
@@ -62,6 +65,7 @@ class BasePackageSource(object):
         obj.binPkgMap = copy.copy(self.binPkgMap)
         obj.srcNameMap = copy.copy(self.srcNameMap)
         obj.binNameMap = copy.copy(self.binNameMap)
+        obj.useMap = copy.copy(self.useMap)
         return obj
 
     def __deepcopy__(self, memo):
@@ -73,6 +77,7 @@ class BasePackageSource(object):
         obj.binPkgMap = copy.deepcopy(self.binPkgMap, memo)
         obj.srcNameMap = copy.deepcopy(self.srcNameMap, memo)
         obj.binNameMap = copy.deepcopy(self.binNameMap, memo)
+        obj.useMap = copy.deepcopy(self.useMap, memo)
         return obj
 
     def getClients(self):

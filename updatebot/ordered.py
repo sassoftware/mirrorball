@@ -51,7 +51,8 @@ class Bot(BotSuperClass):
         BotSuperClass.__init__(self, cfg)
         self._errata = errata.ErrataFilter(self._cfg, self._pkgSource,
             errataSource)
-        self._groupmgr = groupmgr.GroupManager(self._cfg)
+        self._groupmgr = groupmgr.GroupManager(self._cfg,
+            useMap=self._pkgSource.useMap)
 
         if self._cfg.platformSearchPath:
             self._parentGroup = groupmgr.GroupManager(self._cfg,

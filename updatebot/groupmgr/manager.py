@@ -65,8 +65,9 @@ class GroupManager(object):
     _helperClass = GroupHelper
     _sanityCheckerClass = GroupSanityChecker
 
-    def __init__(self, cfg, parentGroup=False, targetGroup=False):
+    def __init__(self, cfg, parentGroup=False, targetGroup=False, useMap=None):
         self._cfg = cfg
+        self._useMap = useMap or dict()
         self._helper = self._helperClass(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
         self._sanity = self._sanityCheckerClass(self._cfg, self._helper)
@@ -101,6 +102,7 @@ class GroupManager(object):
             self._readonly = False
 
         self._pkgGroupName = 'group-%s-packages' % self._cfg.platformName
+        self._stdGroupName = 'group-%s-standard' % self._cfg.platformName
 
         self._checkedout = False
         self._groups = {}
@@ -121,7 +123,7 @@ class GroupManager(object):
 
         if self._sourceVersion and not copyToLatest:
             log.error('refusing to commit out of date source')
-            raise NotCommittingOutOfDateSourceError()
+            raise NotCommittingOutOfDateSourceError
 
         # Copy forward data when we are fixing up old group versions so that
         # this is the latest source.
@@ -285,127 +287,92 @@ class GroupManager(object):
         x86_64 = deps.parseFlavor('is: x86_64')
 
         # Count the flavors for later use.
+        flvMap = {}
         flvCount = {x86: 0, x86_64: 0, plain: 0}
         for flavor in flavors:
             if flavor.satisfies(x86):
                 flvCount[x86] += 1
+                flvMap[flavor] = 'x86'
             elif flavor.satisfies(x86_64):
                 flvCount[x86_64] += 1
+                flvMap[flavor] = 'x86_64'
             elif flavor.freeze() == '':
                 flvCount[plain] += 1
+                flvMap[flavor] = None
             else:
                 raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
 
-        if len(flavors) == 1:
-            flavor = flavors[0]
-            # noarch package, add unconditionally
-            if flavor == plain:
-                self.add(name, version=version)
+        def add():
+            upver = version.trailingRevision().version()
+            for flv in flavors:
+                if self._useMap:
+                    for useStr in self._useMap[(name, upver, flvMap[flv])]:
+                        self.add(name, version=version, flavor=flavor,
+                                 use=useStr)
+                else:
+                    self.add(name, version=version, flavor=flavor,
+                             use=flvMap[flv])
 
-            # x86, add with use=x86
-            elif flavor.satisfies(x86):
-                self.add(name, version=version, flavor=flavor, use='x86')
-
-            # x86_64, add with use=x86_64
-            elif flavor.satisfies(x86_64):
-                self.add(name, version=version, flavor=flavor, use='x86_64')
-
-            else:
-                raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
-
+        # If this package has one or two flavors and one of those flavors is
+        # x86, x86_64, or plain then handle it like a normal package without
+        # doing any more sanity checking.
+        if sum([ x for x in flvCount.itervalues() if x in (0, 1) ]) in (1, 2):
+            add()
             return
 
-        elif (len(flavors) == 2 and
-              not [ x for x, y in flvCount.iteritems() if y > 1 ]):
-            # This is most likely a normal package with both x86 and x86_64, but
-            # lets make sure anyway.
+        # Handle all other odd flavor cases:
+        #   1. kernels
+        #   2. kernel modules
+        #   3. packages with specifically defined flavor sets
 
-            # An exception for python/perl where x86_64 packages are noarch, but
-            # x86 packages are flavored.
-            assert (flvCount[x86_64] > 0) ^ (flvCount[plain] > 0)
-            # make sure there is only one instance of x86 and one instance of
-            # x86_64 in the flavor list.
-            assert len([ x for x, y in flvCount.iteritems() if y == 0 ]) == 1
+        # Check if this package is configured to have multiple flavors.
+        # Get source trove name.
+        log.info('retrieving trove info for %s' % name)
+        srcTroveMap = self._helper._getSourceTroves((name, version, flavors[0]))
+        srcTroveName = srcTroveMap.keys()[0][0].split(':')[0]
 
-            # In this case just add the package unconditionally
-            self.add(name, version=version)
+        # Check if this is package that we have specifically defined a build
+        # flavor for.
+        if srcTroveName in self._cfg.packageFlavors:
+            # separate packages into x86 and x86_64 by context name
+            # TODO: If we were really smart we would load the conary
+            #       contexts and see what buildFlavors they contained.
+            flavorCtxCount = {x86: 0, x86_64: 0}
+            for context, bldflv in self._cfg.packageFlavors[srcTroveName]:
+                if context in ('i386', 'i486', 'i586', 'i686', 'x86'):
+                    flavorCtxCount[x86] += 1
+                elif context in ('x86_64', ):
+                    flavorCtxCount[x86_64] += 1
+                else:
+                    raise UnknownBuildContextError(name=name, flavor=context)
 
+            # Sanity check flavors to make sure we built all the flavors
+            # that we expected.
+            extra = set(flvMap) - set([ x86, x86_64 ])
+            if extra:
+                raise UnsupportedTroveFlavorError(name=name, flavor=extra)
+
+            if (flvCount[x86] != flavorCtxCount[x86] or
+                flvCount[x86_64] != flavorCtxCount[x86_64]):
+                raise FlavorCountMismatchError(name=name)
+
+            # Add packages to the group.
+            add()
             return
 
-        # These are special cases.
-        else:
-            # The way I see it there are a few ways you could end up here.
-            #    1. this is a kernel
-            #    2. this is a kernel module
-            #    3. this is a special package like glibc or openssl where there
-            #       are i386, i686, and x86_64 varients.
-            #    4. this is a package with package flags that I don't know
-            #       about.
-            # Lets see if we know about this package and think it should have
-            # more than two flavors.
-
-
-            # Get source trove name.
-            log.info('retrieving trove info for %s' % name)
-            srcTroveMap = self._helper._getSourceTroves(
-                (name, version, flavors[0])
-            )
-            srcTroveName = srcTroveMap.keys()[0][0].split(':')[0]
-
-            # handle kernels.
-            if srcTroveName == 'kernel' or util.isKernelModulePackage(name):
-                # add all x86ish flavors with use=x86 and all x86_64ish flavors
-                # with use=x86_64
-                for flavor in flavors:
-                    if flavor.satisfies(x86):
-                        self.add(name, version=version, flavor=flavor, use='x86')
-                    elif flavor.satisfies(x86_64):
-                        self.add(name, version=version, flavor=flavor, use='x86_64')
-                    else:
-                        raise UnsupportedTroveFlavorError(name=name,
-                                                          flavor=flavor)
-
-            # maybe this is one of the special flavors we know about.
-            elif srcTroveName in self._cfg.packageFlavors:
-                # separate packages into x86 and x86_64 by context name
-                # TODO: If we were really smart we would load the conary
-                #       contexts and see what buildFlavors they contained.
-                flavorCount = {'x86': 0, 'x86_64': 0}
-                for context, bldflv in self._cfg.packageFlavors[srcTroveName]:
-                    if context in ('i386', 'i486', 'i586', 'i686', 'x86'):
-                        flavorCount['x86'] += 1
-                    elif context in ('x86_64', ):
-                        flavorCount['x86_64'] += 1
-                    else:
-                        raise UnknownBuildContextError(name=name,
-                                                       flavor=context)
-
-                for flavor in flavors:
-                    if flavor.satisfies(x86):
-                        flavorCount['x86'] -= 1
-                    elif flavor.satisfies(x86_64):
-                        flavorCount['x86_64'] -= 1
-                    else:
-                        raise UnsupportedTroveFlavorError(name=name,
-                                                          flavor=flavor)
-
-                errors = [ x for x, y in flavorCount.iteritems() if y != 0 ]
-                if errors:
-                    raise FlavorCountMismatchError(name=name)
-
-                for flavor in flavors:
-                    if flavor.satisfies(x86):
-                        self.add(name, version=version,
-                                 flavor=flavor, use='x86')
-                    elif flavor.satisfies(x86_64):
-                        self.add(name, version=version,
-                                 flavor=flavor, use='x86_64')
-                    else:
-                        raise UnsupportedTroveFlavorError(name=name,
-                                                          flavor=flavor)
+        # handle kernels.
+        if srcTroveName == 'kernel' or srcTroveName in self._cfg.kernelModules:
+            # add all x86ish flavors with use=x86 and all x86_64ish flavors
+            # with use=x86_64
+            for flavor in flavors:
+                if flvMap[flavor] in ('x86', 'x86_64'):
+                    self.add(name, version=version, flavor=flavor,
+                             use=flvMap[flavor])
+                else:
+                    raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
             return
 
-        # Unknown state.
+        # don't know how to deal with this package.
         raise UnhandledPackageAdditionError(name=name)
 
     @checkout

@@ -187,6 +187,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Paths based off of the repositoryUrl to get to individual repositories.
     repositoryPaths     = (CfgList(CfgString), ['/'])
 
+    # Arch strings for each repository to signify what base architecture each
+    # repository is meant for.
+    # repositoryName archString
+    repositoryArch      = (CfgDict(CfgString), {})
+
     # Data source for determining platform version information, only used for
     # group versioning.
     versionSources      = (CfgDict(CfgString), {})
