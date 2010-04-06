@@ -195,7 +195,9 @@ class Bot(BotSuperClass):
         if changed:
             notimported = set()
             expectedDowngrades = [ x for x in
-                itertools.chain(*self._cfg.allowPacakgeDowngrades.values()) ]
+                itertools.chain(*self._cfg.allowPackageDowngrades.values()) ]
+            sourceExceptions = dict((x[2], x[1])
+                for x in self._cfg.reorderAdvisory)
             log.info('found modified updates, validating repository state')
             for advisory, advInfo in changed.iteritems():
                 log.info('validating %s' % advisory)
@@ -207,13 +209,15 @@ class Bot(BotSuperClass):
                         self._updater.sanityCheckSource(srpm,
                             allowPackageDowngrades=expectedDowngrades)
                     except SourceNotImportedError, e:
+                        if (advisory in sourceExceptions and
+                            sourceExceptions[advisory] > current):
+                            log.info('found exception for advisory')
+                            continue
                         notimported.add(advisory)
 
             if notimported:
                 raise FoundModifiedNotImportedErrataError(
                     advisories=notimported)
-
-            import epdb; epdb.st()
 
         log.info('starting update run')
 
@@ -337,9 +341,6 @@ class Bot(BotSuperClass):
 
             # Make sure built troves are part of the group.
             self._addPackages(pkgMap)
-
-            if updateId == 1270008000:
-                import epdb; epdb.st()
 
             # Get timestamp version.
             version = self._errata.getBucketVersion(updateId)

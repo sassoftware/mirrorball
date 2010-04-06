@@ -200,7 +200,7 @@ class FoundModifiedNotImportedErrataError(UnhandledUpdateError):
     source.
     """
 
-    _params = ['adivsories', ]
+    _params = ['advisories', ]
     _template = ('The following advisories have been modified upstream, but '
         'should have already been imported. Check to make sure the '
         'modifications are not important: %(advisories)s')
