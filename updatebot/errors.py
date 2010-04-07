@@ -592,7 +592,7 @@ class CanNotFindSourceForBinariesError(PackageSourceError):
     """
 
     _params = ['count', ]
-    _template = ('Could not find %(count) sources for matching binary '
+    _template = ('Could not find %(count)s sources for matching binary '
         'packages. This generally means that there is a binary package with a '
         'source of a different name and a source can not be found with a '
         'matching source name, version, and release.')
