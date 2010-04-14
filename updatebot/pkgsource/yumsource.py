@@ -135,10 +135,7 @@ class YumSource(BasePackageSource):
         @type package: repomd.packagexml._Package
         """
 
-        if package.name not in self.srcNameMap:
-            self.srcNameMap[package.name] = set()
-        self.srcNameMap[package.name].add(package)
-
+        self.srcNameMap.setdefault(package.name, set()).add(package)
         self.locationMap[package.location] = package
 
         # In case the a synthesized source ever turns into real source add the
@@ -168,10 +165,9 @@ class YumSource(BasePackageSource):
             srcRelease = srcParts[-1][:-8] # remove '.src.rpm'
         elif srcParts[-1].endswith('.nosrc.rpm'):
             srcRelease = srcParts[-1][:-10]
+
         rpmMapKey = (srcName, package.epoch, srcVersion, srcRelease, 'src')
-        if rpmMapKey not in self._rpmMap:
-            self._rpmMap[rpmMapKey] = set()
-        self._rpmMap[rpmMapKey].add(package)
+        self._rpmMap.setdefault(rpmMapKey, set()).add(package)
 
         # The normal case of "obsoletes foo < version" (or with
         # "requires foo", though that normally also follows the
@@ -239,6 +235,27 @@ class YumSource(BasePackageSource):
 
             self.srcPkgMap[pkg] = self._rpmMap[key]
             self.srcPkgMap[pkg].add(pkg)
+
+            # Remove any duplicate sources, favoring sources with the source
+            # version in the file name.
+            # FIXME: This doesn't really work for nosrc rpms
+            sources = sorted([ (os.path.basename(x.location), x)
+                for x in self.srcPkgMap[pkg] if x.arch in ('src', 'nosrc') ])
+            if len(sources) > 1:
+
+                log.info('filtering multiple sources')
+                primary = None
+                for fn, src in sources:
+                    if fn == '%s-%s-%s.%s.rpm' % (src.name, src.version, src.release, src.arch):
+                        log.info('found primary sources %s' % src)
+                        primary = src
+                        break
+
+                if primary:
+                    for fn, src in sources:
+                        if src is not primary:
+                            self.srcPkgMap[pkg].remove(src)
+
             toDelete.add(key)
 
             for binPkg in self.srcPkgMap[pkg]:
