@@ -135,7 +135,15 @@ class YumSource(BasePackageSource):
         @type package: repomd.packagexml._Package
         """
 
-        self.srcNameMap.setdefault(package.name, set()).add(package)
+        other = package
+        if package in self._srcPkgs:
+            other = [ x for x in self._srcPkgs if x == package ][0]
+            self.srcNameMap[package.name].remove(other)
+            self._srcPkgs.remove(other)
+            if package.getFileName() == os.path.basename(package.location):
+                other = package
+
+        self.srcNameMap.setdefault(package.name, set()).add(other)
         self.locationMap[package.location] = package
 
         # In case the a synthesized source ever turns into real source add the
@@ -145,7 +153,7 @@ class YumSource(BasePackageSource):
             if baseLoc not in self.locationMap:
                 self.locationMap[baseLoc] = package
 
-        self._srcPkgs.add(package)
+        self._srcPkgs.add(other)
         self._srcMap[(package.name, package.epoch, package.version,
                       package.release, package.arch)] = package
 
@@ -242,12 +250,9 @@ class YumSource(BasePackageSource):
             sources = sorted([ (os.path.basename(x.location), x)
                 for x in self.srcPkgMap[pkg] if x.arch in ('src', 'nosrc') ])
             if len(sources) > 1:
-
-                log.info('filtering multiple sources')
                 primary = None
                 for fn, src in sources:
                     if fn == '%s-%s-%s.%s.rpm' % (src.name, src.version, src.release, src.arch):
-                        log.info('found primary sources %s' % src)
                         primary = src
                         break
 
