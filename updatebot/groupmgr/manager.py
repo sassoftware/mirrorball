@@ -91,7 +91,7 @@ class GroupManager(object):
 
             assert len(trvs)
 
-            self._sourceName = self._cfg.topParentSourceGroup
+            self._sourceName = self._cfg.topParentSourceGroup[0]
             self._sourceVersion = trvs[0][1]
 
             self._readonly = True
