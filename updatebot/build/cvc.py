@@ -23,8 +23,9 @@ log = logging.getLogger('updatebot.build.cvc')
 
 from conary import versions
 from conary import conarycfg
-from conary import conaryclient
+from conary.deps import deps
 from conary.build import cook
+from conary import conaryclient
 
 from updatebot.lib import conarycallbacks
 from updatebot.errors import LocalCookFailedError
@@ -56,17 +57,25 @@ class Cvc(object):
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 
-    def cook(self, troveSpecs):
+    def cook(self, troveSpecs, flavorFilter=None):
         """
         Cook a set of trove specs, currently limited to groups.
         @params troveSpecs: list of name, version, and flavor tuples.
         @type troveSpecs: [(name, version, flavor), ... ]
+        @params flavorFilter: Allow caller to filter out the contexts that they
+                              want to build. This is mostly used for group
+                              building where a given group should not be built
+                              for a context.
+        @type flavorFilter: iterable of context names.
         """
 
         # TODO: Look at conary.build.cook.cookCommand for how to setup
         #       environment when building anything other than groups.
 
         troveSpecs = self._formatInput(troveSpecs)
+
+        if flavorFilter:
+            troveSpecs = self._filterTroveSpecs(troveSpecs, flavorFilter)
 
         # make sure all troves are groups
         assert not [ x for x in troveSpecs if not x[0].startswith('group-') ]
@@ -113,3 +122,30 @@ class Cvc(object):
 
         res = { (troveSpecs[0][0], troveSpecs[0][1], None): results }
         return res
+
+    def _filterTroveSpecs(self, troveSpecs, useFlags):
+        """
+        Filter trove specs based on a list of use flags. This is only applicable
+        to groups.
+        @param troveSpecs: iterable of nvf tuples.
+        @type troveSpecs: list(tuple(str, conary.versions.VersionFromString,
+                                     conary.deps.deps.Flavor), ...)
+        @param useFlags: iterable of valid use flags (x86 and x86_64)
+        @type useFlags: list(str, ...)
+        @return modified list of trove specs
+        @rtype list(tuple(str, conary.versions.VersionFromString,
+                          conary.deps.deps.Flavor), ...)
+        """
+
+        useMap = {
+            'x86': deps.parseFlavor('is: x86'),
+            'x86_64': deps.parseFlavor('is: x86_64'),
+        }
+
+        specs = set()
+        for n, v, f in troveSpecs:
+            for flag in useFlags:
+                if f.satisfies(useMap[flag]):
+                    specs.add((n, v, f))
+
+        return list(specs)

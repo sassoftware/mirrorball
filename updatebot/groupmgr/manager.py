@@ -221,7 +221,8 @@ class GroupManager(object):
         """
 
         groupTroves = self.getBuildJob()
-        built = self._builder.cvc.cook(groupTroves)
+        useFlags = self._getUseFlags()
+        built = self._builder.cvc.cook(groupTroves, flavorFilter=useFlags)
         return built
 
     @checkout
@@ -407,6 +408,20 @@ class GroupManager(object):
 
         # Unknown state.
         raise UnhandledPackageAdditionError(name=name)
+
+    def _getUseFlags(self):
+        """
+        Get the set of use flags used across all managed groups.
+        """
+
+        use = set()
+        for group in self._groups.itervalues():
+            for name, pkg in group.iteritems():
+                if pkg.use:
+                    use.add(pkg.use)
+                else:
+                    use.update(set(['x86', 'x86_64']))
+        return use
 
     @checkout
     def setVersion(self, version):
