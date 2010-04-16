@@ -604,9 +604,15 @@ class Bot(BotSuperClass):
             # Handle the case where a package has been rebuilt for some
             # reason, but we need to use the old version of the package.
             pkgName = n.split(':')[0]
-            if len(vMap) > 1 and pkgName in exceptions:
-                vMap = dict((x, y) for x, y in vMap.iteritems()
-                            if x == exceptions[pkgName])
+            if len(vMap) > 1:
+                if pkgName in exceptions:
+                    log.info('using old version of %s' % n)
+                    vMap = dict((x, y) for x, y in vMap.iteritems()
+                                if x == exceptions[pkgName])
+                else:
+                    log.info('found multiple versions of %s, using latest' % n)
+                    v = sorted(vMap)[-1]
+                    vMap = { v: vMap[v], }
 
             assert len(vMap) == 1
 
