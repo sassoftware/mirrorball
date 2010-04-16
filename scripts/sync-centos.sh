@@ -13,7 +13,7 @@
 # full details.
 #
 
-SOURCE=rsync://mirrors.us.kernel.org/CentOS-nodvd
+SOURCE=rsync://mirrors.us.kernel.org/CentOS-incdvd
 DEST=/l/CentOS/
 
 date
