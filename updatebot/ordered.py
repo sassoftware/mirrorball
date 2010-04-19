@@ -429,7 +429,8 @@ class Bot(BotSuperClass):
             # Find excepted promote packages.
             srcPkgMap = self._updater.getBinaryVersionsFromSourcePackages(
                 bucket)
-            exceptions = self._getOldVersionExceptions(updateId)
+            exceptions = dict([ (x[0], x[1]) for x in itertools.chain(
+                *self._getOldVersionExceptions(updateId).itervalues()) ])
 
             # These are the binary trove specs that we expect to be promoted.
             expected = self._filterBinPkgSet(
