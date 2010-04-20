@@ -399,6 +399,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # updateId: [ (from srcTrvSpec, to srcTrvSpec), ... ]
     allowPackageDowngrades = (CfgIntDict(CfgList(CfgNevraTuple)), {})
 
+    # Allow updates which don't include all binary packages corresponding
+    # to a given source.
+    allowReusedPackages = (CfgBool, False)
+
     # Add a source to a specific updateId. This is used to move updates forward
     # after allowing an update to downgrade the version.
     addSource = (CfgIntDict(CfgList(CfgNevra)), {})
