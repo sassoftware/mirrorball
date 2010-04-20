@@ -430,8 +430,8 @@ class Updater(object):
 
                 if not removedPackages:
                     reusedPackages.add(pkg)
-                    #log.warn('using old version of package %s' % (pkg, ))
-                    #self._pkgSource.srcPkgMap[srpm].add(pkg)
+                    log.warn('using old version of package %s' % (pkg, ))
+                    self._pkgSource.srcPkgMap[srpm].add(pkg)
 
         if removedPackages:
             pkgList=sorted(removedPackages)
@@ -441,7 +441,7 @@ class Updater(object):
                 oldNevra=str(' '.join(srcPkg.getNevra())),
                 newNevra=str(' '.join(srpm.getNevra())))
 
-        if reusedPackages:
+        if reusedPackages and not self._cfg.allowReusedPackages:
             pkgList=sorted(reusedPackages)
             raise UpdateReusesPackageError(pkgList=pkgList,
                 pkgNames=' '.join([str(x) for x in pkgList]),
