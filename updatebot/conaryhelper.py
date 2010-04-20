@@ -371,8 +371,8 @@ class ConaryHelper(object):
 
         ret = {}
         for f, t in cfMap.iteritems():
-            assert len(cfMap[f]) == 1
-            ret[f] = list(t)[0]
+            assert len(cfMap[f]) >= 1
+            ret[f] = sorted(t)[-1]
 
         self._cache.labelClonedFromCache[label] = ret
         return ret
