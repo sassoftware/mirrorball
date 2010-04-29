@@ -308,6 +308,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # package format.
     writePackageMetadata = (CfgBool, False)
 
+    # Write version information to the source trove, generated from the source
+    # version and revision.
+    writePackageVersion = (CfgBool, False)
+
     # If sources are not available pkgSource will attempt to build artificial
     # source information if this is set to True.
     synthesizeSources = (CfgBool, False)

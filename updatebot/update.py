@@ -720,6 +720,10 @@ class Updater(object):
         manifest = self._getManifestFromPkgSource(srcPkg)
         self._conaryhelper.setManifest(nvf[0], manifest)
 
+        if self._cfg.writePackageVersion:
+            self._conaryhelper.setVersion(nvf[0], '%s_%s'
+                % (srcPkg.version, srcPkg.release))
+
         # FIXME: This is apt specific for now. Once repomd has been rewritten
         #        to use something other than rpath-xmllib we should be able to
         #        convert this to xobj.
