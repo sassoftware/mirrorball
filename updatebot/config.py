@@ -187,6 +187,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Paths based off of the repositoryUrl to get to individual repositories.
     repositoryPaths     = (CfgList(CfgString), ['/'])
 
+    # Ignore packages with "32bit" in the name. This is intened for use with
+    # SLES based platforms.
+    ignore32bitPackages = (CfgBool, False)
+
     # Data source for determining platform version information, only used for
     # group versioning.
     versionSources      = (CfgDict(CfgString), {})
