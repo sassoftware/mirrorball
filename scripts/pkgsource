@@ -15,6 +15,7 @@
 
 import os
 import sys
+import itertools
 
 mirrorballDir = os.path.abspath('../')
 sys.path.insert(0, mirrorballDir)
@@ -36,6 +37,91 @@ cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1] )
 
 pkgSource = pkgsource.PackageSource(cfg)
 pkgSource.load()
+
+srcs = {}
+srcNevras = {}
+for src, bins in pkgSource.srcPkgMap.iteritems():
+    srcs.setdefault(src.getNevra(), bins)
+    srcNevras.setdefault(src.getNevra(), src)
+
+names = {}
+for nevra, bins in srcs.iteritems():
+    if len(bins) > 1:
+        names.setdefault(nevra[0], set()).add(nevra)
+
+count = {}
+arch = {}
+for name, nevras in names.iteritems():
+    first = None
+    seen = None
+    for nevra in nevras:
+        bins = srcs[nevra]
+        archs = set([ x.arch for x in bins ])
+        if not seen:
+            first = (nevra, bins)
+            seen = archs
+        elif len(seen) != len(archs):
+            count[first[0]] = first[1]
+            count[nevra] = bins
+        elif seen != archs:
+            arch.setdefault(first[0], set()).update(first[1])
+            arch.setdefault(nevra, set()).update(bins)
+
+removed = {}
+#for nevra in itertools.chain(count, arch):
+#    removed.setdefault(nevra, srcNevras.pop(nevra))
+for nevra in itertools.chain(*[ x for x in names.values() if len(x) > 1 ]):
+    removed.setdefault(nevra, srcNevras.pop(nevra))
+
+toCreate = set(srcNevras.values())
+
+import epdb; epdb.st()
+
+order = {}
+
+def srtByRPMVerCmp(a, b):
+    from updatebot.lib import util
+    return util.packagevercmp(a, b)
+
+def srtByBuildstamp(a, b):
+    assert hasattr(a, 'buildTimestamp')
+    assert hasattr(b, 'buildTimestamp')
+    assert a.buildTimestamp not in ('0', '', 0)
+    assert b.buildTimestamp not in ('0', '', 0)
+    return cmp(int(a.buildTimestamp), int(b.buildTimestamp))
+
+srcNames = {}
+for srcPkg in pkgSource.srcPkgMap:
+    srcNames.setdefault(srcPkg.name, set()).add(srcPkg)
+
+binOrder = {}
+for srcName, srcPkgs in srcNames.iteritems():
+    uSrcPkgs = dict((x.getNevra(), x) for x in srcPkgs).values()
+
+    ver = sorted(uSrcPkgs, cmp=srtByRPMVerCmp)
+
+    for srcPkg in uSrcPkgs:
+        if srcPkg.buildTimestamp is None:
+            srcPkg.buildTimestamp = sorted([ x for x in pkgSource.srcPkgMap[srcPkg] if x.arch != 'src' ])[0].buildTimestamp
+
+    buildstamp = sorted(uSrcPkgs, cmp=srtByBuildstamp)
+
+    assert ver == buildstamp
+
+    for srcPkg in uSrcPkgs:
+        ts = int(srcPkg.buildTimestamp)
+        bins = pkgSource.srcPkgMap[srcPkg]
+        binOrder.setdefault(ts, set()).update(bins)
+
+def tsToDay(ts):
+    import time
+    return int(time.mktime(time.strptime(time.strftime('%Y%m%d', time.gmtime(ts)), '%Y%m%d')))
+
+# collapse by day
+for ts in sorted(binOrder):
+    day = tsToDay(ts)
+    bins = binOrder[ts]
+    order.setdefault(day, set()).update(bins)
 
 import epdb; epdb.st()
 
