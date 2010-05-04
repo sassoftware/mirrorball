@@ -103,7 +103,7 @@ class YumSource(BasePackageSource):
         for pkg in client.getPackageDetail():
             # ignore the 32-bit compatibility libs - we will
             # simply use the 32-bit components from the repository
-            if '32bit' in pkg.name:
+            if '32bit' in pkg.name and self._cfg.exclude32bitPackages:
                 continue
 
             # Don't use all arches.
@@ -352,6 +352,18 @@ class YumSource(BasePackageSource):
 
             return srcPkg
 
+        def synthesizeSource(srcPkg):
+            # add source to structures
+            if srcPkg.getNevra() not in self._srcMap:
+                log.warn('synthesizing source package %s' % srcPkg)
+                self._procSrc(srcPkg)
+
+            # Add location mappings for packages that may have once been
+            # synthesized so that parsing old manifest files still works.
+            elif srcPkg.location not in self.locationMap:
+                pkg = self._srcMap[srcPkg.getNevra()]
+                self.locationMap[srcPkg.location] = pkg
+
         # Return if sources should be available in repos.
         if not self._cfg.synthesizeSources:
             return
@@ -368,16 +380,8 @@ class YumSource(BasePackageSource):
                 deffer.add(nevra)
                 continue
 
-            # add source to structures
-            if nevra not in self._srcMap:
-                log.warn('synthesizing source package %s' % srcPkg)
-                self._procSrc(srcPkg)
-
-            # Add location mappings for packages that may have once been
-            # synthesized so that parsing old manifest files still works.
-            elif srcPkg.location not in self.locationMap:
-                pkg = self._srcMap[nevra]
-                self.locationMap[srcPkg.location] = pkg
+            # Synthesize the source
+            synthesizeSource(srcPkg)
 
         broken = set()
         # Make an attempt to sort out the binaries that have different names
@@ -399,7 +403,10 @@ class YumSource(BasePackageSource):
             log.warn('found binary without matching source name %s'
                      % list(bins)[0].name)
 
-            broken.add((nevra, tuple(bins)))
+            # If this isn't a case of a missmatched epoch, just go ahead and
+            # make up a source. What could go wrong?
+            synthesizeSource(srcPkg)
+            #broken.add((nevra, tuple(bins)))
 
         # Raise an exception if this ever happens. We can figure out the right
         # thing to do then, purhaps on a case by case basis.
