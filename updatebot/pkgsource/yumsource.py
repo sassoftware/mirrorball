@@ -103,7 +103,7 @@ class YumSource(BasePackageSource):
         for pkg in client.getPackageDetail():
             # ignore the 32-bit compatibility libs - we will
             # simply use the 32-bit components from the repository
-            if '32bit' in pkg.name and self._cfg.exclude32bitPackages:
+            if self._cfg.ignore32bitPackages and '32bit' in pkg.name:
                 continue
 
             # Don't use all arches.
