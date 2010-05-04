@@ -68,6 +68,29 @@ class CfgContextFlavor(CfgFlavor):
             raise ParseError, e
 
 
+class CfgContextFilter(CfgRegExp):
+    """
+    Class for parsing context name/regex tuples.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config input.
+        """
+
+        try:
+            splt = val.split()
+            if len(splt) == 1:
+                context = val
+                fltr = None
+            else:
+                context, fltrStr = splt
+                fltr = CfgRegExp.parseString(self, fltrStr)
+            return context, fltr
+        except versions.ParseError, e:
+            raise ParseError, e
+
+
 class CfgAdvisoryOrder(CfgString):
     """
     Class for parsing advisor order config.
@@ -256,7 +279,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     listArchiveStartDate = CfgString
 
     # list of contexts that all packages are built in.
-    archContexts        = CfgList(CfgString)
+    archContexts        = CfgList(CfgContextFilter)
 
     # flavors to build the source group.
     groupFlavors        = (CfgList(CfgFlavor), [])

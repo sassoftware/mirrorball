@@ -7,14 +7,28 @@
 Script for cooking packages with updatebot config.
 """
 
+import os
+
 from header import *
+from updatebot import conaryhelper
 
 if len(sys.argv) < 3:
     usage()
 
+helper = conaryhelper.ConaryHelper(cfg)
+
+def validateInput(input):
+    for pkgName in input:
+        manifest = helper.getManifest(pkgName)
+        paths = [ os.path.basename(x) for x in manifest ]
+        for context, fltr in cfg.archContexts:
+            if fltr and [ x for x in paths if fltr[1].match(x) ]:
+                raise RuntimeError, 'Found package that may not be built'
+    return input
+
 trvs = set()
 label = cfg.topSourceGroup[1]
-for pkg in sys.argv[2:]:
+for pkg in validateInput(sys.argv[2:]):
     trvs.add((pkg, label, None))
 trvMap = builder.build(trvs)
 

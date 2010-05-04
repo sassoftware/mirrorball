@@ -595,20 +595,19 @@ class Updater(object):
 
                 if not verCache.get(pkg.name) or buildAll or recreate:
                     if self.isPlatformTrove(version):
-                        toBuild.add((pkg.name, version, None))
+                        toBuild.add(((pkg.name, version, None), pkg))
                     else:
                         parentPackages.add((pkg.name, version, None))
                 else:
                     log.info('not building %s' % pkg.name)
                     preBuiltPackages.add((pkg.name, version, None))
             except Exception, e:
-                raise
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
 
         if buildAll and pkgs and pkgNames:
             toBuild.update(
-                [ (x, self._conaryhelper.getLatestSourceVersion(x), None)
+                [ ((x, self._conaryhelper.getLatestSourceVersion(x), None), None)
                   for x in pkgs if not self._fltrPkg(x) ]
             )
 

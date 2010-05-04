@@ -43,6 +43,7 @@ from updatebot.lib import util
 from updatebot.errors import JobFailedError
 from updatebot.errors import CommitFailedError
 from updatebot.errors import UnhandledKernelModule
+from updatebot.errors import InvalidBuildTroveInputError
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
 
@@ -312,7 +313,8 @@ class Builder(object):
         """
         Formats the list of troves provided into a job list for rMake.
         @param troveSpecs: set of name, version, flavor tuples
-        @type troveSpecs: set([(name, version, flavor), ..])
+        @type troveSpecs: set([(name, version, flavor, optional list of binary
+                                names), ..])
         @return list((name, version, flavor, context), ...)
         """
 
@@ -324,7 +326,15 @@ class Builder(object):
 
         # Build all troves in defined contexts.
         troves = []
-        for name, version, flavor in troveSpecs:
+        for trv in troveSpecs:
+            if len(trv) == 3:
+                name, version, flavor = trv
+                binaryNames = None
+            elif len(trv) == 4:
+                name, version, flavor, binaryNames = trv
+            else:
+                raise InvalidBuildTroveInputError(input=trv)
+
             # Make sure name is not an unicode string, it causes breakage in
             # the deps modules in conary.
             name = name.encode()
@@ -365,7 +375,12 @@ class Builder(object):
             # All other packages.
             else:
                 # Build all packages as x86 and x86_64.
-                for context in self._cfg.archContexts:
+                for context, fltr in self._cfg.archContexts:
+                    # If there is a filter and no binary file names or no files
+                    # in the binary names match the filter skip this context.
+                    if (fltr and not binaryNames or (binaryNames and
+                        not [ x for x in binaryNames if fltr[1].match(x) ])):
+                        continue
                     troves.append((name, version, flavor, context))
 
         return troves

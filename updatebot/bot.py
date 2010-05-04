@@ -57,6 +57,22 @@ class Bot(object):
 
         return [ x for x in itertools.chain(*setDict.itervalues()) ]
 
+    def _formatBuildTroves(self, buildSet):
+        """
+        Format a list of trove specs and source package objects into something
+        the build subsystem can deal with.
+        """
+
+        toBuild = set()
+        for nvf, srcPkg in buildSet:
+            binaryNames = None
+            if srcPkg:
+                binaryNames = [ x.name
+                    for x in self._pkgSource.srcPkgMap[srcPkg] ]
+            toBuild.add((nvf, binaryNames))
+
+        return sorted(toBuild)
+
     def create(self, rebuild=False, recreate=None, toCreate=None):
         """
         Do initial imports.
@@ -107,7 +123,7 @@ class Bot(object):
 
 
         # Import sources into repository.
-        toBuild, parentPkgMap, fail = self._updater.create(
+        buildSet, parentPkgMap, fail = self._updater.create(
             toPackage,
             buildAll=rebuild,
             recreate=bool(recreate),
@@ -118,17 +134,20 @@ class Bot(object):
 
         trvMap = {}
         failed = ()
+
+        toBuild = self._formatBuildTroves(buildSet)
+
         if len(toBuild):
             if not rebuild or (rebuild and toCreate):
                 # Build all newly imported packages.
-                trvMap, failed = self._builder.buildmany(sorted(toBuild))
+                trvMap, failed = self._builder.buildmany(toBuild)
                 log.info('failed to import %s packages' % len(failed))
                 if len(failed):
                     for pkg in failed:
                         log.warn('%s' % (pkg, ))
             else:
                 # ReBuild all packages.
-                trvMap = self._builder.buildsplitarch(sorted(toBuild))
+                trvMap = self._builder.buildsplitarch(toBuild)
             log.info('import completed successfully')
             log.info('imported %s source packages' % (len(toBuild), ))
         else:
@@ -220,7 +239,7 @@ class Bot(object):
 
         # Make sure to build everything in the toAdvise list, there may be
         # sources that have been updated, but not built.
-        buildTroves = set([ x[0] for x in toAdvise ])
+        buildTroves = self._formatBuildTroves(toAdvise)
 
         # If importing specific packages, they might require each other so
         # always use buildmany, but wait to commit.
