@@ -64,12 +64,12 @@ class Bot(object):
         """
 
         toBuild = set()
-        for nvf, srcPkg in buildSet:
+        for (n, v, f), srcPkg in buildSet:
             binaryNames = None
             if srcPkg:
-                binaryNames = [ x.name
-                    for x in self._pkgSource.srcPkgMap[srcPkg] ]
-            toBuild.add((nvf, binaryNames))
+                binaryNames = tuple([ x.name
+                    for x in self._pkgSource.srcPkgMap[srcPkg] ])
+            toBuild.add((n, v, f, binaryNames))
 
         return sorted(toBuild)
 
@@ -129,13 +129,13 @@ class Bot(object):
             recreate=bool(recreate),
             toCreate=toCreate)
 
+        toBuild = self._formatBuildTroves(buildSet)
+
         log.info('failed to create %s packages' % len(fail))
         log.info('found %s packages to build' % len(toBuild))
 
         trvMap = {}
         failed = ()
-
-        toBuild = self._formatBuildTroves(buildSet)
 
         if len(toBuild):
             if not rebuild or (rebuild and toCreate):
