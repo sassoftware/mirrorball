@@ -177,7 +177,7 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        workers = 20
+        workers = 30
         if not lateCommit:
             dispatcher = Dispatcher(self, workers)
         else:
@@ -319,7 +319,7 @@ class Builder(object):
         """
 
         # Make sure troveSpecs is an iterable of three tuples.
-        if (len(troveSpecs) == 3 and
+        if (len(troveSpecs) in (3, 4) and
             not isinstance(list(troveSpecs)[0], (list, set, tuple))):
             # Assume that (n,v,f) was passed in
             troveSpecs = [ troveSpecs, ]
@@ -378,8 +378,8 @@ class Builder(object):
                 for context, fltr in self._cfg.archContexts:
                     # If there is a filter and no binary file names or no files
                     # in the binary names match the filter skip this context.
-                    if (fltr and not binaryNames or (binaryNames and
-                        not [ x for x in binaryNames if fltr[1].match(x) ])):
+                    if (fltr and (not binaryNames or (binaryNames and
+                        not [ x for x in binaryNames if fltr[1].match(x) ]))):
                         continue
                     troves.append((name, version, flavor, context))
 

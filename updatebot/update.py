@@ -518,12 +518,14 @@ class Updater(object):
 
         return ret
 
-    def create(self, pkgNames=None, buildAll=False, recreate=False, toCreate=None):
+    def create(self, pkgNames=None, buildAll=False, recreate=False,
+               toCreate=None):
         """
         Import a new package into the repository.
         @param pkgNames: list of packages to import
         @type pkgNames: list
-        @param buildAll: return a list of all troves found rather than just the new ones.
+        @param buildAll: return a list of all troves found rather than just the
+                         new ones.
         @type buildAll: boolean
         @param recreate: a package manifest even if it already exists.
         @type recreate: boolean
@@ -585,15 +587,25 @@ class Updater(object):
         toBuild = set()
         preBuiltPackages = set()
         parentPackages = set()
+        total = len(toCreate)
+        current = 1
+        start = False
         for pkg in sorted(toCreate):
+            if pkg.name.startswith('n'):
+                start = True
+
             try:
                 # Only import packages that haven't been imported before
                 version = verCache.get('%s:source' % pkg.name)
                 if not version or recreate:
-                    log.info('attempting to import %s' % pkg)
+                    log.info('attempting to import %s (%s/%s)'
+                             % (pkg, current, total))
                     version = self.update((pkg.name, None, None), pkg)
 
-                if not verCache.get(pkg.name) or buildAll or recreate:
+                if (not verCache.get(pkg.name) or
+                    verCache.get(pkg.name).getSourceVersion() != version or
+                    buildAll or recreate):
+
                     if self.isPlatformTrove(version):
                         toBuild.add(((pkg.name, version, None), pkg))
                     else:
@@ -604,10 +616,12 @@ class Updater(object):
             except Exception, e:
                 log.error('failed to import %s: %s' % (pkg, e))
                 fail.add((pkg, e))
+            current += 1
 
         if buildAll and pkgs and pkgNames:
             toBuild.update(
-                [ ((x, self._conaryhelper.getLatestSourceVersion(x), None), None)
+                [ ((x, self._conaryhelper.getLatestSourceVersion(x), None),
+                   None)
                   for x in pkgs if not self._fltrPkg(x) ]
             )
 
@@ -615,7 +629,8 @@ class Updater(object):
         pkgMap = {}
         if parentPackages:
             # Find all of the binaries that match the upstream platform sources.
-            log.info('looking up binary versions of all parent platform packages')
+            log.info('looking up binary versions of all parent platform '
+                     'packages')
             parentPkgMap = self.getBinaryVersions(parentPackages,
                 labels=self._cfg.platformSearchPath)
 
@@ -857,7 +872,8 @@ class Updater(object):
                         src = self._pkgSource.binPkgMap[latest]
                         srcname = src.name
                     else:
-                        log.warn('found virtual requires %s in pkg %s' % (name, srcPkg.name))
+                        log.warn('found virtual requires %s in pkg %s'
+                                 % (name, srcPkg.name))
                         srcname = 'virtual'
                     reqs.append((name, srcname))
 
