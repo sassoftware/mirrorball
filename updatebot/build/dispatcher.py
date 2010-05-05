@@ -92,7 +92,7 @@ class Dispatcher(object):
                 while (troves and self._slots and self._startSlots and
                        self._availableFDs()):
                     # get trove to work on
-                    trove = troves.pop()
+                    trove = troves.pop(0)
 
                     # start build job
                     self._starter.startJob(trove)
