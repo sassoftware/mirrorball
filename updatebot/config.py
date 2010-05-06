@@ -122,6 +122,21 @@ class CfgObsoletes(CfgString):
         return obsoleter, obsoleted
 
 
+class CfgNameFlavor(CfgString):
+    """
+    Class for parsing name/flavor pairs.
+    """
+
+    def parseString(self, val):
+        splt = val.split()
+        name = splt[0]
+        if len(splt) > 1:
+            flv = ' '.join(splt[1:])
+        else:
+            flv = ''
+        return name, flv
+
+
 class CfgIntDict(CfgDict):
     """
     Config class to represent dictionaries keyed by integers rather than
@@ -396,6 +411,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # reached, update to the version specified in the trovespec rather than the
     # latest that matches the current rpm version.
     useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
+
+    # Add a package to a specific group
+    addPackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
+
+    # Remove a package from a specific group
+    removePackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
