@@ -56,6 +56,10 @@ class YumSource(BasePackageSource):
         # set of all src pkg objects
         self._srcPkgs = set()
 
+        # mapping of what arch repository each binary package came from
+        # {binPkg: set([archStr, ..])}
+        self._repoMap = dict()
+
     def setLoaded(self):
         self._loaded = True
 
@@ -68,14 +72,15 @@ class YumSource(BasePackageSource):
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-            self.loadFromClient(client, repo)
+            archStr = self._cfg.repositoryArch.get(repo, None)
+            self.loadFromClient(client, repo, archStr=archStr)
             self._clients[repo] = client
 
         self.finalize()
         self._loaded = True
 
     @loaded
-    def loadFromUrl(self, url, basePath=''):
+    def loadFromUrl(self, url, basePath='', archStr=None):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -87,10 +92,10 @@ class YumSource(BasePackageSource):
 
         log.info('loading repository data %s/%s' % (url, basePath))
         client = repomd.Client(url + '/' + basePath)
-        self.loadFromClient(client, basePath=basePath)
+        self.loadFromClient(client, basePath=basePath, archStr=archStr)
 
     @loaded
-    def loadFromClient(self, client, basePath=''):
+    def loadFromClient(self, client, basePath='', archStr=None):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -126,7 +131,7 @@ class YumSource(BasePackageSource):
             if pkg.sourcerpm == '' or pkg.sourcerpm is None:
                 self._procSrc(pkg)
             else:
-                self._procBin(pkg)
+                self._procBin(pkg, archStr=archStr)
 
     def _procSrc(self, package):
         """
@@ -157,7 +162,7 @@ class YumSource(BasePackageSource):
         self._srcMap[(package.name, package.epoch, package.version,
                       package.release, package.arch)] = package
 
-    def _procBin(self, package):
+    def _procBin(self, package, archStr=None):
         """
         Process binary rpms.
         @param package: package object
@@ -203,6 +208,9 @@ class YumSource(BasePackageSource):
         self.binNameMap[package.name].add(package)
 
         self.locationMap[package.location] = package
+
+        if archStr:
+            self._repoMap.setdefault(package, set()).add(archStr)
 
     def _excludeLocation(self, location):
         """
@@ -314,6 +322,28 @@ class YumSource(BasePackageSource):
                 log.warn('for rpm(s):')
                 for loc in sorted(locs):
                     log.warn('\t%s' % loc)
+
+        if self._repoMap:
+            for binPkg, archStr in self._repoMap.iteritems():
+                # lookup the source for the binary package
+                srcPkg = self.binPkgMap[binPkg]
+
+                # get the conary version from the source
+                conaryVersion = srcPkg.getConaryVersion()
+
+                if binPkg.arch == 'x86_64':
+                    arch = 'x86_64'
+                elif binPkg.arch == 'noarch':
+                    arch = ''
+                elif (binPkg.arch.startswith('i') and
+                      binPkg.arch.endswith('86') and
+                      len(binPkg.arch) == 4):
+                    arch = 'x86'
+                else:
+                    raise RuntimeError
+
+                trvSpec = (binPkg.name, conaryVersion, arch)
+                self.useMap.setdefault(trvSpec, set()).update(archStr)
 
     def loadFileLists(self, client, basePath):
         """

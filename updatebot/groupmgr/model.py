@@ -93,6 +93,13 @@ class AbstractModel(object):
 
         return self._data.iteritems()
 
+    def __iter__(self):
+        """
+        Iterate over the packages of this group.
+        """
+
+        return self._data.itervalues()
+
     def add(self, *args, **kwargs):
         """
         Add an data element.
@@ -144,3 +151,20 @@ class GroupContentsModel(AbstractModel):
         # figure out file name based on group name
         name = ''.join([ x.capitalize() for x in self.groupName.split('-') ])
         self.fileName = name[0].lower() + name[1:] + '.xml'
+
+    def removePackageFlavor(self, name, frzFlavor):
+        """
+        Remove a specific flavor from the group.
+        """
+
+        removed = []
+        for pkg in self._nameMap[name]:
+            if pkg.flavor == frzFlavor:
+                self._data.pop(pkg.key)
+                removed.append(pkg)
+
+        for pkg in removed:
+            self._nameMap[name].remove(pkg)
+
+        if not self._nameMap[name]:
+            self._nameMap.pop(name)

@@ -207,7 +207,7 @@ class XPackageItem(XHashableItem):
 
     @property
     def key(self):
-        return (self.name, self.flavor)
+        return (self.name, self.flavor, self.use)
 
 
 class XPackageData(XItemList):

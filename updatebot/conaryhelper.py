@@ -911,7 +911,10 @@ class ConaryHelper(object):
         @type pkgname: string
         """
 
-        versions = self._getVersionsByName('%s:source' % pkgname)
+        if not pkgname.endswith(':source'):
+            pkgname = '%s:source' % pkgname
+
+        versions = self._getVersionsByName(pkgname)
 
         # FIXME: This is a hack to work around the fact that ubuntu has some
         #        shadows and packages that overlap on the label,

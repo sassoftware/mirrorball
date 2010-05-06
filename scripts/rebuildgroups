@@ -1,0 +1,90 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+import logging
+
+from updatebot import groupmgr
+from updatebot import OrderedBot
+
+log = logging.getLogger('tmplogger')
+
+class Bot(OrderedBot):
+    def rebuildgroups(self):
+        """
+        Rebuild all groups on the devel label. This requires rewriting the group
+        model to point at the target label and readding content.
+        """
+
+        # load package source
+        self._pkgSource.load()
+
+        for updateId, updates in self._errata.iterByIssueDate(current=-1):
+            mgr = groupmgr.GroupManager(self._cfg,
+                useMap=self._pkgSource.useMap)
+
+            
+
+            # Find any version exceptions for this update.
+            multiVersionExceptions = dict([
+                (x[0], x[1]) for x in itertools.chain(
+                    self._updater.getTargetVersions(itertools.chain(
+                *self._getOldVersionExceptions(updateId).itervalues()
+                    ))[0]
+                )
+            ])
+
+if __name__ == '__main__':
+    import os
+    import sys
+
+    mirrorballDir = os.path.abspath('../')
+    sys.path.insert(0, mirrorballDir)
+
+    if 'CONARY_PATH' in os.environ:
+        sys.path.insert(0, os.environ['CONARY_PATH'])
+
+    import rmake
+    import conary
+    import updatebot
+
+    print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
+    print >>sys.stderr, 'using rmake from', os.path.dirname(rmake.__file__)
+    print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
+
+    from conary.lib import util
+    sys.excepthook = util.genExcepthook()
+
+    import rhnmirror
+
+    from updatebot import config
+    from updatebot import log as logSetup
+
+    logSetup.addRootLogger()
+
+    log = logging.getLogger('grouprebuild')
+
+    cfg = config.UpdateBotConfig()
+    cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
+
+    mcfg = rhnmirror.MirrorConfig()
+    mcfg.read(confDir + '/erratarc')
+
+    errata = rhnmirror.Errata(mcfg)
+    errata.fetch()
+
+    bot = Bot(cfg, errata)
+    bot.rebuildgroups()
+
+    import epdb; epdb.st()

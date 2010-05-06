@@ -39,8 +39,8 @@ class SingleGroupManager(GroupManager):
 
     def __init__(self, name, *args, **kwargs):
         GroupManager.__init__(self, *args, **kwargs)
-        self._sourceName = 'group-%s' % name
-        self._pkgGroupName = self._sourceName
+        self._sourceName = 'group-%s:source' % name
+        self._pkgGroupName = 'group-%s' % name
 
 
 class SingleGroupManagerSet(object):
@@ -74,7 +74,7 @@ class SingleGroupManagerSet(object):
 
         pkgMap = {}
         for group in self._groups.itervalues():
-            pkgMap.update(group.build())
+            pkgMap.update(group.buildGroup(group.latest))
 
         return pkgMap
 
