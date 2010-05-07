@@ -318,6 +318,12 @@ class ConaryHelper(object):
         tiMap = {}
         tiLst = self._repos.getTroveInfo(tiType, req)
         for i, nvf in enumerate(uncached):
+            # If this trove doesn't have this piece of trove info, log a warning
+            # and skip over it.
+            if tiLst[i] is None:
+                log.warn('found missing trove info for %s, skipping' % (nvf, ))
+                continue
+
             ti = tiLst[i]()
             if tiFunc:
                 ti = tiFunc(ti, nvf)
