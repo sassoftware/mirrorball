@@ -93,6 +93,13 @@ class Bot(OrderedBot):
 
             current = latest
 
+        def srtChangesByPkgName(a, b):
+            cmpa = ' '.join(a.split()[1:])
+            cmpb = ' '.join(b.split()[1:])
+            return cmp(cmpa, cmpb)
+
+        changes.sort(cmp=srtChangesByPkgName)
+
         return changes
 
 
