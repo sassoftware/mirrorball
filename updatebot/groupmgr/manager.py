@@ -77,7 +77,7 @@ class GroupManager(object):
         elif parentGroup:
             srcName = self._cfg.topParentSourceGroup[0]
             srcLabel = self._cfg.topParentSourceGroup[1]
-            labels = self._cfg.platforSearchPath
+            labels = self._cfg.platformSearchPath
 
         self._sourceName = srcName
         self._sourceLabel = srcLabel
@@ -86,7 +86,8 @@ class GroupManager(object):
         # FIXME: Should figure out a better way to handle package group.
         self._pkgGroupName = 'group-%s-packages' % self._cfg.platformName
 
-        assert self._sourceName.endswith(':source')
+        if not srcName.endswith(':source'):
+            srcName = '%s:source' % srcName
 
         self._readOnly = False
         if targetGroup or parentGroup:
