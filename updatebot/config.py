@@ -145,6 +145,21 @@ class CfgNevraTuple(CfgString):
         return obsoleter, obsoleted
 
 
+class CfgNameFlavor(CfgString):
+    """
+    Class for parsing name/flavor pairs.
+    """
+
+    def parseString(self, val):
+        splt = val.split()
+        name = splt[0]
+        if len(splt) > 1:
+            flv = ' '.join(splt[1:])
+        else:
+            flv = ''
+        return name, flv
+
+
 class CfgIntDict(CfgDict):
     """
     Config class to represent dictionaries keyed by integers rather than
@@ -209,6 +224,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # Paths based off of the repositoryUrl to get to individual repositories.
     repositoryPaths     = (CfgList(CfgString), ['/'])
+
+    # Arch strings for each repository to signify what base architecture each
+    # repository is meant for.
+    # repositoryName archString
+    repositoryArch      = (CfgDict(CfgString), {})
 
     # Ignore packages with "32bit" in the name. This is intened for use with
     # SLES based platforms.
@@ -422,6 +442,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # reached, update to the version specified in the trovespec rather than the
     # latest that matches the current rpm version.
     useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
+
+    # Add a package to a specific group
+    addPackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
+
+    # Remove a package from a specific group
+    removePackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
 
     # Allow updates for a given nevra to be published without matching errata.
     allowMissingErrata = (CfgList(CfgNevra), [])

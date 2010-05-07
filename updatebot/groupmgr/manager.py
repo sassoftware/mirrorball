@@ -17,465 +17,330 @@ Module for managing conary groups.
 """
 
 import logging
-import itertools
 
-from conary.deps import deps
+from conary import versions
 
-from updatebot.lib import util
 from updatebot.build import Builder
 
-from updatebot.errors import FlavorCountMismatchError
-from updatebot.errors import UnknownBuildContextError
-from updatebot.errors import UnsupportedTroveFlavorError
-from updatebot.errors import UnhandledPackageAdditionError
 from updatebot.errors import NotCommittingOutOfDateSourceError
-from updatebot.errors import UnknownPackageFoundInManagedGroupError
 
+from updatebot.groupmgr.group import Group
+from updatebot.groupmgr.group import require_write
 from updatebot.groupmgr.helper import GroupHelper
 from updatebot.groupmgr.sanity import GroupSanityChecker
-from updatebot.groupmgr.model import GroupContentsModel
 
 log = logging.getLogger('updatebot.groupmgr')
 
-def checkout(func):
-    def wrapper(self, *args, **kwargs):
-        if not self._checkedout:
-            self._checkout()
-
-        return func(self, *args, **kwargs)
-    return wrapper
-
-def commit(func):
-    def wrapper(self, *args, **kwargs):
-        if self._readonly:
-            return
-
-        if self._checkedout:
-            self._commit()
-
-        return func(self, *args, **kwargs)
-    return wrapper
-
-
 class GroupManager(object):
     """
-    Manage group of all packages for a platform.
+    Class for managing groups.
+    @param cfg: updatebot configuration object
+    @type cfg: updatebot.config.UpdateBotConfig
+    @param parentGroup: optional argument, if set to True will setup manager to
+                        interact with the parent platform group contents. This
+                        is automatically set to readonly to avoid writing
+                        anything to the parent platform.
+    @type parentGroup: boolean
+    @param targetGroup: optional argument, if set to True will setup manager to
+                        interact with the target "production" branch for the
+                        configured platform. This manager instance will
+                        automatically be set to readonly to avoid modifying the
+                        target label.
+    @type targetGroup: boolean
+    @param useMap: optional argument, A dictionary of package names mapped to a
+                   list of use flags for the given package name. This is used to
+                   determine use flags for packages that are added to group
+                   contents models. If not specified all x86 packages will be
+                   added to the x86 group and all x86_64 packages will be added
+                   to the x86_64 group.
+    @type useMap: dict
     """
 
     _helperClass = GroupHelper
     _sanityCheckerClass = GroupSanityChecker
 
-    def __init__(self, cfg, parentGroup=False, targetGroup=False):
+    def __init__(self, cfg, parentGroup=False, targetGroup=False, useMap=None):
         self._cfg = cfg
+        self._useMap = useMap or dict()
         self._helper = self._helperClass(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
         self._sanity = self._sanityCheckerClass(self._cfg, self._helper)
 
         assert not (parentGroup and targetGroup)
 
+        srcName = '%s:source' % self._cfg.topSourceGroup[0]
+        srcLabel = self._cfg.topSourceGroup[1]
+        labels = None
+
         if targetGroup:
-            srcName = '%s:source' % self._cfg.topSourceGroup[0]
-            trvs = self._helper.findTrove(
-                (srcName, self._cfg.targetLabel, None))
-
-            assert len(trvs)
-
-            self._sourceName = self._cfg.topSourceGroup[0]
-            self._sourceVersion = trvs[0][1]
-            self._readonly = True
+            srcLabel = self._cfg.tagetLabel
         elif parentGroup:
-            topGroup = list(self._cfg.topParentSourceGroup)
-            topGroup[0] = '%s:source' % topGroup[0]
-            trvs = self._helper.findTrove(tuple(topGroup),
-                    labels=self._cfg.platformSearchPath)
+            srcName = self._cfg.topParentSourceGroup[0]
+            srcLabel = self._cfg.topParentSourceGroup[1]
+            labels = self._cfg.platformSearchPath
 
-            assert len(trvs)
+        self._sourceName = srcName
+        self._sourceLabel = srcLabel
+        self._searchLabels = labels
 
-            self._sourceName = self._cfg.topParentSourceGroup[0]
-            self._sourceVersion = trvs[0][1]
-
-            self._readonly = True
-        else:
-            self._sourceName = self._cfg.topSourceGroup[0]
-            self._sourceVersion = None
-            self._readonly = False
-
+        # FIXME: Should figure out a better way to handle package group.
         self._pkgGroupName = 'group-%s-packages' % self._cfg.platformName
 
-        self._checkedout = False
-        self._groups = {}
+        if not srcName.endswith(':source'):
+            srcName = '%s:source' % srcName
 
-    def _checkout(self):
+        self._readOnly = False
+        if targetGroup or parentGroup:
+            self._readOnly = True
+
+        self._groupCache = {}
+        self._latest = None
+
+    def setReadOnly(self):
         """
-        Get current group state from the repository.
+        Mark the group manager as read only. You will not be able to modify or
+        build any groups requested through this manager instance.
         """
 
-        self._groups = self._helper.getModel(self._sourceName,
-                                             version=self._sourceVersion)
-        self._checkedout = True
+        self._readOnly = True
 
-    def _commit(self, copyToLatest=False):
+    @property
+    def latest(self):
+        if self._latest is None:
+            self._latest = self.getGroup()
+        return self._latest
+
+    def _findVersion(self, version=None, allVersions=False):
         """
-        Commit current changes to the group.
+        Find the conary version(s) that match the specified version.
+        @param version: The conary source version to load or a string
+                        representation of the version that will be looked up in
+                        the repository. The latest source version matching the
+                        specified version will be used. If no version is
+                        specified, the latest version will be retreived.
+        @type version: conary.versions.VersionFromString, str, or None
+        @param allVersions: By default this method only finds the latest
+                            versions. If you would like to find all versions
+                            that match the specified version set this option
+                            to True.
+        @type allVersions: boolean
+        @return conary version(s) found
+        @rtype conary.versions.VersionFromString
+        @rtype list(conary.versions.VersionFromString)
         """
 
-        if self._sourceVersion and not copyToLatest:
+        # Make sure version is of an acceptable type.
+        assert (isinstance(version, (str, versions.VersionSequence)) or
+               version is None)
+
+        # Find the latest version so that we can check if the version we are
+        # retreiving from the repository is the latest.
+        trvs = self._helper.findTrove((self._sourceName, version, None),
+                                      labels=self._searchLabels,
+                                      getLeaves=not allVersions)
+
+        if allVersions:
+            return [ x[1] for x in trvs ]
+        elif len(trvs):
+            return trvs[0][1]
+        else:
+            return None
+
+    def getGroup(self, version=None):
+        """
+        Retrieve a group model from the repository.
+        @param version: The conary source version to load or a string
+                        representation of the version that will be looked up in
+                        the repository. The latest source version matching the
+                        specified version will be used. If no version is
+                        specified, the latest version will be retreived.
+        @type version: conary.versions.VersionFromString, str, or None
+        @return group model object
+        @rtype updatebot.groupmgr.group.Group
+        """
+
+        # Make sure version is of an acceptable type.
+        assert (isinstance(version, (str, versions.VersionSequence)) or
+               version is None)
+
+        # Find the latest version so that we can check if the version we are
+        # retreiving from the repository is the latest.
+        latest = self._findVersion()
+
+        # Find the conary version object if we don't have one yet.
+        if version is None:
+            conaryVersion = latest
+        elif isinstance(version, str):
+            conaryVersion = self._findVersion(version=version)
+            # If the user requested a version that doesn't exist return None.
+            if conaryVersion is None:
+                return None
+        else:
+            conaryVersion = version
+
+        # Make sure this is a source version.
+        assert conaryVersion is None or conaryVersion.isSourceVersion()
+
+        # Check the cache for this version first.
+        if conaryVersion in self._groupCache:
+            return self._groupCache[conaryVersion]
+
+        # Get model information from the source.
+        groups = self._helper.getModel(self._sourceName, version=conaryVersion)
+        errataState = self._helper.getErrataState(self._sourceName,
+            version=conaryVersion)
+        upstreamVersion = self._helper.getVersion(self._sourceName,
+            version=conaryVersion)
+
+        # Instantiate a group instance.
+        group = Group(self._cfg, self._useMap, self._sanity, self,
+            self._pkgGroupName, groups, errataState, upstreamVersion,
+            conaryVersion)
+
+        # If this was the latest version, store it as "latest"
+        if conaryVersion == latest:
+            self._latest = group
+
+        # Cache reference to group.
+        self._groupCache[conaryVersion] = group
+
+        return group
+
+    @require_write
+    def setGroup(self, group, copyToLatest=False):
+        """
+        Freeze group model and commit state to the repository. Note that this
+        puts the group model object into read only mode.
+        @param group: group object to commit
+        @type group: updatebot.groupmgr.group.Group
+        @param copyToLatest: Optional parameter to enable committing a model
+                             that was not gerenated from the latest version.
+        @type copyToLatest: boolean
+        @return committed group model object
+        @rtype updatebot.groupmgr.group.Group
+        """
+
+        # Make sure model hasn't already been committed.
+        assert not group.committed
+
+        # Don't attempt to commit out of date sources unless requested to do so.
+        if (group.conaryVersion != self.latest.conaryVersion and
+            not copyToLatest):
+
             log.error('refusing to commit out of date source')
-            raise NotCommittingOutOfDateSourceError()
+            raise NotCommittingOutOfDateSourceError
 
         # Copy forward data when we are fixing up old group versions so that
         # this is the latest source.
         if copyToLatest:
-            log.info('copying information to latest version')
-            # Get data from the old versoin
-            version = self._helper.getVersion(self._sourceName,
-                                              version=self._sourceVersion)
-            errataState = self._helper.getErrataState(self._sourceName,
-                                              version=self._sourceVersion)
-            groups = self._groups
+            log.info('committing %s model as latest' % group.conaryVersion)
+            log.info('version: %s' % group.version)
+            log.info('errataState: %s' % group.errataState)
 
-            log.info('version: %s' % version)
-            log.info('errataState: %s' % errataState)
+            conaryVersion = self.latest.conaryVersion
 
-            # Set version to None to get the latest source.
-            self._sourceVersion = None
+        # Default to modifying the source verison of the group model.
+        else:
+            conaryVersion = group.conaryVersion
 
-            # Checkout latest source.
-            self._checkout()
+        # Finalizing the group performs any sanity checking and marks it as
+        # readonly.
+        group.finalize()
 
-            # Set back to old data
-            self.setVersion(version)
-            self.setErrataState(errataState)
-            self._groups = groups
+        # set version
+        self._helper.setVersion(self._sourceName, group.version,
+            version=conaryVersion)
 
-        # sync versions from the package group to the other managed groups.
-        self._copyVersions()
-
-        # validate group contents.
-        self._sanity.check(self._groups, self.getErrataState())
+        # set errata state
+        self._helper.setErrataState(self._sourceName, group.errataState,
+            version=conaryVersion)
 
         # write out the model data
-        self._helper.setModel(self._sourceName, self._groups)
+        self._helper.setModel(self._sourceName, group, version=conaryVersion)
 
         # commit to the repository
-        version = self._helper.commit(self._sourceName,
-                                      version=self._sourceVersion,
-                                      commitMessage='automated commit')
-        if self._sourceVersion:
-            self._sourceVersion = version
-        self._checkedout = False
-        return version
+        newVersion = self._helper.commit(self._sourceName,
+            version=conaryVersion,
+            commitMessage=self._cfg.commitMessage)
 
-    save = _commit
+        # Remove the cached version of the already committed group.
+        self._groupCache.pop(group.conaryVersion)
 
-    def hasBinaryVersion(self, version=None):
+        # Mark group as committed.
+        group.setCommitted()
+
+        # Get the model for the source version that we just committed.
+        return self.getGroup(sourceVersion=newVersion)
+
+    @require_write
+    def buildGroup(self, group):
         """
-        Check if there is a binary version for the current source version.
-        """
-
-        if not version:
-            verison = self._sourceVersion
-
-        # Search the label from the source version.
-        if self._sourceVersion:
-            labels = (self._sourceVersion.trailingLabel(), )
-        else:
-            labels = (self._helper.getConaryConfig().buildLabel, )
-
-        # Get a mapping of all source version to binary versions for all
-        # existing binary versions.
-        srcVersions = dict([ (x[1].getSourceVersion(), x[1])
-            for x in self._helper.findTrove(
-                (self._sourceName, None, None),
-                getLeaves=False,
-                labels=labels,
-            )
-        ])
-
-        # Get the version of the specified source, usually the latest
-        # source version.
-        srcVersion = self._helper.findTrove(
-            ('%s:source' % self._sourceName, version, None),
-            labels=labels)
-
-        if not srcVersion:
-            return False
-
-        # Check to see if the latest source version is in the map of
-        # binary versions.
-        return srcVersion[0][1] in srcVersions
-
-    @commit
-    def getBuildJob(self):
-        """
-        Get the list of trove specs to submit to the build system.
+        Build the binary version of a given group.
+        @param group: group model to build.
+        @type group: updatebot.groupmgr.group.Group
+        @return mapping of built troves.
+        @rtype dict(sourceTrv=[binTrv, ..])
         """
 
-        return ((self._sourceName, self._sourceVersion, None), )
+        # Make sure this group has been committed to the repository before
+        # attempting to build it.
+        assert group.committed
 
-    @checkout
-    @commit
-    def build(self):
-        """
-        Build all configured flavors of the group.
-        """
+        # Make sure this group is not marked as dirty. This means that things
+        # have been changed about the group since it was committed.
+        assert not group.dirty
 
-        groupTroves = self.getBuildJob()
-        useFlags = self._getUseFlags()
-        built = self._builder.cvc.cook(groupTroves, flavorFilter=useFlags)
-        return built
-
-    @checkout
-    def add(self, *args, **kwargs):
-        """
-        Add a trove to the package group contents.
-        """
-
-        # create package group model if it does not exist.
-        if self._pkgGroupName not in self._groups:
-            model = GroupContentsModel(self._pkgGroupName)
-            self._groups[self._pkgGroupName] = model
-
-        self._groups[self._pkgGroupName].add(*args, **kwargs)
-
-    @checkout
-    def remove(self, name, missingOk=False):
-        """
-        Remove a given trove from the package group contents.
-        """
-
-        if self._pkgGroupName not in self._groups:
-            return
-
-        return self._groups[self._pkgGroupName].remove(name,
-             missingOk=missingOk)
-
-    @checkout
-    def hasPackage(self, name):
-        """
-        Check if a given package name is in the group.
-        """
-
-        return (self._pkgGroupName in self._groups and
-                name in self._groups[self._pkgGroupName])
-
-    def addPackage(self, name, version, flavors):
-        """
-        Add a package to the model.
-        @param name: name of the package
-        @type name: str
-        @param version: conary version from string object
-        @type version: conary.versions.VersionFromString
-        @param flavors: list of flavors
-        @type flavors: [conary.deps.deps.Flavor, ...]
-        """
-
-        # Now that versions are actually used for something make sure they
-        # are always present.
-        assert version
-        assert len(flavors)
-        flavors = list(flavors)
-
-        # Remove all versions and flavors of this name before adding this
-        # package. This avoids flavor change issues by replacing all flavors.
-        if self.hasPackage(name):
-            self.remove(name)
-
-        plain = deps.parseFlavor('')
-        x86 = deps.parseFlavor('is: x86')
-        x86_64 = deps.parseFlavor('is: x86_64')
-
-        # Count the flavors for later use.
-        flvCount = {x86: 0, x86_64: 0, plain: 0}
-        for flavor in flavors:
-            if flavor.satisfies(x86):
-                flvCount[x86] += 1
-            elif flavor.satisfies(x86_64):
-                flvCount[x86_64] += 1
-            elif flavor.freeze() == '':
-                flvCount[plain] += 1
-            else:
-                raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
-
-        if len(flavors) == 1:
-            flavor = flavors[0]
-            # noarch package, add unconditionally
-            if flavor == plain:
-                self.add(name, version=version)
-
-            # x86, add with use=x86
-            elif flavor.satisfies(x86):
-                self.add(name, version=version, flavor=flavor, use='x86')
-
-            # x86_64, add with use=x86_64
-            elif flavor.satisfies(x86_64):
-                self.add(name, version=version, flavor=flavor, use='x86_64')
-
-            else:
-                raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
-
-            return
-
-        elif (len(flavors) == 2 and
-              not [ x for x, y in flvCount.iteritems() if y > 1 ]):
-            # This is most likely a normal package with both x86 and x86_64, but
-            # lets make sure anyway.
-
-            # An exception for python/perl where x86_64 packages are noarch, but
-            # x86 packages are flavored.
-            assert (flvCount[x86_64] > 0) ^ (flvCount[plain] > 0)
-            # make sure there is only one instance of x86 and one instance of
-            # x86_64 in the flavor list.
-            assert len([ x for x, y in flvCount.iteritems() if y == 0 ]) == 1
-
-            # In this case just add the package unconditionally
-            self.add(name, version=version)
-
-            return
-
-        # These are special cases.
-        else:
-            # The way I see it there are a few ways you could end up here.
-            #    1. this is a kernel
-            #    2. this is a kernel module
-            #    3. this is a special package like glibc or openssl where there
-            #       are i386, i686, and x86_64 varients.
-            #    4. this is a package with package flags that I don't know
-            #       about.
-            # Lets see if we know about this package and think it should have
-            # more than two flavors.
-
-
-            # Get source trove name.
-            log.info('retrieving trove info for %s' % name)
-            srcTroveMap = self._helper._getSourceTroves(
-                (name, version, flavors[0])
-            )
-            srcTroveName = srcTroveMap.keys()[0][0].split(':')[0]
-
-            # handle kernels.
-            if srcTroveName == 'kernel' or util.isKernelModulePackage(name):
-                # add all x86ish flavors with use=x86 and all x86_64ish flavors
-                # with use=x86_64
-                for flavor in flavors:
-                    if flavor.satisfies(x86):
-                        self.add(name, version=version, flavor=flavor, use='x86')
-                    elif flavor.satisfies(x86_64):
-                        self.add(name, version=version, flavor=flavor, use='x86_64')
-                    else:
-                        raise UnsupportedTroveFlavorError(name=name,
-                                                          flavor=flavor)
-
-            # maybe this is one of the special flavors we know about.
-            elif srcTroveName in self._cfg.packageFlavors:
-                # separate packages into x86 and x86_64 by context name
-                # TODO: If we were really smart we would load the conary
-                #       contexts and see what buildFlavors they contained.
-                flavorCount = {'x86': 0, 'x86_64': 0}
-                for context, bldflv in self._cfg.packageFlavors[srcTroveName]:
-                    if context in ('i386', 'i486', 'i586', 'i686', 'x86'):
-                        flavorCount['x86'] += 1
-                    elif context in ('x86_64', ):
-                        flavorCount['x86_64'] += 1
-                    else:
-                        raise UnknownBuildContextError(name=name,
-                                                       flavor=context)
-
-                for flavor in flavors:
-                    if flavor.satisfies(x86):
-                        flavorCount['x86'] -= 1
-                    elif flavor.satisfies(x86_64):
-                        flavorCount['x86_64'] -= 1
-                    else:
-                        raise UnsupportedTroveFlavorError(name=name,
-                                                          flavor=flavor)
-
-                errors = [ x for x, y in flavorCount.iteritems() if y != 0 ]
-                if errors:
-                    raise FlavorCountMismatchError(name=name)
-
-                for flavor in flavors:
-                    if flavor.satisfies(x86):
-                        self.add(name, version=version,
-                                 flavor=flavor, use='x86')
-                    elif flavor.satisfies(x86_64):
-                        self.add(name, version=version,
-                                 flavor=flavor, use='x86_64')
-                    else:
-                        raise UnsupportedTroveFlavorError(name=name,
-                                                          flavor=flavor)
-            return
-
-        # Unknown state.
-        raise UnhandledPackageAdditionError(name=name)
-
-    def _getUseFlags(self):
-        """
-        Get the set of use flags used across all managed groups.
-        """
-
+        # Find all of the use flags used in the group model.
         use = set()
-        for group in self._groups.itervalues():
-            for name, pkg in group.iteritems():
+        for model in group:
+            for pkg in model:
                 if pkg.use:
                     use.add(pkg.use)
                 else:
                     use.update(set(['x86', 'x86_64']))
-        return use
 
-    @checkout
-    def setVersion(self, version):
-        """
-        Set the version of the managed group.
-        """
+        # Create a build job and build groups using cvc.
+        job = ((self._sourceName, group.conaryVersion, None), )
+        results = self._builder.cvc.cook(job, flavorFilter=use)
+        return results
 
-        self._helper.setVersion(self._sourceName, version)
-
-    @checkout
-    def setErrataState(self, state):
+    def getSourceVersions(self):
         """
-        Set errata state info for the managed platform.
+        Retrieve a list of all available group source versions.
+        @return list of conary versions
+        @rtype list(conary.versions.VersionFromString, ...)
         """
 
-        self._helper.setErrataState(self._sourceName, state)
+        return self._findVersion(allVersions=True)
 
-    @checkout
-    def getErrataState(self, version=None):
+    def hasBinaryVersion(self, sourceVersion=None):
         """
-        Get the errata state info.
-        """
-
-        if version is None:
-            version = self._sourceVersion
-
-        return self._helper.getErrataState(self._sourceName,
-                                           version=version)
-
-    def getVersions(self, pkgSet):
-        """
-        Get the set of versions that are represented by the given set of
-        packages from the version factory.
+        Check if there is a binary for a given source version.
+        @param sourceVersion: If specified check for a binary version for the
+                              given source verison.
+        @type sourceVersion: conary.versions.VersionFromString
+        @return True if the binary version exists, otherwise False.
+        @rtype boolean
         """
 
-        return set()
+        # Default to the latest source version if none is specified.
+        if sourceVersion is None:
+            sourceVersion = self.latest.conaryVersion
 
-    def _copyVersions(self):
-        """
-        Copy versions from the packages group to the other managed groups.
-        """
+        # Resolve version to a conary version.
+        sourceVersion = self._findVersion(version=sourceVersion)
 
-        pkgs = dict([ (x[1].name, x[1]) for x in
-                        self._groups[self._pkgGroupName].iteritems() ])
+        # If the version doesn't exist in the repository return False.
+        if sourceVersion is None:
+            return False
 
-        for group in self._groups.itervalues():
-            # skip over package group since it is the version source.
-            if group.groupName == self._pkgGroupName:
-                continue
+        # Make sure it is really a source version.
+        assert sourceVersion.isSourceVersion()
 
-            # for all other groups iterate over contents and set versions to
-            # match package group.
-            for k, pkg in group.iteritems():
-                if pkg.name in pkgs:
-                    pkg.version = pkgs[pkg.name].version
-                else:
-                    raise UnknownPackageFoundInManagedGroupError(what=pkg.name)
+        # Get the list of binaries for this source from the repository.
+        # FIXME: This should not call into the conary client itself, instead
+        #        there should be a call in the conary helper.
+        trvs = self._helper._client.getTrovesBySource(self._sourceName, 
+            sourceVersion)
+
+        return bool(len(trvs))

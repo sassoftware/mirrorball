@@ -53,13 +53,14 @@ class Bot(BotSuperClass):
         BotSuperClass.__init__(self, cfg)
         self._errata = errata.ErrataFilter(self._cfg, self._pkgSource,
             errataSource)
-        self._groupmgr = groupmgr.GroupManager(self._cfg)
+        self._groupmgr = groupmgr.GroupManager(self._cfg,
+            useMap=self._pkgSource.useMap)
 
         if self._cfg.platformSearchPath:
             self._parentGroup = groupmgr.GroupManager(self._cfg,
                                                       parentGroup=True)
 
-    def _addPackages(self, pkgMap):
+    def _addPackages(self, pkgMap, group):
         """
         Add pkgMap to group.
         """
@@ -83,7 +84,7 @@ class Bot(BotSuperClass):
                 log.info('adding %s=%s' % (name, version))
                 for f in flavors:
                     log.info('\t%s' % f)
-                self._groupmgr.addPackage(name, version, flavors)
+                group.addPackage(name, version, flavors)
 
     def _savePackages(self, pkgMap, fn=None):
         """
@@ -135,8 +136,10 @@ class Bot(BotSuperClass):
         Handle initial import case.
         """
 
+        group = self._groupmgr.getGroup()
+
         # Make sure this platform has not already been imported.
-        if self._groupmgr.getErrataState() is not None:
+        if group.errataState is not None:
             raise PlatformAlreadyImportedError
 
         self._pkgSource.load()
@@ -145,17 +148,18 @@ class Bot(BotSuperClass):
         pkgMap, failures = self._create(*args, toCreate=toCreate, **kwargs)
 
         # Insert package map into group.
-        self._addPackages(pkgMap)
+        self._addPackages(pkgMap, group)
 
         # Save group changes if there are any failures.
         if failures:
-            self._groupmgr.save()
+            self._groupmgr.setGroup(group)
 
         # Try to build the group if everything imported.
         else:
-            self._groupmgr.setErrataState('0')
-            self._groupmgr.setVersion('0')
-            self._groupmgr.build()
+            group.errataState = '0'
+            group.version = '0'
+            group.commit()
+            group.build()
 
         return pkgMap, failures
 
@@ -167,18 +171,19 @@ class Bot(BotSuperClass):
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
 
+        # Get current group
+        group = self._groupmgr.getGroup()
+
         # Get current timestamp
-        current = self._groupmgr.getErrataState()
+        current = group.errataState
         if current is None:
             raise PlatformNotImportedError
 
         # Check to see if there is a binary version if the current group.
         # This handles restarts where the group failed to build, but we don't
         # want to rebuild all of the packages again.
-        if not self._groupmgr.hasBinaryVersion():
-            # grpmgr.build will make sure to refresh the group model and sync
-            # up the standard group contents before building.
-            self._groupmgr.build()
+        if not group.hasBinaryVersion():
+            group.build()
 
         # Load package source.
         self._pkgSource.load()
@@ -300,7 +305,7 @@ class Bot(BotSuperClass):
             self._savePackages(pkgMap)
 
             # Store current updateId.
-            self._groupmgr.setErrataState(updateId)
+            group.errataState = updateId
 
             # Remove any packages that are scheduled for removal.
             # NOTE: This should always be done before adding packages so that
@@ -310,12 +315,12 @@ class Bot(BotSuperClass):
                 log.info('removing the following packages from the managed '
                     'group: %s' % ', '.join(requiredRemovals))
                 for pkg in requiredRemovals:
-                    self._groupmgr.remove(pkg)
+                    group.removePackage(pkg)
             if removeObsoleted:
                 log.info('removing any of obsoleted packages from the managed '
                     'group: %s' % ', '.join(removeObsoleted))
                 for pkg in removeObsoleted:
-                    self._groupmgr.remove(pkg, missingOk=True)
+                    group.removePackage(pkg, missingOk=True)
 
             # Handle the case of entire source being obsoleted, this causes all
             # binaries from that source to be removed from the group model.
@@ -337,10 +342,10 @@ class Bot(BotSuperClass):
                     # remove all binary names from the group.
                     binNames = set([ x.name for x in nevraMap[nevra] ])
                     for name in binNames:
-                        self._groupmgr.remove(name)
+                        group.removePackage(name)
 
             # Make sure built troves are part of the group.
-            self._addPackages(pkgMap)
+            self._addPackages(pkgMap, group)
 
             # Get timestamp version.
             version = self._errata.getBucketVersion(updateId)
@@ -349,8 +354,9 @@ class Bot(BotSuperClass):
 
             # Build groups.
             log.info('setting version %s' % version)
-            self._groupmgr.setVersion(version)
-            grpTrvMap = self._groupmgr.build()
+            group.version = version
+            newGroup = group.save()
+            grpTrvMap = group.build()
 
             updateSet.update(pkgMap)
 
@@ -360,6 +366,8 @@ class Bot(BotSuperClass):
             totalTime = time.time() - start
             log.info('published update %s in %s seconds' % (advTime, totalTime))
             count += 1
+
+            group = newGroup
 
         log.info('update completed')
         log.info('applied %s updates in %s seconds'
@@ -374,7 +382,7 @@ class Bot(BotSuperClass):
         """
 
         # Get current timestamp
-        current = self._groupmgr.getErrataState()
+        current = self._groupmgr.latest.errataState
         if current is None:
             raise PlatformNotImportedError
 
@@ -421,10 +429,10 @@ class Bot(BotSuperClass):
 
             # Make sure we have the expected number of flavors
             if len(set(x[2] for x in toPromote)) != len(self._cfg.groupFlavors):
-                slog.error('did not find expected number of flavors')
+                log.error('did not find expected number of flavors')
                 raise PromoteFlavorMismatchError(
-                    cfgFlavors=self._cfg.groupFlavors, troves=topPromote,
-                    version=topPromote[0][1])
+                    cfgFlavors=self._cfg.groupFlavors, troves=toPromote,
+                    version=toPromote[0][1])
 
             # Find excepted promote packages.
             srcPkgMap = self._updater.getBinaryVersionsFromSourcePackages(
@@ -462,7 +470,7 @@ class Bot(BotSuperClass):
         """
 
         # Get current timestamp
-        current = self._groupmgr.getErrataState()
+        current = self._groupmgr.latest.errataState
         if current is None:
             raise PlatformNotImportedError
 
@@ -472,7 +480,7 @@ class Bot(BotSuperClass):
         # Get latest errataState from the targetLabel so that we can fence group
         # building based on the target label state.
         targetGroup = groupmgr.GroupManager(self._cfg, targetGroup=True)
-        targetErrataState = targetGroup.getErrataState()
+        targetErrataState = targetGroup.latest.errataState
 
         log.info('starting errata group processing')
 
@@ -490,7 +498,7 @@ class Bot(BotSuperClass):
             # Make sure the group representing the current updateId has been
             # imorted and promoted to the production label.
             version = self._errata.getBucketVersion(updateId)
-            if not targetGroup.hasBinaryVersion(version=version):
+            if not targetGroup.hasBinaryVersion(sourceVersion=version):
                 raise TargetVersionNotFoundError(version=version,
                                                  updateId=updateId)
 
@@ -522,9 +530,9 @@ class Bot(BotSuperClass):
                     log.info('%s: found existing version, skipping' % advisory)
                     continue
 
-                grp = mgr.newGroup(groupNames[advisory])
-                grp.setVersion(version)
-                grp.setErrataState(updateId)
+                grp = mgr.newGroup(groupNames[advisory]).getGroup()
+                grp.version = version
+                grp.errataState = updateId
 
                 log.info('%s: finding built packages' % advisory)
                 binTrvMap = \

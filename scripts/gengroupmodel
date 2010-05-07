@@ -1,0 +1,130 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+import os
+import sys
+
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+
+import rmake
+import conary
+import updatebot
+
+print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
+print >>sys.stderr, 'using rmake from', os.path.dirname(rmake.__file__)
+print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
+import logging
+
+from updatebot import groupmgr
+from updatebot import OrderedBot
+
+log = logging.getLogger('tmplogger')
+
+class Bot(OrderedBot):
+    def generateGroupModel(self):
+        """
+        Generate config for standard group contents based on repository history.
+        """
+
+        # load package source
+        self._pkgSource.load()
+
+        mgr = groupmgr.GroupManager(self._cfg, useMap=self._pkgSource.useMap)
+        mgr.setReadOnly()
+
+        lastAvailableUpdate = mgr.latest.errataState
+
+        current = set()
+        changes = []
+        for updateId, updates in self._errata.iterByIssueDate(current=-1):
+            if updateId > lastAvailableUpdate:
+                log.info('%s not yet imported' % updateId)
+                continue
+
+            if updateId == 0:
+                version = '5.0'
+            else:
+                version = self._errata.getBucketVersion(updateId)
+
+            grp = mgr.getGroup(version=version)
+            stdGroupName, stdModel = [ (x, y) for x, y in grp.iteritems()
+                if x != grp._pkgGroupName ][0]
+
+            latest = set()
+            for (name, flavor, use), pkg in stdModel.iteritems():
+                latest.add((name, flavor))
+
+            added = latest - current
+            removed = current - latest
+
+            for name, flavor in added:
+                if not flavor:
+                    flavor = ''
+                change = 'addPackage %s %s %s %s' % (updateId, stdGroupName, name, flavor)
+                changes.append(change)
+                log.info(change)
+
+            for name, flavor in removed:
+                if not flavor:
+                    flavor = ''
+                change = 'removePackage %s %s %s %s' % (updateId, stdGroupName, name, flavor)
+                changes.append(change)
+                log.info(change)
+
+            current = latest
+
+        def srtChangesByPkgName(a, b):
+            cmpa = ' '.join(a.split()[1:])
+            cmpb = ' '.join(b.split()[1:])
+            return cmp(cmpa, cmpb)
+
+        changes.sort(cmp=srtChangesByPkgName)
+
+        return changes
+
+
+if __name__ == '__main__':
+    import rhnmirror
+
+    from updatebot import config
+    from updatebot import log as logSetup
+
+    logSetup.addRootLogger()
+
+    log = logging.getLogger('grouprebuild')
+
+    cfg = config.UpdateBotConfig()
+    cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
+
+    mcfg = rhnmirror.MirrorConfig()
+    mcfg.read(cfg.configPath + '/erratarc')
+
+    errata = rhnmirror.Errata(mcfg)
+    errata.fetch()
+
+    bot = Bot(cfg, errata)
+    changes = bot.generateGroupModel()
+
+    print '\n'.join(changes)
+
+    import epdb; epdb.st()
