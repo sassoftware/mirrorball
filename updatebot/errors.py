@@ -41,7 +41,16 @@ class UpdateBotError(Exception):
         return '%s(%s)' % (self.__class__, params)
 
 
-class CommitFailedError(UpdateBotError):
+class BuildError(UpdateBotError):
+    """
+    BuildError, abstract error for all other build related errors.
+    """
+
+    _parms = []
+    _template = 'A build error has occured'
+
+
+class CommitFailedError(BuildError):
     """
     CommitFailedError, raised when failing to commit to a repository.
     """
@@ -69,7 +78,7 @@ class ChangesetValidationFailedError(CommitFailedError):
         'validation because:\n%(reason)s')
 
 
-class JobFailedError(UpdateBotError):
+class JobFailedError(BuildError):
     """
     JobFailedError, raised when an rMake job fails.
     """
@@ -78,7 +87,7 @@ class JobFailedError(UpdateBotError):
     _template = 'rMake job %(jobId)s failed: %(why)s'
 
 
-class JobNotCompleteError(UpdateBotError):
+class JobNotCompleteError(BuildError):
     """
     JobNotCompleteError, raised when the build dispatcher thinks that the job
     should be done, but it isn't.
@@ -88,7 +97,17 @@ class JobNotCompleteError(UpdateBotError):
     _template = 'Build job not complete %(jobId)s'
 
 
-class UnhandledKernelModule(UpdateBotError):
+class InvalidBuildTroveInputError(BuildError):
+    """
+    InvalidBuildTroveInputError, raised when validation of a build request
+    fails.
+    """
+
+    _params = ['input', ]
+    _template = 'Invalid input to build system: %(input)s'
+
+
+class UnhandledKernelModule(BuildError):
     """
     UnhandledKernelModule, raised when trying to create a build job with a
     package that looks as if it might be a kernel module that does not have
@@ -592,7 +611,7 @@ class CanNotFindSourceForBinariesError(PackageSourceError):
     """
 
     _params = ['count', ]
-    _template = ('Could not find %(count) sources for matching binary '
+    _template = ('Could not find %(count)s sources for matching binary '
         'packages. This generally means that there is a binary package with a '
         'source of a different name and a source can not be found with a '
         'matching source name, version, and release.')

@@ -318,6 +318,12 @@ class ConaryHelper(object):
         tiMap = {}
         tiLst = self._repos.getTroveInfo(tiType, req)
         for i, nvf in enumerate(uncached):
+            # If this trove doesn't have this piece of trove info, log a warning
+            # and skip over it.
+            if tiLst[i] is None:
+                log.warn('found missing trove info for %s, skipping' % (nvf, ))
+                continue
+
             ti = tiLst[i]()
             if tiFunc:
                 ti = tiFunc(ti, nvf)
@@ -371,8 +377,8 @@ class ConaryHelper(object):
 
         ret = {}
         for f, t in cfMap.iteritems():
-            assert len(cfMap[f]) == 1
-            ret[f] = list(t)[0]
+            assert len(cfMap[f]) >= 1
+            ret[f] = sorted(t)[-1]
 
         self._cache.labelClonedFromCache[label] = ret
         return ret
@@ -911,7 +917,10 @@ class ConaryHelper(object):
         @type pkgname: string
         """
 
-        versions = self._getVersionsByName('%s:source' % pkgname)
+        if not pkgname.endswith(':source'):
+            pkgname = '%s:source' % pkgname
+
+        versions = self._getVersionsByName(pkgname)
 
         # FIXME: This is a hack to work around the fact that ubuntu has some
         #        shadows and packages that overlap on the label,
@@ -1049,7 +1058,8 @@ class ConaryHelper(object):
                 if version == latestVer:
                     trvLst.append((name, version, flavor))
 
-        callback = UpdateBotCloneCallback(self._ccfg, 'test', log=log)
+        callback = UpdateBotCloneCallback(self._ccfg, 'automated promote',
+            log=log)
 
         success, cs = self._client.createSiblingCloneChangeSet(
                             labelMap,

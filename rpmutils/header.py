@@ -81,7 +81,6 @@ def readHeader(url):
 
     # Have to read into the file a bit to get to the begining of the header
     # that we care about.
-    fh.read(96)
     rpmhelper.RpmHeader(fh)
 
     header = rpmhelper.RpmHeader(fh)

@@ -56,6 +56,10 @@ class YumSource(BasePackageSource):
         # set of all src pkg objects
         self._srcPkgs = set()
 
+        # mapping of what arch repository each binary package came from
+        # {binPkg: set([archStr, ..])}
+        self._repoMap = dict()
+
     def setLoaded(self):
         self._loaded = True
 
@@ -68,14 +72,15 @@ class YumSource(BasePackageSource):
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             client = repomd.Client(self._cfg.repositoryUrl + '/' + repo)
-            self.loadFromClient(client, repo)
+            archStr = self._cfg.repositoryArch.get(repo, None)
+            self.loadFromClient(client, repo, archStr=archStr)
             self._clients[repo] = client
 
         self.finalize()
         self._loaded = True
 
     @loaded
-    def loadFromUrl(self, url, basePath=''):
+    def loadFromUrl(self, url, basePath='', archStr=None):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -87,10 +92,10 @@ class YumSource(BasePackageSource):
 
         log.info('loading repository data %s/%s' % (url, basePath))
         client = repomd.Client(url + '/' + basePath)
-        self.loadFromClient(client, basePath=basePath)
+        self.loadFromClient(client, basePath=basePath, archStr=archStr)
 
     @loaded
-    def loadFromClient(self, client, basePath=''):
+    def loadFromClient(self, client, basePath='', archStr=None):
         """
         Walk the yum repository rooted at url/basePath and collect information
         about rpms found.
@@ -103,7 +108,7 @@ class YumSource(BasePackageSource):
         for pkg in client.getPackageDetail():
             # ignore the 32-bit compatibility libs - we will
             # simply use the 32-bit components from the repository
-            if '32bit' in pkg.name:
+            if self._cfg.ignore32bitPackages and '32bit' in pkg.name:
                 continue
 
             # Don't use all arches.
@@ -127,7 +132,7 @@ class YumSource(BasePackageSource):
             if pkg.sourcerpm == '' or pkg.sourcerpm is None:
                 self._procSrc(pkg)
             else:
-                self._procBin(pkg)
+                self._procBin(pkg, archStr=archStr)
 
     def _procSrc(self, package):
         """
@@ -136,10 +141,15 @@ class YumSource(BasePackageSource):
         @type package: repomd.packagexml._Package
         """
 
-        if package.name not in self.srcNameMap:
-            self.srcNameMap[package.name] = set()
-        self.srcNameMap[package.name].add(package)
+        other = package
+        if package in self._srcPkgs:
+            other = [ x for x in self._srcPkgs if x == package ][0]
+            self.srcNameMap[package.name].remove(other)
+            self._srcPkgs.remove(other)
+            if package.getFileName() == os.path.basename(package.location):
+                other = package
 
+        self.srcNameMap.setdefault(package.name, set()).add(other)
         self.locationMap[package.location] = package
 
         # In case the a synthesized source ever turns into real source add the
@@ -149,11 +159,11 @@ class YumSource(BasePackageSource):
             if baseLoc not in self.locationMap:
                 self.locationMap[baseLoc] = package
 
-        self._srcPkgs.add(package)
+        self._srcPkgs.add(other)
         self._srcMap[(package.name, package.epoch, package.version,
                       package.release, package.arch)] = package
 
-    def _procBin(self, package):
+    def _procBin(self, package, archStr=None):
         """
         Process binary rpms.
         @param package: package object
@@ -169,10 +179,9 @@ class YumSource(BasePackageSource):
             srcRelease = srcParts[-1][:-8] # remove '.src.rpm'
         elif srcParts[-1].endswith('.nosrc.rpm'):
             srcRelease = srcParts[-1][:-10]
+
         rpmMapKey = (srcName, package.epoch, srcVersion, srcRelease, 'src')
-        if rpmMapKey not in self._rpmMap:
-            self._rpmMap[rpmMapKey] = set()
-        self._rpmMap[rpmMapKey].add(package)
+        self._rpmMap.setdefault(rpmMapKey, set()).add(package)
 
         # The normal case of "obsoletes foo < version" (or with
         # "requires foo", though that normally also follows the
@@ -200,6 +209,9 @@ class YumSource(BasePackageSource):
         self.binNameMap[package.name].add(package)
 
         self.locationMap[package.location] = package
+
+        if archStr:
+            self._repoMap.setdefault(package, set()).add(archStr)
 
     def _excludeLocation(self, location):
         """
@@ -242,6 +254,24 @@ class YumSource(BasePackageSource):
 
             self.srcPkgMap[pkg] = self._rpmMap[key]
             self.srcPkgMap[pkg].add(pkg)
+
+            # Remove any duplicate sources, favoring sources with the source
+            # version in the file name.
+            # FIXME: This doesn't really work for nosrc rpms
+            sources = sorted([ (os.path.basename(x.location), x)
+                for x in self.srcPkgMap[pkg] if x.arch in ('src', 'nosrc') ])
+            if len(sources) > 1:
+                primary = None
+                for fn, src in sources:
+                    if fn == '%s-%s-%s.%s.rpm' % (src.name, src.version, src.release, src.arch):
+                        primary = src
+                        break
+
+                if primary:
+                    for fn, src in sources:
+                        if src is not primary:
+                            self.srcPkgMap[pkg].remove(src)
+
             toDelete.add(key)
 
             for binPkg in self.srcPkgMap[pkg]:
@@ -300,6 +330,28 @@ class YumSource(BasePackageSource):
                 for loc in sorted(locs):
                     log.warn('\t%s' % loc)
 
+        if self._repoMap:
+            for binPkg, archStr in self._repoMap.iteritems():
+                # lookup the source for the binary package
+                srcPkg = self.binPkgMap[binPkg]
+
+                # get the conary version from the source
+                conaryVersion = srcPkg.getConaryVersion()
+
+                if binPkg.arch == 'x86_64':
+                    arch = 'x86_64'
+                elif binPkg.arch == 'noarch':
+                    arch = ''
+                elif (binPkg.arch.startswith('i') and
+                      binPkg.arch.endswith('86') and
+                      len(binPkg.arch) == 4):
+                    arch = 'x86'
+                else:
+                    raise RuntimeError
+
+                trvSpec = (binPkg.name, conaryVersion, arch)
+                self.useMap.setdefault(trvSpec, set()).update(archStr)
+
     def loadFileLists(self, client, basePath):
         """
         Parse file information.
@@ -337,6 +389,18 @@ class YumSource(BasePackageSource):
 
             return srcPkg
 
+        def synthesizeSource(srcPkg):
+            # add source to structures
+            if srcPkg.getNevra() not in self._srcMap:
+                log.warn('synthesizing source package %s' % srcPkg)
+                self._procSrc(srcPkg)
+
+            # Add location mappings for packages that may have once been
+            # synthesized so that parsing old manifest files still works.
+            elif srcPkg.location not in self.locationMap:
+                pkg = self._srcMap[srcPkg.getNevra()]
+                self.locationMap[srcPkg.location] = pkg
+
         # Return if sources should be available in repos.
         if not self._cfg.synthesizeSources:
             return
@@ -353,16 +417,8 @@ class YumSource(BasePackageSource):
                 defer.add(nevra)
                 continue
 
-            # add source to structures
-            if nevra not in self._srcMap:
-                log.warn('synthesizing source package %s' % srcPkg)
-                self._procSrc(srcPkg)
-
-            # Add location mappings for packages that may have once been
-            # synthesized so that parsing old manifest files still works.
-            elif srcPkg.location not in self.locationMap:
-                pkg = self._srcMap[nevra]
-                self.locationMap[srcPkg.location] = pkg
+            # Synthesize the source
+            synthesizeSource(srcPkg)
 
         broken = set()
         # Make an attempt to sort out the binaries that have different names
@@ -384,19 +440,10 @@ class YumSource(BasePackageSource):
             log.warn('found binary without matching source name %s'
                      % list(bins)[0].name)
 
-            # add source to structures
-            if nevra not in self._srcMap:
-                log.warn('synthesizing source package %s' % srcPkg)
-                self._procSrc(srcPkg)
-
-            # Add location mappings for packages that may have once been
-            # synthesized so that parsing old manifest files still works.
-            elif srcPkg.location not in self.locationMap:
-                pkg = self._srcMap[nevra]
-                self.locationMap[srcPkg.location] = pkg
-
-
-            broken.add((nevra, tuple(bins)))
+            # If this isn't a case of a missmatched epoch, just go ahead and
+            # make up a source. What could go wrong?
+            synthesizeSource(srcPkg)
+            #broken.add((nevra, tuple(bins)))
 
         # Raise an exception if this ever happens. We can figure out the right
         # thing to do then, purhaps on a case by case basis.

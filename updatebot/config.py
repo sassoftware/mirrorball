@@ -68,6 +68,29 @@ class CfgContextFlavor(CfgFlavor):
             raise ParseError, e
 
 
+class CfgContextFilter(CfgRegExp):
+    """
+    Class for parsing context name/regex tuples.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config input.
+        """
+
+        try:
+            splt = val.split()
+            if len(splt) == 1:
+                context = val
+                fltr = None
+            else:
+                context, fltrStr = splt
+                fltr = CfgRegExp.parseString(self, fltrStr)
+            return context, fltr
+        except versions.ParseError, e:
+            raise ParseError, e
+
+
 class CfgAdvisoryOrder(CfgString):
     """
     Class for parsing advisor order config.
@@ -120,6 +143,21 @@ class CfgNevraTuple(CfgString):
         obsoleter = tuple(splt[0:5])
         obsoleted = tuple(splt[5:10])
         return obsoleter, obsoleted
+
+
+class CfgNameFlavor(CfgString):
+    """
+    Class for parsing name/flavor pairs.
+    """
+
+    def parseString(self, val):
+        splt = val.split()
+        name = splt[0]
+        if len(splt) > 1:
+            flv = ' '.join(splt[1:])
+        else:
+            flv = ''
+        return name, flv
 
 
 class CfgIntDict(CfgDict):
@@ -186,6 +224,15 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # Paths based off of the repositoryUrl to get to individual repositories.
     repositoryPaths     = (CfgList(CfgString), ['/'])
+
+    # Arch strings for each repository to signify what base architecture each
+    # repository is meant for.
+    # repositoryName archString
+    repositoryArch      = (CfgDict(CfgString), {})
+
+    # Ignore packages with "32bit" in the name. This is intened for use with
+    # SLES based platforms.
+    ignore32bitPackages = (CfgBool, False)
 
     # Data source for determining platform version information, only used for
     # group versioning.
@@ -256,7 +303,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     listArchiveStartDate = CfgString
 
     # list of contexts that all packages are built in.
-    archContexts        = CfgList(CfgString)
+    archContexts        = CfgList(CfgContextFilter)
 
     # flavors to build the source group.
     groupFlavors        = (CfgList(CfgFlavor), [])
@@ -307,6 +354,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Write package metadata to the source trove no matter the source
     # package format.
     writePackageMetadata = (CfgBool, False)
+
+    # Write version information to the source trove, generated from the source
+    # version and revision.
+    writePackageVersion = (CfgBool, False)
 
     # If sources are not available pkgSource will attempt to build artificial
     # source information if this is set to True.
@@ -391,6 +442,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # reached, update to the version specified in the trovespec rather than the
     # latest that matches the current rpm version.
     useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
+
+    # Add a package to a specific group
+    addPackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
+
+    # Remove a package from a specific group
+    removePackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
 
     # Allow updates for a given nevra to be published without matching errata.
     allowMissingErrata = (CfgList(CfgNevra), [])

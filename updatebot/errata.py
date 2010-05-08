@@ -279,9 +279,17 @@ class ErrataFilter(object):
 
                 # validate updates
                 try:
-                    assert updater._sanitizeTrove(nvf, srpm,
+                    toUpdate = updater._sanitizeTrove(nvf, srpm,
                         expectedRemovals=expectedRemovals + expectedReplaces,
                         allowPackageDowngrades=explicitPackageDowngrades)
+
+                    # If a source was manually added to this updateId it may
+                    # have already been part of another update, which would
+                    # cause the manifest not to change.
+                    if (srpm.getNevra() not in
+                        self._cfg.addSource.get(updateId, [])):
+                        assert toUpdate
+
                 except (UpdateGoesBackwardsError,
                         UpdateRemovesPackageError,
                         UpdateReusesPackageError), e:

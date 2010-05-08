@@ -180,6 +180,14 @@ class _Package(SlotNode, PackageCompare):
         ver = "_".join(nameVerRelease.split("-")[-2:])
         return ver
 
+    def getFileName(self):
+        """
+        Returns the expected package file name.
+        """
+
+        return '%s-%s-%s.%s.rpm' % (self.name, self.version,
+                                    self.release, self.arch)
+
 
 class _RpmEntry(SlotNode):
     """

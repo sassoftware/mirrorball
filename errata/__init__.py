@@ -1,6 +1,5 @@
-#!/bin/bash
 #
-# Copyright (c) 2008 rPath, Inc.
+# Copyright (c) 2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -12,11 +11,3 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
-
-SOURCE=rsync://mirrors.us.kernel.org/CentOS-incdvd
-DEST=/l/CentOS/
-
-date
-rsync -arv --progress --bwlimit=700 --exclude 2* --exclude 3* $SOURCE $DEST
-
-./hardlink.py $DEST
