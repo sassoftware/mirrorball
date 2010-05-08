@@ -401,7 +401,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # Allow updates which don't include all binary packages corresponding
     # to a given source.
-    allowReusedPackages = (CfgBool, False)
+    allowRemovedPackages = (CfgBool, False)
 
     # Add a source to a specific updateId. This is used to move updates forward
     # after allowing an update to downgrade the version.
