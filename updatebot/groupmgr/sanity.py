@@ -214,6 +214,15 @@ class GroupSanityChecker(object):
                         log.info('found %s=%s[%s] in oldVersions exceptions'
                                  % (n, v, f))
                         continue
+
+                    # This is probably a flavor that we don't care about
+                    # anymore.
+                    if cv > v and cv in [ x[1] for x in found ]:
+                        log.warn('missing flavors found of %s that are not all '
+                                 'included in the group, assuming this '
+                                 'intentional.' % cn)
+                        continue
+
                     foundError = True
 
             if foundError:
