@@ -694,25 +694,27 @@ class ConaryHelper(object):
         version = open(versionFileName).read().strip()
         return version
 
-    def setVersion(self, pkgname, version):
+    def setVersion(self, pkgname, upver, version=None):
         """
         Set the version of the specified package, for this to be meaningful
         there must be a factory that consumes this data.
         @param pkgname: name of hte package to edit
         @type pkgname: string
-        @param version: upstream version of the package, required to be a valid
+        @param upver: upstream version of the package, required to be a valid
                         conary version.
-        @type version: string
+        @type upver: string
+        @param version: optional source version to checkout.
+        @type version: conary.versions.Version
         """
 
         log.info('setting version info for %s' % pkgname)
 
-        recipeDir = self._edit(pkgname)
+        recipeDir = self._edit(pkgname, version=version)
         versionFileName = util.join(recipeDir, 'version')
 
         # write version info
         versionfh = open(versionFileName, 'w')
-        versionfh.write(version)
+        versionfh.write(upver)
 
         # source files must end in a trailing newline
         versionfh.write('\n')
@@ -735,6 +737,8 @@ class ConaryHelper(object):
         @return version of the source commit.
         """
 
+        pkgname = self._convSrcName(pkgname)
+
         pkgkey = (pkgname, version)
         if pkgkey not in self._checkoutCache:
             raise NoCheckoutFoundError(pkgname=pkgname)
@@ -752,6 +756,16 @@ class ConaryHelper(object):
         assert version is not None
         return version
 
+    def _convSrcName(self, name):
+        """
+        Strip the :source off the end of a name if it is there.
+        """
+
+        # make sure package name does not include :source.
+        if name.endswith(':source'):
+            name = name.split(':')[0]
+        return name
+
     def _edit(self, pkgname, version=None):
         """
         Checkout/Create source checkout.
@@ -761,6 +775,8 @@ class ConaryHelper(object):
         @type version conary.versions.Version
         @return path to checkout
         """
+
+        pkgname = self._convSrcName(pkgname)
 
         pkgkey = (pkgname, version)
         if pkgkey in self._checkoutCache:
@@ -1140,7 +1156,7 @@ class ConaryHelper(object):
         Set metadata on a given trove spec.
         """
 
-        if not license and not dec and not shortDesc:
+        if not license and not desc and not shortDesc:
             log.warn('no metadata found for %s' % trvSpecs[-1][0])
             return
 
