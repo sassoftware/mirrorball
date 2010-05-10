@@ -84,7 +84,7 @@ for name, vf in troves.iteritems():
 mgr.setVersion('0')
 mgr.setErrataState('0')
 mgr._copyVersions()
-mgr._validateGroups()
+mgr._sanity.check(mgr._groups, mgr.getErrataState())
 mgr._helper.setModel(mgr._sourceName, mgr._groups)
 #mgr._commit()
 #mgr.build()

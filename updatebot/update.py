@@ -369,17 +369,21 @@ class Updater(object):
             if line in self._pkgSource.locationMap:
                 binPkg = self._pkgSource.locationMap[line]
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
+            elif line.strip().endswith('.src.rpm') and self._cfg.synthesizeSources:
+                # this is a fake source.  Move on.
+                continue
             else:
                 if metadata is None:
                     pkgs = self._getMetadataFromConaryRepository(nvf[0],
                                                                  version=nvf[1])
-                    metadata = util.Metadata(pkgs)
-                if metadata:
-                    binPkg = metadata.locationMap[line]
-                    srcPkg = metadata.binPkgMap[binPkg]
-                else:
-                    raise OldVersionNotFoundError(
-                                why="can't find metadata for %s" % line)
+                    if pkgs:
+                        metadata = util.Metadata(pkgs)
+                    if metadata:
+                        binPkg = metadata.locationMap[line]
+                        srcPkg = metadata.binPkgMap[binPkg]
+                    else:
+                        raise OldVersionNotFoundError(
+                            why="can't find metadata for %s" % line)
 
             # set needsUpdate if version changes
             if util.packagevercmp(srpm, srcPkg) == 1:
@@ -413,7 +417,7 @@ class Updater(object):
                 if (rpmvercmp(pkg.epoch, srpm.epoch) != 0 or
                     rpmvercmp(pkg.version, srpm.version) != 0 or
                     # in the suse case we have to ignore release
-                    (self._cfg.reuseOldRevisions or
+                    (not self._cfg.reuseOldRevisions and
                      rpmvercmp(pkg.release, srpm.release) != 0) or
                     # binary does not come from the same source as it used to
                     self._pkgSource.binPkgMap[pkg].name != srpm.name):
@@ -433,7 +437,7 @@ class Updater(object):
                     log.warn('using old version of package %s' % (pkg, ))
                     self._pkgSource.srcPkgMap[srpm].add(pkg)
 
-        if removedPackages:
+        if removedPackages and not self._cfg.allowRemovedPackages:
             pkgList=sorted(removedPackages)
             raise UpdateRemovesPackageError(pkgList=pkgList,
                 pkgNames=' '.join([str(x) for x in pkgList]),
@@ -441,7 +445,7 @@ class Updater(object):
                 oldNevra=str(' '.join(srcPkg.getNevra())),
                 newNevra=str(' '.join(srpm.getNevra())))
 
-        if reusedPackages and not self._cfg.allowReusedPackages:
+        if reusedPackages and not self._cfg.reuseOldRevisions:
             pkgList=sorted(reusedPackages)
             raise UpdateReusesPackageError(pkgList=pkgList,
                 pkgNames=' '.join([str(x) for x in pkgList]),

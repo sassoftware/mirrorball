@@ -128,6 +128,7 @@ class YumSource(BasePackageSource):
                 'x86_64' in pkg.location):
                 continue
 
+            # Source RPM is one without a "sourcerpm" element
             if pkg.sourcerpm == '' or pkg.sourcerpm is None:
                 self._procSrc(pkg)
             else:
@@ -214,7 +215,7 @@ class YumSource(BasePackageSource):
 
     def _excludeLocation(self, location):
         """
-        Method for filtering packages based on locaiton.
+        Method for filtering packages based on location.
         """
 
         return False
@@ -234,19 +235,21 @@ class YumSource(BasePackageSource):
         # structures.
         count = 0
         toDelete = set()
+        srcToDelete = set()
         for pkg in self._srcPkgs:
             key = (pkg.name, pkg.epoch, pkg.version, pkg.release, pkg.arch)
             if pkg in self.srcPkgMap:
                 continue
 
             if key not in self._rpmMap:
-                #log.warn('found source without binary rpms: %s' % pkg)
+                log.warn('found source without binary rpms: %s' % pkg)
                 #log.debug(key)
                 #log.debug([ x for x in self._rpmMap if x[0] == key[0] ])
 
                 count += 1
                 if pkg in self.srcNameMap[pkg.name]:
                     self.srcNameMap[pkg.name].remove(pkg)
+                srcToDelete.add(pkg)
                 continue
 
             self.srcPkgMap[pkg] = self._rpmMap[key]
@@ -277,6 +280,10 @@ class YumSource(BasePackageSource):
         if count > 0:
             log.warn('found %s source rpms without matching binary '
                      'rpms' % count)
+
+        # Remove references to sources that don't match binaries
+        for pkg in srcToDelete:
+            self._srcPkgs.remove(pkg)
 
         # Defer deletes, contents of rpmMap are used more than once.
         for key in toDelete:
@@ -409,7 +416,7 @@ class YumSource(BasePackageSource):
         if not self._cfg.synthesizeSources:
             return
 
-        deffer = set()
+        defer = set()
         # Create a fake source rpm object for each key in the rpmMap.
         for nevra, bins in self._rpmMap.iteritems():
             srcPkg = getSourcePackage(nevra, bins)
@@ -418,7 +425,7 @@ class YumSource(BasePackageSource):
             # care of with the epoch fuzzing that happens in finalize. This
             # should only happen with differently named packages.
             if nevra[0] not in [ x.name for x in bins ]:
-                deffer.add(nevra)
+                defer.add(nevra)
                 continue
 
             # Synthesize the source
@@ -427,7 +434,7 @@ class YumSource(BasePackageSource):
         broken = set()
         # Make an attempt to sort out the binaries that have different names
         # than the related sources.
-        for nevra in deffer:
+        for nevra in defer:
             bins = self._rpmMap[nevra]
             srcPkg = getSourcePackage(nevra, bins)
 
