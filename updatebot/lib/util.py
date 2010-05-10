@@ -172,13 +172,16 @@ def getAvailableFileDescriptors(setMax=False):
     limit = getRLimit()
     return limit - openfds
 
-def setupDebugHandler():
+def setupDebugHandler(serve=False):
     """
     Sets up a USR1 signal handler to trigger epdb.serv().
     """
 
     def handler(signum, sigtb):
-        epdb.serve()
+        if serve:
+            epdb.serve()
+        else:
+            epdb.st()
 
     signal.signal(signal.SIGUSR1, handler)
 
