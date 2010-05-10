@@ -176,13 +176,12 @@ class Group(object):
     ###
 
     @require_write
-    def _add(self, groupName=None, *args, **kwargs):
+    def _add(self, *args, **kwargs):
         """
         Add a trove to the package group contents.
         """
 
-        if not groupName:
-            groupName = self._pkgGroupName
+        groupName = kwargs.pop('groupName', self._pkgGroupName)
 
         # create package group model if it does not exist.
         if groupName not in self._groups:
@@ -205,6 +204,9 @@ class Group(object):
         @type flavors: [conary.deps.deps.Flavor, ...]
         """
 
+        if not groupName:
+            groupName = self._pkgGroupName
+
         # Now that versions are actually used for something make sure they
         # are always present.
         assert version
@@ -214,7 +216,7 @@ class Group(object):
         # Remove all versions and flavors of this name before adding this
         # package. This avoids flavor change issues by replacing all flavors.
         if self.hasPackage(name):
-            self.remove(name)
+            self.removePackage(name)
 
         plain = deps.parseFlavor('')
         x86 = deps.parseFlavor('is: x86')
@@ -243,26 +245,30 @@ class Group(object):
                 raise UnsupportedTroveFlavorError(name=name, flavor=flavor)
 
         def add():
-            upver = version.trailingRevision().version()
+            upver = version.trailingRevision().version
             for flv in flavors:
-                if self._useMap:
-                    for useStr in self._useMap[(name, upver, flvMap[flv])]:
-                        self._add(name, version=version, flavor=flavor,
+                key = (name, upver, flvMap[flv])
+                if key in self._useMap:
+                    for useStr in self._useMap[key]:
+                        self._add(name, version=version, flavor=flv,
                                   use=useStr, groupName=groupName)
                 else:
-                    self._add(name, version=version, flavor=flavor,
-                             use=flvMap[flv], groupName=groupName)
+                    log.warn('%s=%s[%s] not found in useMap, falling back to '
+                             'old method of adding troves to groups'
+                             % (name, version, flvMap[flv]))
+                    self._add(name, version=version, flavor=flv,
+                              use=flvMap[flv], groupName=groupName)
 
         # If this package has one or two flavors and one of those flavors is
         # x86, x86_64, biarch, or plain then handle it like a normal package
         # without doing any more sanity checking.
         total = 0
         for flv, count in flvCount.iteritems():
-            if len(count) > 1:
+            if count > 1:
                 break
             total += count
         else:
-            if total in (1, 2):
+            if total in (1, 2, 3):
                 add()
                 return
 
@@ -274,7 +280,7 @@ class Group(object):
         # Check if this package is configured to have multiple flavors.
         # Get source trove name.
         log.info('retrieving trove info for %s' % name)
-        srcTroveMap = self._helper._getSourceTroves((name, version, flavors[0]))
+        srcTroveMap = self._mgr._helper._getSourceTroves((name, version, flavors[0]))
         srcTroveName = srcTroveMap.keys()[0][0].split(':')[0]
 
         # Check if this is package that we have specifically defined a build
@@ -284,25 +290,30 @@ class Group(object):
             # TODO: If we were really smart we would load the conary
             #       contexts and see what buildFlavors they contained.
             flavorCtxCount = {x86: 0, x86_64: 0, biarch: 0}
+            ctxMap = dict([ (x, y[1]) for x, y in self._cfg.archContexts if y ])
             for context, bldflv in self._cfg.packageFlavors[srcTroveName]:
+                fltr = ctxMap.get(context, None)
                 if context in ('i386', 'i486', 'i586', 'i686', 'x86'):
                     flavorCtxCount[x86] += 1
                 elif context in ('x86_64', ):
                     flavorCtxCount[x86_64] += 1
                 elif context in ('biarch', ):
-                    flavorCtxCount[biarch] += 1
+                    if fltr and fltr.match(name):
+                        flavorCtxCount[biarch] += 1
                 else:
                     raise UnknownBuildContextError(name=name, flavor=context)
 
             # Sanity check flavors to make sure we built all the flavors
             # that we expected.
-            extra = set(flvMap) - set([ x86, x86_64, biarch ])
-            if extra:
-                raise UnsupportedTroveFlavorError(name=name, flavor=extra)
-
             if (flvCount[x86] != flavorCtxCount[x86] or
                 flvCount[x86_64] != flavorCtxCount[x86_64] or
-                flvCount[biarch] != flavorCtxCount[biarch]):
+
+                # Only enforce biarch for packages that we expect to be biarch.
+                # This is a kluge to deal with the fact that biarch builds
+                # produce a byDefault=False package for the source that only
+                # contains the build log.
+                (flavorCtxCount[biarch] > 0 and
+                 flvCount[biarch] != flavorCtxCount[biarch])):
                 raise FlavorCountMismatchError(name=name)
 
             # Add packages to the group.
@@ -375,7 +386,7 @@ class Group(object):
                 if pkgFlv:
                     group.removePackageFlavor(pkgName, pkgFlv)
                 else:
-                    self.remove(pkgName)
+                    self.removePackage(pkgName)
 
         # Add requested packages.
         for groupName, pkgs in additions.iteritems():
