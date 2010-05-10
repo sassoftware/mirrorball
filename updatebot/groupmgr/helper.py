@@ -122,13 +122,13 @@ class GroupHelper(ConaryHelper):
 
         return groups
 
-    def setModel(self, pkgName, groups):
+    def setModel(self, pkgName, groups, version=None):
         """
         Freeze group model and save to the repository.
         """
 
         log.info('saving model for %s' % pkgName)
-        recipeDir = self._edit(pkgName)
+        recipeDir = self._edit(pkgName, version=version)
         groupFileName = util.join(recipeDir, 'groups.xml')
 
         groupModel = GroupModel()
@@ -164,14 +164,14 @@ class GroupHelper(ConaryHelper):
             state = int(state)
         return state
 
-    def setErrataState(self, pkgname, state):
+    def setErrataState(self, pkgname, state, version=None):
         """
         Set the current errata state for the given package.
         """
 
         log.info('storing errata state information in %s' % pkgname)
 
-        recipeDir = self._edit(pkgname)
+        recipeDir = self._edit(pkgname, version=version)
         stateFileName = util.join(recipeDir, 'erratastate')
 
         # write state info
