@@ -35,7 +35,6 @@ sys.excepthook = util.genExcepthook()
 
 import logging
 
-from updatebot import groupmgr
 from updatebot import OrderedBot
 from updatebot.groupmgr.model import GroupContentsModel
 
@@ -516,34 +515,48 @@ class Bot(OrderedBot):
 
         troves = self._updater._conaryhelper._getLatestTroves()
 
-        pkgs = set()
+        # combine packages of the same name.
+        trvs = {}
         for name, vMap in troves.iteritems():
             if name.endswith(':source'):
                 continue
             name = name.split(':')[0]
             for version, flavors in vMap.iteritems():
-                pkgs.add((name, version, tuple(flavors)))
+                for flv in flavors:
+                    trvs.setdefault(name, dict()).setdefault(version, set()).add(flv)
+
+        pkgs = set()
+        for name, vMap in trvs.iteritems():
+            if name.endswith(':source'):
+                continue
+            name = name.split(':')[0]
+            for version, flavors in vMap.iteritems():
+                data = (name, version, tuple(flavors))
+                pkgs.add(data)
+
+        group = self._groupmgr.getGroup()
 
         for name, version, flavors in pkgs:
             log.info('adding %s=%s' % (name, version))
             for flv in flavors:
                 log.info('\t%s' % flv)
-            self._groupmgr.addPackage(name, version, flavors)
+            group.addPackage(name, version, flavors)
 
-        self._groupmgr.setErrataState(0)
-        self._groupmgr.setVersion('0')
+        group.errataState = '0'
+        group.version = '0'
 
-        pkgGroup = self._groupmgr._groups[self._groupmgr._pkgGroupName]
+#        pkgGroup = self._groupmgr._groups[self._groupmgr._pkgGroupName]
 #        pkgGroup.depCheck = False
 
-        contents = GroupContentsModel('group-standard', depCheck=True)
-        self._groupmgr._groups['group-standard'] = contents
+        addReq = dict([ ('group-standard', [ (x, None) for x in standard ]), ])
 
-        for pkgName in standard:
-            for key in pkgGroup._nameMap[pkgName]:
-                contents._addItem(pkgGroup._data[key])
+        group.modifyContents(additions=addReq)
 
-        built = self._groupmgr.build()
+        group.commit()
+        built = group.build()
+
+        import epdb; epdb.st()
+
         return built
 
 if __name__ == '__main__':
@@ -558,6 +571,7 @@ if __name__ == '__main__':
     cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
     bot = Bot(cfg, None)
+    bot._pkgSource.load()
     changes = bot.generateInitialGroup()
 
     import epdb; epdb.st()
