@@ -331,19 +331,30 @@ class YumSource(BasePackageSource):
                 # get the conary version from the source
                 conaryVersion = srcPkg.getConaryVersion()
 
+                # If the package arch is x86_64, I expect that it should only
+                # ever be built as x86_64.
                 if binPkg.arch == 'x86_64':
-                    arch = 'x86_64'
+                    arch = ['x86_64', ]
+                # If the package arch is noarch, it could produce a conary
+                # package of any flavor.
                 elif binPkg.arch == 'noarch':
-                    arch = ''
+                    arch = ['x86', 'x86_64', '']
+                # If the package arch is x86, it could produce either x86 or
+                # x86_64 flavors.
                 elif (binPkg.arch.startswith('i') and
                       binPkg.arch.endswith('86') and
                       len(binPkg.arch) == 4):
-                    arch = 'x86'
+                    arch = ['x86', 'x86_64']
                 else:
                     raise RuntimeError
 
-                trvSpec = (binPkg.name, conaryVersion, arch)
-                self.useMap.setdefault(trvSpec, set()).update(archStr)
+                for a in arch:
+                    trvSpecs = set([
+                        (binPkg.name, conaryVersion, a),
+                        (srcPkg.name, conaryVersion, a),
+                    ])
+                    for trvSpec in trvSpecs:
+                        self.useMap.setdefault(trvSpec, set()).update(archStr)
 
     def loadFileLists(self, client, basePath):
         """
