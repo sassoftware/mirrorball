@@ -10,6 +10,7 @@ Script for cooking packages with updatebot config.
 import os
 
 from header import *
+from updatebot import errors
 from updatebot import conaryhelper
 
 if len(sys.argv) < 3:
@@ -19,17 +20,22 @@ helper = conaryhelper.ConaryHelper(cfg)
 
 def validateInput(input):
     for pkgName in input:
-        manifest = helper.getManifest(pkgName)
+        try:
+            manifest = helper.getManifest(pkgName)
+        except errors.NoManifestFoundError, e:
+            yield pkgName, None
+            continue
         paths = [ os.path.basename(x) for x in manifest ]
-        for context, fltr in cfg.archContexts:
-            if fltr and [ x for x in paths if fltr[1].match(x) ]:
-                raise RuntimeError, 'Found package that may not be built'
-    return input
+#        for context, fltr in cfg.archContexts:
+#            if fltr and [ x for x in paths if fltr[1].match(x) ]:
+#                raise RuntimeError, 'Found package that may not be built'
+        yield (pkgName, tuple(paths))
+    raise StopIteration
 
 trvs = set()
 label = cfg.topSourceGroup[1]
-for pkg in validateInput(sys.argv[2:]):
-    trvs.add((pkg, label, None))
+for pkg, manifest in validateInput(sys.argv[2:]):
+    trvs.add((pkg, label, None, manifest))
 trvMap = builder.build(trvs)
 
 print "built:\n"
