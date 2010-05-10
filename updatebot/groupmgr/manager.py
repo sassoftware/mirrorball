@@ -61,7 +61,12 @@ class GroupManager(object):
 
     def __init__(self, cfg, parentGroup=False, targetGroup=False, useMap=None):
         self._cfg = cfg
-        self._useMap = useMap or dict()
+
+        if useMap is None:
+            self._useMap = {}
+        else:
+            self._useMap = useMap
+
         self._helper = self._helperClass(self._cfg)
         self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
         self._sanity = self._sanityCheckerClass(self._cfg, self._helper)
@@ -270,7 +275,7 @@ class GroupManager(object):
         group.setCommitted()
 
         # Get the model for the source version that we just committed.
-        return self.getGroup(sourceVersion=newVersion)
+        return self.getGroup(version=newVersion)
 
     @require_write
     def buildGroup(self, group):
