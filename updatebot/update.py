@@ -32,6 +32,7 @@ from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
 from updatebot.errors import ParentPlatformManifestInconsistencyError
+from updatebot.errors import RepositoryPackageSourceInconsistencyError
 
 log = logging.getLogger('updatebot.update')
 
@@ -365,7 +366,7 @@ class Updater(object):
         for line in manifest:
             # Some manifests were created with double slashes, need to
             # normalize the path to work around this problem.
-            line = os.path.normpath(line)
+            line = os.path.normpath(line).split('?')[0]
             if line in self._pkgSource.locationMap:
                 binPkg = self._pkgSource.locationMap[line]
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
@@ -495,8 +496,7 @@ class Updater(object):
         if needsUpdate:
             raise RepositoryPackageSourceInconsistencyError(nvf=nvf, srpm=srpm)
 
-    @staticmethod
-    def _getLatestOfAvailableArches(pkgLst):
+    def _getLatestOfAvailableArches(self, pkgLst):
         """
         Given a list of package objects, find the latest versions of each
         package for each name/arch.
@@ -508,7 +508,8 @@ class Updater(object):
 
         pkgMap = {}
         for pkg in pkgLst:
-            key = pkg.name + pkg.arch
+            arch = self._getRepositoryArch(pkg.location)
+            key = pkg.name + pkg.arch + arch
             if key not in pkgMap:
                 pkgMap[key] = pkg
                 continue
@@ -813,6 +814,18 @@ class Updater(object):
 
         return srcVersion
 
+    def _getRepositoryArch(self, loc):
+        """
+        Get the architecture of the repository for a given location if
+        repository arch is defined.
+        """
+
+        for repo, arch in self._cfg.repositoryArch.iteritems():
+            if loc.startswith(repo):
+                return arch
+
+        return ''
+
     def _getManifestFromPkgSource(self, srcPkg):
         """
         Get the contents of the a manifest file from the pkgSource object.
@@ -828,7 +841,11 @@ class Updater(object):
             manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
             for pkg in self._getLatestOfAvailableArches(manifestPkgs):
                 if hasattr(pkg, 'location'):
-                    manifest.append(pkg.location)
+                    arch = self._getRepositoryArch(pkg.location)
+                    location = pkg.location
+                    if arch:
+                        location += '?arch=%s' % arch
+                    manifest.append(location)
                 elif hasattr(pkg, 'files'):
                     manifest.extend(pkg.files)
         return manifest
