@@ -321,7 +321,7 @@ class Updater(object):
         return srpms[-1]
 
     def _sanitizeTrove(self, nvf, srpm, expectedRemovals=None,
-        allowPackageDowngrades=None):
+        allowPackageDowngrades=None, keepRemovedPackages=None):
         """
         Verifies the package update to make sure it looks correct and is a
         case that the bot knows how to handle.
@@ -341,6 +341,10 @@ class Updater(object):
         @param allowPackageDowngrades: list of source nevra tuples to downgrade
                                        from/to.
         @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
+        @param keepRemovedPackages: list of package nevras to keep even though
+                                    they have been removed in the latest version
+                                    of the source.
+        @type keepRemovedPackages: list(nevra, nevra, ...)
         @return needsUpdate boolean
         @raises UpdateGoesBackwardsError
         @raises UpdateRemovesPackageError
@@ -415,13 +419,18 @@ class Updater(object):
 
                 # Raise an exception if the versions of the packages aren't
                 # equal or the discovered package comes from a different source.
-                if (rpmvercmp(pkg.epoch, srpm.epoch) != 0 or
-                    rpmvercmp(pkg.version, srpm.version) != 0 or
+                #
+                # Get the source that the package was built from for version
+                # comparison since the source and binary can have different
+                # versions.
+                src = self._pkgSource.binPkgMap[pkg]
+                if (rpmvercmp(src.epoch, srpm.epoch) != 0 or
+                    rpmvercmp(src.version, srpm.version) != 0 or
                     # in the suse case we have to ignore release
                     (not self._cfg.reuseOldRevisions and
-                     rpmvercmp(pkg.release, srpm.release) != 0) or
+                     rpmvercmp(src.release, srpm.release) != 0) or
                     # binary does not come from the same source as it used to
-                    self._pkgSource.binPkgMap[pkg].name != srpm.name):
+                    src.name != srpm.name):
                     log.warn('update removes package (%s) %s -> %s'
                              % (pkg.name, srcPkg.getNevra(), srpm.getNevra()))
 
@@ -431,7 +440,8 @@ class Updater(object):
                                  % pkg.name)
                         continue
 
-                    removedPackages.add(pkg)
+                    if pkg.getNevra() not in keepRemovedPackages:
+                        removedPackages.add(pkg)
 
                 if not removedPackages:
                     reusedPackages.add(pkg)

@@ -237,6 +237,7 @@ class ErrataFilter(object):
 
         # convert keepObsolete config into set of edges
         keepObsolete = set(self._cfg.keepObsolete)
+        keepObsoleteSource = set(self._cfg.keepObsoleteSource)
 
         errors = {}
         # Make sure there no buckets that contain the same srpm name twice.
@@ -269,6 +270,7 @@ class ErrataFilter(object):
             log.info('validating %s' % updateId)
             expectedRemovals = removals.get(updateId, [])
             expectedReplaces = replaces.get(updateId, [])
+            expectedKeepRemovals = self._cfg.keepRemoved.get(updateId, [])
             explicitSourceRemovals = self._cfg.removeSource.get(updateId, set())
             explicitBinaryRemovals = self._cfg.removeObsoleted.get(updateId, set())
             explicitPackageDowngrades = downgraded.get(updateId, None)
@@ -281,7 +283,8 @@ class ErrataFilter(object):
                 try:
                     toUpdate = updater._sanitizeTrove(nvf, srpm,
                         expectedRemovals=expectedRemovals + expectedReplaces,
-                        allowPackageDowngrades=explicitPackageDowngrades)
+                        allowPackageDowngrades=explicitPackageDowngrades,
+                        keepRemovedPackages=expectedKeepRemovals)
 
                     # If a source was manually added to this updateId it may
                     # have already been part of another update, which would
@@ -389,14 +392,28 @@ class ErrataFilter(object):
                         obsoletingSrcPkgs = tuple(sorted(set(
                             self._pkgSource.binPkgMap[x]
                             for x, y in obsoleteEdgeSet)))
-                        # we exclude any source only once, not per bucket
-                        obsoleteSources.add(
-                            (obsoletedPkg.name,
-                             obsoletedPkg,
-                             obsoletingSrcPkgs,
-                             srcPkg,
-                             binPkgs))
-                        foundObsoleteSrcs.add(srcPkg)
+
+                        newEdgeSet = set()
+                        obsoletingSrcPkgs = set()
+
+                        for obsoletingPkg, obsoletedPkg in obsoleteEdgeSet:
+                            obsoletingSrcPkg = self._pkgSource.binPkgMap[obsoletingPkg]
+                            if (obsoletingSrcPkg.getNevra(), srcPkg.getNevra()) in keepObsoleteSource:
+                                continue
+                            newEdgeSet.add((obsoletingPkg, obsoletedPkg))
+                            obsoletingSrcPkgs.add(obsoletingSrcPkg)
+
+                        if newEdgeSet:
+                            # we exclude any source only once, not per bucket
+                            for obsoletingPkg, obsoletedPkg in newEdgeSet:
+                                obsoleteSources.add(
+                                    (obsoletedPkg.name,
+                                     obsoletedPkg,
+                                     tuple(obsoletingSrcPkgs),
+                                     srcPkg,
+                                     binPkgs))
+
+                            foundObsoleteSrcs.add(srcPkg)
 
 
             if obsoleteBinaries:
@@ -421,15 +438,17 @@ class ErrataFilter(object):
                     twoNevra = str(' '.join(two.getNevra()))
                     log.warn('%s %s -revertsTo-> %s' % (updateId,
                              oneNevra, twoNevra))
-                    log.info('%s -revertsTo-> %s' % (
-                             rhnUrls(srpmToAdvisory[one]),
-                             rhnUrls(srpmToAdvisory[two])))
-                    log.info('%s %s (%d) -> %s (%d)' % (updateId,
-                             tconv(srpmToBucketId[one]), srpmToBucketId[one],
-                             tconv(srpmToBucketId[two]), srpmToBucketId[two]))
-                    log.info('? reorderSource %s otherId<%s %s' % (
-                        updateId, srpmToBucketId[one], twoNevra))
-                    for errataId in srpmToAdvisory[two]:
+                    if one in srpmToAdvisory and two in srpmToAdvisory:
+                        log.info('%s -revertsTo-> %s' % (
+                                 rhnUrls(srpmToAdvisory[one]),
+                                 rhnUrls(srpmToAdvisory[two])))
+                    if one in srpmToBucketId and two in srpmToBucketId:
+                        log.info('%s %s (%d) -> %s (%d)' % (updateId,
+                                 tconv(srpmToBucketId[one]), srpmToBucketId[one],
+                                 tconv(srpmToBucketId[two]), srpmToBucketId[two]))
+                        log.info('? reorderSource %s otherId<%s %s' % (
+                            updateId, srpmToBucketId[one], twoNevra))
+                    for errataId in srpmToAdvisory.get(two, []):
                         log.info('? reorderAdvisory %s otherId<%s %s' % (
                             updateId, srpmToBucketId[one], errataId))
                 elif isinstance(e, UpdateReusesPackageError):
@@ -442,9 +461,10 @@ class ErrataFilter(object):
                 elif isinstance(e, UpdateRemovesPackageError):
                     log.warn('%s %s removed in %s' % (
                              updateId, e.pkgNames, e.newspkg))
-                    for name in sorted(set(p.name for p in e.pkgList)):
+                    for name, p in sorted(dict((p.name, p) for p in e.pkgList).items()):
                         log.info('? updateRemovesPackages %s %s' % (
                                  updateId, name))
+                        log.info('? keepRemoved %s %s' % (updateId, '%s %s %s %s %s' % p.getNevra()))
                 elif isinstance(e, tuple):
                     if e[0] == 'duplicates':
                         sortedOrder = sorted(self._order)
@@ -453,13 +473,14 @@ class ErrataFilter(object):
                             dupList = sorted(dupSet)
                             log.warn('%s contains duplicate %s %s' %(updateId,
                                 dupName, dupList))
-                            for srcPkg in dupList[:-1]:
+                            for srcPkg in sorted(dupList[1:]):
                                 srcNevra = str(' '.join(srcPkg.getNevra()))
-                                log.info('%s : %s' % (
-                                    srcNevra, rhnUrls(srpmToAdvisory[srcPkg])))
+                                if srcPkg in srpmToAdvisory:
+                                    log.info('%s : %s' % (
+                                        srcNevra, rhnUrls(srpmToAdvisory[srcPkg])))
                                 log.info('? reorderSource %s earlierId>%s %s' %
                                     (updateId, previousId, srcNevra))
-                                for errataId in srpmToAdvisory[srcPkg]:
+                                for errataId in srpmToAdvisory.get(srcPkg, []):
                                     log.info(
                                         '? reorderAdvisory %s earlierId>%s %r'
                                         % (updateId, previousId, errataId))
@@ -504,6 +525,10 @@ class ErrataFilter(object):
                             log.info('? removeSource %s %s # %s' % (
                                      updateId, srcNevraStr,
                                      obsoletingSrcPkgNames))
+                            for obsoletingSrcPkg in obsoletingSrcPkgs:
+                                log.info('? keepObsoleteSource %s %s'
+                                  % (str(' '.join(obsoletingSrcPkg.getNevra())),
+                                     srcNevraStr))
                             log.info(' will remove the following: %s' % pkgList)
                     elif e[0] == 'removedShouldBeReplaced':
                         for pkgName in e[1]:
@@ -893,7 +918,9 @@ class ErrataFilter(object):
         # separate out golden bits
         other = []
         golden = []
-        firstErrata = sorted(buckets.keys())[0]
+        firstErrata = int(time.time())
+        if len(buckets):
+            firstErrata = sorted(buckets.keys())[0]
         for nevra, pkg in nevras.iteritems():
             buildtime = int(pkg.buildTimestamp)
             if buildtime < firstErrata:

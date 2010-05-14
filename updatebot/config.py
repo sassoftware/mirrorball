@@ -416,10 +416,15 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # from the package model
     removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
+    # updateId binaryNevra
+    # As of updateId, I expect the code to think this nevra should be removed,
+    # but I want to keep it.
+    keepRemoved = (CfgIntDict(CfgList(CfgNevra)), {})
+
     # updateId sourceNevra
     # As of updateId, the specified src is fully obsoleted, but
     # should be retained in groups
-    keepObsoleteSource = (CfgIntDict(CfgList(CfgNevra)), {})
+    keepObsoleteSource = (CfgList(CfgNevraTuple), [])
 
     # Some obsoletes are merely conceptual preferences, and should not
     # turn into removals.
