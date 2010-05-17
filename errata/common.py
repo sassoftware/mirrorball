@@ -51,7 +51,7 @@ class Package(object):
         this package.
         """
 
-        raise NotImplemetedError
+        raise NotImplementedError
 
 
 class Channel(object):
@@ -120,6 +120,28 @@ class AdvisoryManager(object):
         This is probably going to cache any data, probably in a database, that
         is being fetched from the internet somewhere so that we don't cause
         excesive load for anyone's servers.
+        """
+
+        raise NotImplementedError
+
+    def getChannels(self):
+        """
+        Return a list of all indexed channels, will trigger a fetch if needed.
+        """
+
+        raise NotImplementedError
+
+    def cleanup(self):
+        """
+        Frees any cached results.
+        """
+
+        raise NotImplementedError
+
+    def getModifiedErrata(self, updateId):
+        """
+        Get a list of any errata that were modified after updateId and were
+        issued before updateId.
         """
 
         raise NotImplementedError
