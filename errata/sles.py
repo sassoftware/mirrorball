@@ -33,7 +33,7 @@ class Package(common.Package):
         this package.
         """
 
-class Repository(common.Repository):
+class Channel(common.Channel):
     """
     Class to represent a repository.
     """
@@ -49,7 +49,7 @@ class AdvisoryManager(common.AdvisoryManager):
     def __init__(self, pkgSource):
         self._pkgSource = pkgSource
 
-        slef._fetched = False
+        self._fetched = False
         self._patches = set()
 
     @common.reqfetch
@@ -76,6 +76,31 @@ class AdvisoryManager(common.AdvisoryManager):
         """
 
         self._fetched = True
+
+    @common.reqfetch
+    def getChannels(self):
+        """
+        Get a list of indexed channel names.
+        @return list of indexed channel names
+        """
+
+        return self._pkgSource._clients.keys()
+
+
+    def cleanup(self):
+        """
+        Free all cached results.
+        """
+
+        self._patches = set()
+
+    def getModifiedErrata(self, updateId):
+        """
+        Get a list of any errata that were modified after updateId and were
+        issued before updateId.
+        """
+
+        return []
 
     def _fetchPatches(self):
         """
