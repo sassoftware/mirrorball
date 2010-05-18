@@ -345,7 +345,7 @@ class GroupManager(object):
         # Get the list of binaries for this source from the repository.
         # FIXME: This should not call into the conary client itself, instead
         #        there should be a call in the conary helper.
-        trvs = self._helper._client.getTrovesBySource(self._sourceName, 
+        trvs = self._helper._repos.getTrovesBySource(self._sourceName, 
             sourceVersion)
 
         return bool(len(trvs))
