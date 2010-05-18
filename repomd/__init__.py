@@ -78,6 +78,8 @@ class Client(object):
         """
 
         node = self._repomd.getRepoData('primary')
+        if node is None:
+            return []
         return node.parseChildren().getPackages()
 
     def getFileLists(self):
