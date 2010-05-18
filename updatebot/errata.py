@@ -782,7 +782,6 @@ class ErrataFilter(object):
                 self._advMap.setdefault(dest, set()).add(advInfo)
                 break
 
-
     def _reorderSource(self, source, dest, nevra):
         """
         Reschedule an individual srpm to another bucket.
