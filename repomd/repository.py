@@ -61,7 +61,8 @@ class Repository(object):
         @return name of tempory file
         """
 
-        return tempfile.mktemp(prefix='mdparse')
+        fd, name = tempfile.mkstemp(prefix='mdparse')
+        return name
 
     def _getRealUrl(self, path):
         """
