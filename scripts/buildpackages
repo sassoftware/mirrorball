@@ -26,10 +26,7 @@ def validateInput(input):
             yield pkgName, None
             continue
         paths = [ os.path.basename(x) for x in manifest ]
-#        for context, fltr in cfg.archContexts:
-#            if fltr and [ x for x in paths if fltr[1].match(x) ]:
-#                raise RuntimeError, 'Found package that may not be built'
-        yield (pkgName, tuple(paths))
+        yield pkgName, tuple(paths)
     raise StopIteration
 
 trvs = set()
