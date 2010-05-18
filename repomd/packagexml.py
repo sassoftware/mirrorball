@@ -155,9 +155,19 @@ class _Package(SlotNode, PackageCompare):
         if pkgcmp != 0:
             return pkgcmp
 
+        # Compare checksum only for equality, otherwise sorting will result in
+        # checksum ordering.
         if (self.checksum and other.checksum and
             self.checksumType == other.checksumType and
             self.checksum == other.checksum):
+            return 0
+
+        # Compare on archiveSize for equality only. This is needed for rpms
+        # that have identical contents, but may have been rebuilt. Idealy we
+        # would use file checksums for this, but we don't have the payload
+        # contents available at this time.
+        if (self.archiveSize and other.archiveSize and
+            self.archiveSize == other.archiveSize):
             return 0
 
         return cmp(self.location, other.location)
