@@ -151,6 +151,27 @@ class GroupManager(object):
         else:
             return None
 
+    def _persistGroup(self, group, conaryVersion=None):
+        """
+        Serialize the contents of a group model to disk.
+        @param conaryVersion: The version of the group source to update.
+        @type conaryVersion: conary.versions.VersionFromString
+        """
+
+        if not conaryVersion:
+            conaryVersion = group.conaryVersion
+
+        # set version
+        self._helper.setVersion(self._sourceName, group.version,
+            version=conaryVersion)
+
+        # set errata state
+        self._helper.setErrataState(self._sourceName, group.errataState,
+            version=conaryVersion)
+
+        # write out the model data
+        self._helper.setModel(self._sourceName, group, version=conaryVersion)
+
     def getGroup(self, version=None):
         """
         Retrieve a group model from the repository.
@@ -252,16 +273,8 @@ class GroupManager(object):
         # readonly.
         group.finalize()
 
-        # set version
-        self._helper.setVersion(self._sourceName, group.version,
-            version=conaryVersion)
-
-        # set errata state
-        self._helper.setErrataState(self._sourceName, group.errataState,
-            version=conaryVersion)
-
-        # write out the model data
-        self._helper.setModel(self._sourceName, group, version=conaryVersion)
+        # Serialize the group model.
+        self._persistGroup(group, conaryVersion=conaryVersion)
 
         # commit to the repository
         newVersion = self._helper.commit(self._sourceName,
