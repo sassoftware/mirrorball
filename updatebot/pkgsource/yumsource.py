@@ -123,11 +123,6 @@ class YumSource(BasePackageSource):
             if self._excludeLocation(pkg.location):
                 continue
 
-            # ignore 32bit rpms in a 64bit repo.
-            if (pkg.arch in ('i386', 'i586', 'i686') and
-                'x86_64' in pkg.location):
-                continue
-
             # Source RPM is one without a "sourcerpm" element
             if pkg.sourcerpm == '' or pkg.sourcerpm is None:
                 self._procSrc(pkg)
@@ -211,7 +206,11 @@ class YumSource(BasePackageSource):
         self.locationMap[package.location] = package
 
         if archStr:
-            self._repoMap.setdefault(package, set()).add(archStr)
+            if package.arch == 'x86_64' and archStr == 'x86':
+                log.warn('not adding %s to repoMap since we do not allow 64bit '
+                         'packages in a 32bit repository.' % package)
+            else:
+                self._repoMap.setdefault(package, set()).add(archStr)
 
     def _excludeLocation(self, location):
         """
@@ -331,7 +330,7 @@ class YumSource(BasePackageSource):
                     log.warn('\t%s' % loc)
 
         if self._repoMap:
-            for binPkg, archStr in self._repoMap.iteritems():
+            for binPkg, archSet in self._repoMap.iteritems():
                 # lookup the source for the binary package
                 srcPkg = self.binPkgMap[binPkg]
 
@@ -341,27 +340,38 @@ class YumSource(BasePackageSource):
                 # If the package arch is x86_64, I expect that it should only
                 # ever be built as x86_64.
                 if binPkg.arch == 'x86_64':
-                    arch = ['x86_64', ]
+                    possibleFlavors = ['x86_64', ]
                 # If the package arch is noarch, it could produce a conary
                 # package of any flavor.
                 elif binPkg.arch == 'noarch':
-                    arch = ['x86', 'x86_64', '']
+                    possibleFlavors = ['x86', 'x86_64', ]
                 # If the package arch is x86, it could produce either x86 or
                 # x86_64 flavors.
                 elif (binPkg.arch.startswith('i') and
                       binPkg.arch.endswith('86') and
                       len(binPkg.arch) == 4):
-                    arch = ['x86', 'x86_64']
+                    possibleFlavors = ['x86', ]
                 else:
                     raise RuntimeError
 
-                for a in arch:
+                for flv in possibleFlavors:
                     trvSpecs = set([
-                        (binPkg.name, conaryVersion, a),
-                        (srcPkg.name, conaryVersion, a),
+                        (binPkg.name, conaryVersion, flv),
+                        # Always include a package with the source name since
+                        # every build will generate a conary package with the
+                        # given build flavor, even if the package only contains
+                        # a buildlog.
+                        (srcPkg.name, conaryVersion, flv),
                     ])
                     for trvSpec in trvSpecs:
-                        self.useMap.setdefault(trvSpec, set()).update(archStr)
+                        useSet = self.useMap.setdefault(trvSpec, set())
+                        if binPkg.arch == 'noarch':
+                            if flv == 'x86' and 'x86' in archSet:
+                                useSet.add('x86')
+                            elif flv == 'x86_64' and 'x86_64' in archSet:
+                                useSet.add('x86_64')
+                        else:
+                            useSet.update(archSet)
 
     def loadFileLists(self, client, basePath):
         """
