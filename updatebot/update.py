@@ -604,11 +604,7 @@ class Updater(object):
         parentPackages = set()
         total = len(toCreate)
         current = 1
-        start = False
         for pkg in sorted(toCreate):
-            if pkg.name.startswith('n'):
-                start = True
-
             try:
                 # Only import packages that haven't been imported before
                 version = verCache.get('%s:source' % pkg.name)
