@@ -247,9 +247,11 @@ class Group(object):
         def add():
             upver = version.trailingRevision().version
             for flv in flavors:
-                key = (name, upver, flvMap[flv])
-                if key in self._useMap:
-                    for useStr in self._useMap[key]:
+                primary = (name, upver, flvMap[flv])
+                secondary = (name, flvMap[flv])
+                use = self._useMap.get(primary, self._useMap.get(secondary, []))
+                if use:
+                    for useStr in use:
                         self._add(name, version=version, flavor=flv,
                                   use=useStr, groupName=groupName)
                 else:
