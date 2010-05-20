@@ -351,6 +351,7 @@ class Updater(object):
         @raises UpdateRemovesPackageError
         """
 
+        keepRemovedPackages = keepRemovedPackages or []
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
         metadata = None
