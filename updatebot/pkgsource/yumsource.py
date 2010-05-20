@@ -362,16 +362,23 @@ class YumSource(BasePackageSource):
                         # given build flavor, even if the package only contains
                         # a buildlog.
                         (srcPkg.name, conaryVersion, flv),
+
+                        (binPkg.name, flv),
+                        (srcPkg.name, flv),
                     ])
                     for trvSpec in trvSpecs:
-                        useSet = self.useMap.setdefault(trvSpec, set())
+                        useSet = set()
                         if binPkg.arch == 'noarch':
                             if flv == 'x86' and 'x86' in archSet:
                                 useSet.add('x86')
                             elif flv == 'x86_64' and 'x86_64' in archSet:
                                 useSet.add('x86_64')
                         else:
+                            assert archSet
                             useSet.update(archSet)
+
+                        if useSet:
+                            self.useMap.setdefault(trvSpec, set()).update(useSet)
 
     def loadFileLists(self, client, basePath):
         """
