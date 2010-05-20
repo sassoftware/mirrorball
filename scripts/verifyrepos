@@ -16,7 +16,6 @@
 import os
 import sys
 import copy
-import itertools
 
 mirrorballDir = os.path.abspath('../')
 sys.path.insert(0, mirrorballDir)
@@ -38,23 +37,80 @@ from updatebot import pkgsource
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1] )
 
-import epdb; epdb.st()
+headers = []
 paths = copy.copy(cfg.repositoryPaths)
+
+from Queue import Empty
+from multiprocessing import Process, Queue
+
+class Worker(Process):
+    def __init__(self, inq, outq, errq, *args, **kwargs):
+        Process.__init__(self, *args, **kwargs)
+
+        self.inq = inq
+        self.outq = outq
+        self.errq = errq
+
+        self.daemon = True
+
+    def run(self):
+        while True:
+            try:
+                platform, repoPath = self.inq.get()
+                cfg = config.UpdateBotConfig()
+                cfg.read(mirrorballDir + '/config/%s/updatebotrc' % platform)
+
+                cfg.repositoryPaths = [ repoPath, ]
+                pkgSource = pkgsource.PackageSource(cfg)
+                pkgSource.load()
+
+                for location in pkgSource.locationMap:
+                    if not location.startswith(repoPath):
+                        continue
+                    url = cfg.repositoryUrl + '/' + location
+                    try:
+                        log.info('testing %s' % url)
+                        header = rpmutils.readHeader(url)
+                    except Exception, e:
+                        log.info('failed to open %s, %s' % (url, e))
+                        self.outq.put((url, str(e)))
+            except Exception, e:
+                self.errq.put(str(e))
+
+
+class Mgr(object):
+    def __init__(self, max=6):
+        self.max = max
+        self.inq = Queue()
+        self.outq = Queue()
+        self.errq = Queue()
+
+        self._procs = []
+
+        self._results = []
+
+    def start(self):
+        for i in range(self.max):
+            proc = Worker(self.inq, self.outq, self.errq)
+            proc.start()
+            self._procs.append(proc)
+
+    def doWork(self, platform, repoPath):
+        self.inq.put((platform, repoPath))
+
+    def getResults(self):
+        while not self.outq.empty():
+            try:
+                res = self.outq.get_nowait()
+                self._results.append(res)
+            except Empty, e:
+                pass
+        return self._results
+
+mgr = Mgr(max=len(paths))
 for path in paths:
-    cfg.repositoryPaths = [ path, ]
-    pkgSource = pkgsource.PackageSource(cfg)
-    pkgSource.load()
+    mgr.doWork(sys.argv[1], path)
 
-    for location in pkgSource.locationMap:
-        if not location.startswith(path):
-            log.info('skipping %s' % location)
-            continue
-        url = cfg.repositoryUrl + '/' + location
-        try:
-            rpmutils.readHeader(url)
-        except Exception, e:
-            raise
-            log.info('failed to open %s, %s' % (url, e))
-
+mgr.start()
 
 import epdb; epdb.st()
