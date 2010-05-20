@@ -68,9 +68,9 @@ class CfgContextFlavor(CfgFlavor):
             raise ParseError, e
 
 
-class CfgContextFilter(CfgRegExp):
+class CfgStringFilter(CfgRegExp):
     """
-    Class for parsing context name/regex tuples.
+    Class for parsing (string, regex) tuples.
     """
 
     def parseString(self, val):
@@ -230,6 +230,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # repositoryName archString
     repositoryArch      = (CfgDict(CfgString), {})
 
+    # Associate binaries generated from a nosrc package with a source package
+    # name if the nosrc package matches a given regular expression.
+    nosrcFilter         = (CfgList(CfgStringFilter), [])
+
     # Ignore packages with "32bit" in the name. This is intened for use with
     # SLES based platforms.
     ignore32bitPackages = (CfgBool, False)
@@ -303,7 +307,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     listArchiveStartDate = CfgString
 
     # list of contexts that all packages are built in.
-    archContexts        = CfgList(CfgContextFilter)
+    archContexts        = CfgList(CfgStringFilter)
 
     # flavors to build the source group.
     groupFlavors        = (CfgList(CfgFlavor), [])

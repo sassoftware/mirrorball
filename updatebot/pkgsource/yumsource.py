@@ -380,6 +380,36 @@ class YumSource(BasePackageSource):
                         if useSet:
                             self.useMap.setdefault(trvSpec, set()).update(useSet)
 
+        # In the case of SLES 10 we need to combine several source entries in
+        # the srcPkgMap to create a single unified kernel source package.
+        if self._cfg.nosrcFilter:
+            # Find all nosrc rpms in the srcPKgMap, have to use basename of the
+            # location since nosrc packages have an arch of 'src'.
+            nosrcMap = dict([ (x, y) for x, y in self.srcPkgMap.iteritems()
+                              if 'nosrc' in os.path.basename(x.location) ])
+
+            # Build a mapping of version to nosrc package.
+            verMap = {}
+            for src in nosrcMap:
+                verMap.setdefault((src.version, src.release), set()).add(src)
+
+            for srcName, (fltrStr, fltr) in self._cfg.nosrcFilter:
+                for src in self.srcNameMap[srcName]:
+                    # Match source version and release to nosrc version and
+                    # release. This may be too strong a requirement.
+                    if (src.version, src.release) not in verMap:
+                        continue
+
+                    # Move all binaries associated with the nosrc package into
+                    # the source package.
+                    for nosrc in verMap[(src.version, src.release)]:
+                        if fltr.match(nosrc.name):
+                            log.info('relocating package content %s -> %s'
+                                     % (nosrc, src))
+                            nosrcSet = self.srcPkgMap.get(nosrc)
+                            self.srcPkgMap[src].update(nosrcSet)
+                            self.srcPkgMap[nosrc] = self.srcPkgMap[src]
+
     def loadFileLists(self, client, basePath):
         """
         Parse file information.
