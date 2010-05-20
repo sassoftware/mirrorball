@@ -145,6 +145,10 @@ class Bot(BotSuperClass):
         self._pkgSource.load()
         toCreate = self._errata.getInitialPackages()
 
+        fltr = kwargs.pop('fltr', None)
+        if fltr:
+            toCreate = fltr(toCreate)
+
         pkgMap, failures = self._create(*args, toCreate=toCreate, **kwargs)
 
         # Insert package map into group.
@@ -273,6 +277,10 @@ class Bot(BotSuperClass):
 
             # Update package set.
             else:
+                fltr = kwargs.pop('fltr', None)
+                if fltr:
+                    updates = fltr(updates)
+
                 pkgMap = self._update(*args, updatePkgs=updates,
                     expectedRemovals=expectedRemovals,
                     allowPackageDowngrades=allowDowngrades, **kwargs)
