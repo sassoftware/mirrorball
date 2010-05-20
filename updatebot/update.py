@@ -30,6 +30,7 @@ from updatebot.errors import NoManifestFoundError
 from updatebot.errors import SourceNotImportedError
 from updatebot.errors import OldVersionNotFoundError
 from updatebot.errors import UpdateGoesBackwardsError
+from updatebot.errors import UpdateReusesPackageError
 from updatebot.errors import UpdateRemovesPackageError
 from updatebot.errors import ParentPlatformManifestInconsistencyError
 from updatebot.errors import RepositoryPackageSourceInconsistencyError
@@ -604,6 +605,7 @@ class Updater(object):
         parentPackages = set()
         total = len(toCreate)
         current = 1
+
         for pkg in sorted(toCreate):
             try:
                 # Only import packages that haven't been imported before
