@@ -36,7 +36,6 @@ sys.excepthook = util.genExcepthook()
 import logging
 
 from updatebot import OrderedBot
-from updatebot.groupmgr.model import GroupContentsModel
 
 log = logging.getLogger('tmplogger')
 
@@ -513,6 +512,7 @@ class Bot(OrderedBot):
 # 'zlib-devel',
         )
 
+        log.info('getting latest troves')
         troves = self._updater._conaryhelper._getLatestTroves()
 
         # combine packages of the same name.
@@ -545,12 +545,19 @@ class Bot(OrderedBot):
         group.errataState = '0'
         group.version = '0'
 
-#        pkgGroup = self._groupmgr._groups[self._groupmgr._pkgGroupName]
-#        pkgGroup.depCheck = False
-
         addReq = dict([ ('group-standard', [ (x, None) for x in standard ]), ])
-
         group.modifyContents(additions=addReq)
+
+        group._groups['group-standard'].depCheck = False
+
+        group.removePackage('samba-pdb')
+        group.removePackage('kiwi-desc-xennetboot')
+
+        group._copyVersions()
+        group._sanityCheck()
+        group._mgr._persistGroup(group)
+
+        import epdb; epdb.st()
 
         group.commit()
         built = group.build()
