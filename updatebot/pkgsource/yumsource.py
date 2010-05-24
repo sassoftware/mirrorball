@@ -165,6 +165,11 @@ class YumSource(BasePackageSource):
         @type package: repomd.packagexml._Package
         """
 
+        # Exclude all x86_64 packages that are in an x86 repository.
+        if archStr and archStr == 'x86' and package.arch == 'x86_64':
+            log.warn('ignoring %s because it is an x86_64 package an x86 '
+                     'repository' % package)
+
         # FIXME: There should be a better way to figure out the tuple that
         #        represents the hash of the srcPkg.
         srcParts = package.sourcerpm.split('-')
