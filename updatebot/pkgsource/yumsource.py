@@ -169,7 +169,7 @@ class YumSource(BasePackageSource):
         if archStr and archStr == 'x86' and package.arch == 'x86_64':
             log.warn('ignoring %s because it is an x86_64 package an x86 '
                      'repository' % package)
-            continue
+            return
 
         # FIXME: There should be a better way to figure out the tuple that
         #        represents the hash of the srcPkg.
