@@ -451,6 +451,13 @@ class YumSource(BasePackageSource):
             # of the file. The factory will take care of the rest.
             srcPkg.location = pkg.sourcerpm
 
+            # Copy the greatest build time from the list of binaries to
+            # determine the source build time.
+            def srtByBuildTime(a, b):
+                return cmp(int(a.buildTimestamp), int(b.buildTimestamp))
+            pkgs = sorted(bins, cmp=srtByBuildTime)
+            srcPkg.buildTimestamp = pkgs[-1].buildTimestamp
+
             return srcPkg
 
         def synthesizeSource(srcPkg):
