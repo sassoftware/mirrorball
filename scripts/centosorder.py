@@ -17,7 +17,6 @@ confDir = os.path.join(mbdir, 'config', sys.argv[1])
 from updatebot import log
 from updatebot.ordered import Bot
 from updatebot import UpdateBotConfig
-from updatebot import pkgsource
 
 from errata.centos import AdvisoryManager as Errata
 
@@ -26,12 +25,12 @@ slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-pkgSource = pkgsource.PackageSource(cfg)
+bot = Bot(cfg, None)
+errata = Errata(bot._pkgSource)
+bot._errata._errata = errata
 
-errata = Errata(pkgSource)
 errata.fetch()
 
-bot = Bot(cfg, errata)
 bot._pkgSource.load()
 bot._errata._orderErrata()
 
