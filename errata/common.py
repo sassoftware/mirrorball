@@ -15,8 +15,7 @@
 """
 This module is here as an example of the data model and interfaces that
 mirrorball is looking for when importing and updating platforms in advisory
-order. These are not meant as superclasses for any sort of implementation. The
-variables and methods that are defined below must be available.
+order. The variables and methods that are defined below must be available.
 """
 
 def reqfetch(func):
@@ -31,6 +30,28 @@ def reqfetch(func):
     return wrap
 
 
+class Nevra(object):
+    """
+    Class to represent a package nevra.
+    """
+
+    __slots__ = ('name', 'epoch', 'version', 'release', 'arch', )
+
+    def __init__(self, name, epoch, version, release, arch):
+        self.name = name
+        self.epoch = epoch
+        self.version = version
+        self.release = release
+        self.arch = arch
+
+    def getNevra(self):
+        """
+        Return a tuple representation of the nevra.
+        """
+
+        return (self.name, self.epoch, self.version, self.release, self.arch)
+
+
 class Package(object):
     """
     Class to represent a package.
@@ -39,11 +60,14 @@ class Package(object):
     @type channels: list(Repository, ...)
     """
 
-    def __init__(self, channels):
-        for ch in channels:
-            assert isinstance(ch, Channel)
+    __slots__ = ('channel', 'nevra', )
 
-        self.channels = channels
+    def __init__(self, channel, nevra):
+        assert isinstance(channel, Channel)
+        assert isinstance(nevra, Nevra)
+
+        self.channel = channel
+        self.nevra = nevra
 
     def getNevra(self):
         """
@@ -51,7 +75,7 @@ class Package(object):
         this package.
         """
 
-        raise NotImplementedError
+        return self.nevra.getNevra()
 
 
 class Channel(object):
@@ -61,6 +85,8 @@ class Channel(object):
     @param label: Unique key for the name of a repository.
     @type label: str
     """
+
+    __slots__ = ('label', )
 
     def __init__(self, label):
         self.label = label
@@ -82,15 +108,24 @@ class Advisory(object):
     @type synopsis: str
     """
 
+    __slots__ = ('advisory', 'synopsis', 'issue_date', 'nevraChannels', )
+
     def __init__(self, advisory, synopsis, issue_date, packages):
         self.advisory = advisory
-        self.synposis = synopsis
+        self.synopsis = synopsis
         self.issue_date = issue_date
 
         for pkg in packages:
             assert isinstance(pkg, Package)
 
-        self.packages = packages
+        self.nevraChannels = packages
+
+    def __hash__(self):
+        return hash((self.advisory, self.synopsis, self.issue_date))
+
+    def __cmp__(self, other):
+        return cmp((self.issue_date, self.advisory, self.synopsis),
+                   (other.issue_date, other.advisory, other.synopsis))
 
 
 class AdvisoryManager(object):
@@ -98,6 +133,9 @@ class AdvisoryManager(object):
     Class to provide an interface for accessing advisory information for a
     platform that can then be matched up to a package source.
     """
+
+    def __init__(self):
+        self._fetched = False
 
     def getRepositories(self):
         """
