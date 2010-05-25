@@ -564,9 +564,7 @@ class ErrataFilter(object):
                 missing.add(pkg)
 
             src = self._pkgSource.binPkgMap[pkg]
-            if src not in srcMap:
-                srcMap[src] = []
-            srcMap[src].append(pkg)
+            srcMap.setdefault(src, list()).append(pkg)
 
         # Raise an error if there are any packages missing an errata that are
         # now explicitly allowed by the config.
