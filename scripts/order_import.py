@@ -74,7 +74,7 @@ elif cfg.platformName == 'sles':
         pkgSource.load()
         for src, bins in pkgSource.srcPkgMap.iteritems():
             # filter out packages that we don't handle right now.
-            if ([ x for x in bins if 'kmp' in x.name ] or
+            if (#[ x for x in bins if 'kmp' in x.name ] or
                 # the kernel needs a recipe
                 'kernel' in src.name):
 
