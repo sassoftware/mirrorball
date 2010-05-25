@@ -93,16 +93,6 @@ class AdvisoryManager(common.AdvisoryManager):
         Fetch all patch data from the package source.
         """
 
-        def srtByNevra(a, b):
-            return util.packagevercmp(a, b)
-
-        def srtByBuildTime(a, b):
-            assert hasattr(a, 'buildTimestamp')
-            assert hasattr(b, 'buildTimestamp')
-            assert a.buildTimestamp not in ('0', '', 0)
-            assert b.buildTimestamp not in ('0', '', 0)
-            return cmp(int(a.buildTimestamp), int(b.buildTimestamp))
-
         def slice(ts):
             """
             Convert a time stamp into the desired time slice.
@@ -120,22 +110,11 @@ class AdvisoryManager(common.AdvisoryManager):
         # make sure the pkg source is loaded.
         self._pkgSource.load()
 
-        # Make sure that nevra order and build time order are the same for each
-        # source name.
-        order = {}
-        for srcName, srcPkgs in self._pkgSource.srcNameMap.iteritems():
-            log.info('checking %s' % srcName)
-            sortedNevras = sorted(srcPkgs, cmp=srtByNevra)
-            sortedBuildTime = sorted(srcPkgs, cmp=srtByBuildTime)
-            assert sortedNevras == sortedBuildTime
-
-            for srcPkg in srcPkgs:
-                assert srcPkg.buildTimestamp is not None
-                order.setdefault(int(srcPkg.buildTimestamp), set()).add(srcPkg)
-
+        # Sort packages by build timestamp.
         slices = {}
-        for updateId, srcPkgs in order.iteritems():
-            slices.setdefault(slice(updateId), set()).update(srcPkgs)
+        for srcPkg in self._pkgSource.srcPkgMap:
+            updateId = slice(int(srcPkg.buildTimestamp))
+            slices.setdefault(updateId, set()).set(srcPkg)
 
         # find labels
         for label in self._pkgSource._clients:
@@ -145,30 +124,54 @@ class AdvisoryManager(common.AdvisoryManager):
         nevras = {}
         packages = {}
         srcPkgMap = {}
-        for sliceId, srcPkgs in slices.iteritems():
+
+        seen = set()
+        startedUpdates = False
+        for sliceId, srcPkgs in sorted(slices.iteritems()):
             for srcPkg in srcPkgs:
+                # Assume everything before we see a dupllicate source name is in
+                # the base set of packages.
+                if srcPkg.name not in seen and not startedUpdates:
+                    seen.add(srcPkg.name)
+                    continue
+                startedUpdates = True
+
                 pkgSet = srcPkgMap.setdefault(srcPkg, set())
                 for binPkg in self._pkgSource.srcPkgMap[srcPkg]:
                     if binPkg.arch == 'src':
                         continue
+
+                    # Get a nevra object
                     nevra = binPkg.getNevra()
                     nevraObj = nevras.setdefault(nevra, Nevra(*nevra))
+
+                    # Get a channel object
                     channelObj = getChannel(binPkg)
+
+                    # Create a package object
                     package = Package(channelObj, nevraObj)
                     packageObj = packages.setdefault(package, package)
+
+                    # Add packages to the package map
                     srcPkgMap.setdefault(srcPkg, set()).add(packageObj)
 
         # create advisories
         for sliceId, srcPkgs in slices.iteritems():
             for srcPkg in srcPkgs:
+                # If this source is not in the srcPkgMap it is probably
+                # considered to be in the base set of packages.
+                if srcPkg not in srcPkgMap:
+                    continue
+
+                # Collect everything needed to make an advisory.
                 advisory = 'cu-%s' % srcPkg
                 synopsis = 'update of %s' % srcPkg
                 issue_date = time.strftime('%Y-%m-%d %H:%M:%S',
                     time.gmtime(sliceId))
                 packages = srcPkgMap[srcPkg]
 
+                # Create a fake advisory.
+                log.info('creating advisory: %s' % advisory)
                 adv = Advisory(advisory, synopsis, issue_date, packages)
                 self._advisories.add(adv)
                 self._advOrder.setdefault(sliceId, set()).add(adv)
-
-                log.info('creating advisory: %s' % advisory)
