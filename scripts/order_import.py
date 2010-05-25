@@ -62,36 +62,44 @@ if cfg.platformName == 'rhel':
     mcfg.read(confDir + '/erratarc')
 
     errata = rhnmirror.Errata(mcfg)
-elif cfg.platformName == 'sles':
-    from errata.sles import AdvisoryManager as Errata
+    errata.fetch()
 
-    pkgSource = pkgsource.PackageSource(cfg)
-    errata = Errata(pkgSource)
-
-    def fltr(sourceSet):
-        removed = set()
-        removedNames = set()
-        pkgSource.load()
-        for src, bins in pkgSource.srcPkgMap.iteritems():
-            # filter out packages that we don't handle right now.
-            if (#[ x for x in bins if 'kmp' in x.name ] or
-                # the kernel needs a recipe
-                'kernel' in src.name):
-
-                removedNames.add(src.name)
-
-        for src, bins in pkgSource.srcPkgMap.iteritems():
-            if src.name in removedNames:
-                removed.add(src)
-
-        return sourceSet - removed
+    bot = ordered.Bot(cfg, errata)
 
 else:
-    raise RuntimeError, 'no errata source found for %s' % cfg.platformName
+    bot = ordered.Bot(cfg, None)
 
-errata.fetch()
+    if cfg.platformName == 'sles':
+        from errata.sles import AdvisoryManager as Errata
 
-bot = ordered.Bot(cfg, errata)
+        def fltr(sourceSet):
+            removed = set()
+            removedNames = set()
+            bot._pkgSource.load()
+            for src, bins in bot._pkgSource.srcPkgMap.iteritems():
+                # filter out packages that we don't handle right now.
+                if (#[ x for x in bins if 'kmp' in x.name ] or
+                    # the kernel needs a recipe
+                    'kernel' in src.name):
+
+                    removedNames.add(src.name)
+
+            for src, bins in bot._pkgSource.srcPkgMap.iteritems():
+                if src.name in removedNames:
+                    removed.add(src)
+
+            return sourceSet - removed
+
+    elif cfg.platformName == 'centos':
+        from errata.centos import AdvisoryManager as Errata
+
+    else:
+        raise RuntimeError, 'no errata source found for %s' % cfg.platformName
+
+    errata = Errata(bot._pkgSource)
+    bot._errata._errata = errata
+
+
 pkgMap, failures = bot.create(fltr=fltr)
 
 import epdb; epdb.st()
