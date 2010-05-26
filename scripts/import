@@ -15,6 +15,7 @@
 
 import os
 import sys
+import itertools
 
 sys.path.insert(0, os.path.abspath('../'))
 
@@ -27,7 +28,39 @@ log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(os.path.abspath('../') + '/config/%s/updatebotrc' % sys.argv[1])
 obj = bot.Bot(cfg)
-trvMap = obj.create()
+
+# load the package source
+pkgSource = obj._pkgSource
+pkgSource.load()
+
+# filter out sources we don't know how to deal with yet.
+names = {}
+srcNevras = {}
+removed = {}
+removedNames = set()
+for src, bins in pkgSource.srcPkgMap.iteritems():
+    # a source without any binaries
+    if len(bins) <= 1:
+        continue
+
+    # filter out packages that we don't handle right now.
+    if (src.name in removedNames): #or
+        ## the kernel needs a recipe
+        #'kernel' in src.name):
+
+        removed.setdefault(src.getNevra(), src)
+        removedNames.add(src.name)
+        continue
+
+    names.setdefault(src.name, set()).add(src.getNevra())
+    srcNevras.setdefault(src.getNevra(), src)
+
+for nevra in itertools.chain(*[ x for x in names.values() if len(x) > 1 ]):
+    removed.setdefault(nevra, srcNevras.pop(nevra))
+
+toCreate = set(srcNevras.values())
+
+trvMap, failures = obj.create(toCreate=toCreate, recreate=True)
 
 import epdb ; epdb.st()
 

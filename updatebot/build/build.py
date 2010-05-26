@@ -357,9 +357,12 @@ class Builder(object):
                   and self._cfg.kernelFlavors):
                 for context, flavor in self._cfg.kernelFlavors:
                     # Replace flag name to match package
-                    if name != 'kernel':
-                        # Don't build kernel modules with a .debug flag, that
-                        # is only for kernels.
+                    #
+                    # Don't build kernel modules with a .debug flag, that
+                    # is only for kernels...
+                    # ...except in the case of SUSE -kmp module packages.
+                    if (name != 'kernel' and
+                        not ([bN for bN in binaryNames if '-kmp' in bN])):
                         if flavor.stronglySatisfies(
                             deps.parseFlavor('kernel.debug')):
                             continue
