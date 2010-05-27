@@ -22,7 +22,8 @@ else
     context="x86"
 fi
 
-mirrorballpath="$HOME/hg/mirrorball/mirrorball"
+# magic to determine where the script lives
+mirrorballpath=$(cd ${0%/*} && cd .. && pwd -P)
 platformConfig="$mirrorballpath/config/$platform/conaryrc"
 
 if [ ! -f $platformConfig ] ; then
