@@ -360,9 +360,12 @@ class Builder(object):
                     if name != 'kernel':
                         # Don't build kernel modules with a .debug flag, that
                         # is only for kernels.
-                        if flavor.stronglySatisfies(
-                            deps.parseFlavor('kernel.debug')):
-                            continue
+                        # FIXME: determine what the right thing is here. In SLES
+                        #        many of the kernel modules include debug
+                        #        versions.
+                        #if flavor.stronglySatisfies(
+                        #    deps.parseFlavor('kernel.debug')):
+                        #    continue
                         flavor = deps.parseFlavor(
                             str(flavor).replace('kernel', name))
                     troves.append((name, version, flavor, context))
