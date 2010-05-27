@@ -412,9 +412,10 @@ class YumSource(BasePackageSource):
                         if fltr.match(nosrc.name):
                             log.info('relocating package content %s -> %s'
                                      % (nosrc, src))
-                            nosrcSet = self.srcPkgMap.get(nosrc)
+                            nosrcSet = self.srcPkgMap.pop(nosrc)
                             self.srcPkgMap[src].update(nosrcSet)
-                            self.srcPkgMap[nosrc] = self.srcPkgMap[src]
+                            for binPkg in nosrcSet:
+                                self.binPkgMap[binPkg] = src
 
     def loadFileLists(self, client, basePath):
         """
