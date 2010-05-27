@@ -34,7 +34,6 @@ sys.excepthook = util.genExcepthook()
 
 from updatebot import config
 from updatebot import ordered
-from updatebot import pkgsource
 from updatebot import log as logSetup
 
 logSetup.addRootLogger()
@@ -74,24 +73,6 @@ else:
 
     if cfg.platformName == 'sles':
         from errata.sles import AdvisoryManager as Errata
-
-        def fltr(sourceSet):
-            removed = set()
-            removedNames = set()
-            bot._pkgSource.load()
-            for src, bins in bot._pkgSource.srcPkgMap.iteritems():
-                # filter out packages that we don't handle right now.
-                if (#[ x for x in bins if 'kmp' in x.name ] or
-                    # the kernel needs a recipe
-                    'kernel' in src.name):
-
-                    removedNames.add(src.name)
-
-            for src, bins in bot._pkgSource.srcPkgMap.iteritems():
-                if src.name in removedNames:
-                    removed.add(src)
-
-            return sourceSet - removed
 
     elif cfg.platformName == 'centos':
         from errata.centos import AdvisoryManager as Errata
