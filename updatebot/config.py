@@ -443,6 +443,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Remove a package from a specific group
     removePackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavor))), {})
 
+    # Group name for group that contains all packages in a platform.
+    packageGroupName = (CfgString, 'group-packages')
+
     # Allow updates for a given nevra to be published without matching errata.
     allowMissingErrata = (CfgList(CfgNevra), [])
 

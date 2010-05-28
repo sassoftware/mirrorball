@@ -89,7 +89,7 @@ class GroupManager(object):
         self._searchLabels = labels
 
         # FIXME: Should figure out a better way to handle package group.
-        self._pkgGroupName = 'group-%s-packages' % self._cfg.platformName
+        self._pkgGroupName = self._cfg.packageGroupName
 
         if not srcName.endswith(':source'):
             srcName = '%s:source' % srcName
