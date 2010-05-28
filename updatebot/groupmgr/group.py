@@ -209,7 +209,8 @@ class Group(object):
 
         # Now that versions are actually used for something make sure they
         # are always present.
-        assert version
+        if groupName == self._pkgGroupName:
+            assert version
         assert len(flavors)
         flavors = list(flavors)
 
@@ -370,8 +371,6 @@ class Group(object):
         @type additions: dict(groupName=[(pkgName, frzPkgFlavor), ...])
         """
 
-        assert additions or removals
-
         if additions is None:
             additions = {}
         if removals is None:
@@ -386,16 +385,21 @@ class Group(object):
             group = self._groups[groupName]
             for pkgName, pkgFlv in pkgs:
                 if pkgFlv:
-                    group.removePackageFlavor(pkgName, pkgFlv)
+                    group.removePackageFlavor(pkgName, pkgFlv.freeze())
                 else:
-                    self.removePackage(pkgName)
+                    group.remove(pkgName)
 
         # Add requested packages.
         for groupName, pkgs in additions.iteritems():
+            if groupName == self._pkgGroupName:
+                log.warn('modifyContents does not support modifying the package'
+                         'group, please update your config file')
+                continue
+
             flavoredPackages = {}
             for pkgName, pkgFlv in pkgs:
                 # deffer packages with specifc flavors for later.
-                if pkgFlv:
+                if pkgFlv is not None:
                     flavoredPackages.setdefault(pkgName, set()).add(pkgFlv)
 
                 # handle packages where flavor is not specified
@@ -409,7 +413,9 @@ class Group(object):
 
             # Add all specifically flavored packages.
             for pkgName, flavors in flavoredPackages.iteritems():
-                self.addPackage(pkgName, None, flavors, groupName=groupName)
+                for flv in flavors:
+                    self._add(pkgName, version=None, flavor=flv, use=None,
+                              groupName=groupName)
 
     @require_write
     def _copyVersions(self):

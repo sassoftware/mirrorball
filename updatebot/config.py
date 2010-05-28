@@ -45,9 +45,9 @@ class CfgBranch(CfgLabel):
             raise ParseError, e
 
 
-class CfgContextFlavor(CfgFlavor):
+class CfgStringFlavor(CfgFlavor):
     """
-    Class for representing both a flavor context name and a build flavor.
+    Class for representing a two tuple of a string and an optional flavor.
     """
 
     def parseString(self, val):
@@ -143,21 +143,6 @@ class CfgNevraTuple(CfgString):
         obsoleter = tuple(splt[0:5])
         obsoleted = tuple(splt[5:10])
         return obsoleter, obsoleted
-
-
-class CfgNameFlavor(CfgString):
-    """
-    Class for parsing name/flavor pairs.
-    """
-
-    def parseString(self, val):
-        splt = val.split()
-        name = splt[0]
-        if len(splt) > 1:
-            flv = ' '.join(splt[1:])
-        else:
-            flv = ''
-        return name, flv
 
 
 class CfgIntDict(CfgDict):
@@ -313,13 +298,13 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     groupFlavors        = (CfgList(CfgFlavor), [])
 
     # flavors to build kernels.
-    kernelFlavors       = (CfgList(CfgContextFlavor), [])
+    kernelFlavors       = (CfgList(CfgStringFlavor), [])
 
     # packages other than "kernel" to be built in kernelFlavers
     kernelModules       = (CfgList(CfgString), [])
 
     # flavors to build packages in for packages that need specific flavoring.
-    packageFlavors      = (CfgDict(CfgList(CfgContextFlavor)), {})
+    packageFlavors      = (CfgDict(CfgList(CfgStringFlavor)), {})
 
     # After committing a rMake job to the repository pull the changeset back out
     # to make sure all of the contents made it into the repository.
@@ -453,10 +438,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
 
     # Add a package to a specific group
-    addPackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
+    addPackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavor))), {})
 
     # Remove a package from a specific group
-    removePackage = (CfgDict(CfgDict(CfgList(CfgNameFlavor))), {})
+    removePackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavor))), {})
 
     # Allow updates for a given nevra to be published without matching errata.
     allowMissingErrata = (CfgList(CfgNevra), [])

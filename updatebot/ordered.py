@@ -86,6 +86,19 @@ class Bot(BotSuperClass):
                     log.info('\t%s' % f)
                 group.addPackage(name, version, flavors)
 
+    def _modifyGroups(self, updateId, group):
+        """
+        Apply the list of modifications, if available, from the config to the
+        group model.
+        """
+
+        addPackages = self._cfg.addPackage.get(updateId, None)
+        removePackages = self._cfg.removePackage.get(updateId, None)
+
+        # Don't taint group model unless something has actually changed.
+        if addPackages or removePackages:
+            group.modifyContents(additions=addPackages, removals=removePackages)
+
     def _savePackages(self, pkgMap, fn=None):
         """
         Save the package map to a file.
@@ -160,6 +173,7 @@ class Bot(BotSuperClass):
 
         # Try to build the group if everything imported.
         else:
+            self._modifyContents(0, group)
             group.errataState = '0'
             group.version = '0'
             group.commit()
@@ -354,6 +368,9 @@ class Bot(BotSuperClass):
 
             # Make sure built troves are part of the group.
             self._addPackages(pkgMap, group)
+
+            # Modify any extra groups to match config.
+            self._modifyGroups(updateId, group)
 
             # Get timestamp version.
             version = self._errata.getBucketVersion(updateId)
