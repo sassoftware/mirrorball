@@ -598,6 +598,9 @@ class Bot(BotSuperClass):
                 log.info('%s: groups already built and promoted' % updateId)
                 continue
 
+            log.info('%s: committing group sources' % updateId)
+            mgr.commit()
+
             log.info('%s: building groups' % updateId)
             trvMap = mgr.build()
 
