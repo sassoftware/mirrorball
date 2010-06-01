@@ -176,7 +176,7 @@ class Bot(BotSuperClass):
             self._modifyContents(0, group)
             group.errataState = '0'
             group.version = '0'
-            group.commit()
+            group = group.commit()
             group.build()
 
         return pkgMap, failures
@@ -380,7 +380,8 @@ class Bot(BotSuperClass):
             # Build groups.
             log.info('setting version %s' % version)
             group.version = version
-            newGroup = group.save()
+
+            group = group.commit()
             grpTrvMap = group.build()
 
             updateSet.update(pkgMap)
@@ -391,8 +392,6 @@ class Bot(BotSuperClass):
             totalTime = time.time() - start
             log.info('published update %s in %s seconds' % (advTime, totalTime))
             count += 1
-
-            group = newGroup
 
         log.info('update completed')
         log.info('applied %s updates in %s seconds'
