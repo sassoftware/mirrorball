@@ -78,7 +78,7 @@ class GroupManager(object):
         labels = None
 
         if targetGroup:
-            srcLabel = self._cfg.tagetLabel
+            srcLabel = self._cfg.targetLabel
         elif parentGroup:
             srcName = self._cfg.topParentSourceGroup[0]
             srcLabel = self._cfg.topParentSourceGroup[1]
