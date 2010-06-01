@@ -192,7 +192,9 @@ class GroupSanityChecker(object):
         errors = {}
         for name, found in foundTroves.iteritems():
             assert name in pkgs
-            current = pkgs[name]
+            # Make sure to dedup packages from the model since a name/version
+            # pair can occure more than once.
+            current = sorted(set(pkgs[name]))
 
             if len(current) > len(found):
                 log.warn('found more packages in the model than in the '
