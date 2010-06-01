@@ -52,17 +52,25 @@ class SingleGroupManagerSet(object):
 
     def __init__(self, cfg):
         self._cfg = cfg
-        self._groups = {}
+        self._mgrs = {}
 
     def newGroup(self, name):
         """
-        Create a new group instance with the provided name.
+        Create a new group manager instance with the provided name.
         """
 
-        assert name not in self._groups
-        group = self._managerClass(name, self._cfg)
-        self._groups[name] = group
-        return group
+        assert name not in self._mgrs
+        mgr = self._managerClass(name, self._cfg)
+        self._mgrs[name] = mgr
+        return mgr
+
+    def commit(self):
+        """
+        Commit latest group in all managers.
+        """
+
+        for mgr in self._mgrs.itervalues():
+            mgr.latest.commit()
 
     def build(self):
         """
@@ -70,11 +78,11 @@ class SingleGroupManagerSet(object):
         """
 
         # Make sure there are groups defined
-        assert self._groups
+        assert self._mgrs
 
         pkgMap = {}
-        for group in self._groups.itervalues():
-            pkgMap.update(group.buildGroup(group.latest))
+        for mgr in self._mgrs.itervalues():
+            pkgMap.update(mgr.latest.build())
 
         return pkgMap
 
@@ -83,4 +91,4 @@ class SingleGroupManagerSet(object):
         Add method for checking if a manager has any groups defined.
         """
 
-        return bool(self._groups)
+        return bool(self._mgrs)
