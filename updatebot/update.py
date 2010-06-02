@@ -971,10 +971,6 @@ class Updater(object):
 
         trvSpecs = list(binTrvSet)
 
-        # FIXME: figure out why conary does't let you set metadata on
-        #        source troves.
-        #trvSpecs.append(srcTrvSpec)
-
         self._conaryhelper.setTroveMetadata(trvSpecs,
             license=srcPkg.license,
             desc=srcPkg.description,

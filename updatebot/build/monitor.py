@@ -16,6 +16,8 @@
 Module for managing monitors.
 """
 
+import os
+
 from rmake.cmdline import monitor
 
 from updatebot.build.common import AbstractWorker
@@ -68,7 +70,7 @@ class MonitorWorker(AbstractWorker):
         Watch the monitor queue and monitor any available jobs.
         """
 
-        # FIXME: This is copied from rmake.cmdlin.monitor for the most part
+        # FIXME: This is copied from rmake.cmdline.monitor for the most part
         #        because I need to pass extra args to the display class.
 
         uri, tmpPath = monitor._getUri(self.client)
