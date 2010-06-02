@@ -73,7 +73,7 @@ class GroupManager(object):
 
         assert not (parentGroup and targetGroup)
 
-        srcName = '%s:source' % self._cfg.topSourceGroup[0]
+        srcName = self._cfg.topSourceGroup[0]
         srcLabel = self._cfg.topSourceGroup[1]
         labels = None
 
