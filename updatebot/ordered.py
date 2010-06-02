@@ -254,15 +254,14 @@ class Bot(BotSuperClass):
 
             # If on a derived platform and the current updateId is greater than
             # the parent updateId, stop applying updates.
-            if self._cfg.platformSearchPath:
+            if (self._cfg.platformSearchPath and
+                self._parentGroup.latest.errataState < updateId):
                 # FIXME: This means that if there is an update the the child
                 #        platform that is not included in the parent platform,
                 #        we will not apply the update until there is a later
                 #        update to the parent platform.
-                parentState = self._parentGroup.getErrataState()
-                if parentState < updateId:
-                    log.info('reached end of parent platform update stream')
-                    continue
+                log.info('reached end of parent platform update stream')
+                break
 
             # remove packages from config
             removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
