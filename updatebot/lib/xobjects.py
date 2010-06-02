@@ -235,12 +235,15 @@ class XGroup(XHashableItem):
     filename = str
     byDefault = int
     depCheck = int
+    checkPathConflicts = int
 
-    def __init__(self, name=None, filename=None, byDefault=True, depCheck=True):
+    def __init__(self, name=None, filename=None, byDefault=True, depCheck=True,
+        checkPathConflicts=False):
         self.name = name
         self.filename = filename
         self.byDefault = byDefault and 1 or 0
         self.depCheck = depCheck and 1 or 0
+        self.checkPathConflicts = checkPathConflicts and 1 or 0
 
     @property
     def key(self):

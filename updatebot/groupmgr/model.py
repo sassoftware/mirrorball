@@ -142,11 +142,13 @@ class GroupContentsModel(AbstractModel):
     dataClass = XPackageData
     elementClass = XPackageItem
 
-    def __init__(self, groupName, byDefault=True, depCheck=True):
+    def __init__(self, groupName, byDefault=True, depCheck=True,
+        checkPathConflicts=False):
         AbstractModel.__init__(self)
         self.groupName = groupName
         self.byDefault = byDefault
         self.depCheck = depCheck
+        self.checkPathConflicts = checkPathConflicts
 
         # figure out file name based on group name
         name = ''.join([ x.capitalize() for x in self.groupName.split('-') ])

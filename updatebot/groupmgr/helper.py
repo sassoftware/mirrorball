@@ -94,31 +94,10 @@ class GroupHelper(ConaryHelper):
             for name, groupObj in model.iteritems():
                 contentFileName = util.join(recipeDir, groupObj.filename)
                 contentsModel = GroupContentsModel.thaw(contentFileName,
-                                (name, groupObj.byDefault, groupObj.depCheck))
+                                (name, groupObj.byDefault, groupObj.depCheck,
+                                 groupObj.checkPathConflicts))
                 contentsModel.fileName = groupObj.filename
                 groups[groupObj.name] = contentsModel
-
-        # copy in any group data
-        for name, data in self._groupContents.iteritems():
-            newGroups = [ x for x in groups.itervalues()
-                            if x.groupName == name and
-                               x.fileName == data['filename'] ]
-
-            assert len(newGroups) in (0, 1)
-
-            byDefault = data['byDefault'] == 'True' and True or False
-            depCheck = data['depCheck'] == 'True' and True or False
-
-            # load model
-            contentsModel = GroupContentsModel.thaw(
-                util.join(self._configDir, data['filename']),
-                (name, byDefault, depCheck)
-            )
-
-            # override anything from the repo, unless retriveing a
-            # specific version.
-            if version is None:
-                groups[name] = contentsModel
 
         return groups
 
@@ -139,7 +118,8 @@ class GroupHelper(ConaryHelper):
             groupModel.add(name=name,
                            filename=model.fileName,
                            byDefault=model.byDefault,
-                           depCheck=model.depCheck)
+                           depCheck=model.depCheck,
+                           checkPathConflicts=model.checkPathConflicts,)
             self._addFile(recipeDir, model.fileName)
 
         groupModel.freeze(groupFileName)
