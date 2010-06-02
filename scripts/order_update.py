@@ -84,6 +84,6 @@ else:
     bot._errata._errata = errata
 
 
-pkgMap, failures = bot.update(fltr=fltr)
+pkgMap = bot.update(fltr=fltr)
 
 import epdb; epdb.st()
