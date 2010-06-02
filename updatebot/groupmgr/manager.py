@@ -84,15 +84,14 @@ class GroupManager(object):
             srcLabel = self._cfg.topParentSourceGroup[1]
             labels = self._cfg.platformSearchPath
 
+        if not srcName.endswith(':source'):
+            srcName = '%s:source' % srcName
+
         self._sourceName = srcName
         self._sourceLabel = srcLabel
         self._searchLabels = labels
 
-        # FIXME: Should figure out a better way to handle package group.
         self._pkgGroupName = self._cfg.packageGroupName
-
-        if not srcName.endswith(':source'):
-            srcName = '%s:source' % srcName
 
         self._readOnly = False
         if targetGroup or parentGroup:
