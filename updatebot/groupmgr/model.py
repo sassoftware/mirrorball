@@ -158,10 +158,11 @@ class GroupContentsModel(AbstractModel):
         """
 
         removed = []
-        for pkg in self._nameMap[name]:
+        for pkgKey in self._nameMap[name]:
+            pkg = self._data[pkgKey]
             if pkg.flavor == frzFlavor:
-                self._data.pop(pkg.key)
-                removed.append(pkg)
+                self._data.pop(pkgKey)
+                removed.append(pkgKey)
 
         for pkg in removed:
             self._nameMap[name].remove(pkg)
