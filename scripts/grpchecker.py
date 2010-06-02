@@ -40,6 +40,7 @@ if len(sys.argv) == 3:
 
 from updatebot import log
 from updatebot import groupmgr
+from updatebot import pkgsource
 from updatebot import conaryhelper
 from updatebot import UpdateBotConfig
 
@@ -48,14 +49,14 @@ from updatebot.errors import GroupValidationFailedError
 from updatebot.errors import NameVersionConflictsFoundError
 from updatebot.errors import ExpectedRemovalValidationFailedError
 
-import time
-import logging
-
 slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-mgr = groupmgr.GroupManager(cfg)
+pkgSource = pkgsource.PackageSource(cfg)
+pkgSource.load()
+
+mgr = groupmgr.GroupManager(cfg, useMap=pkgSource.useMap)
 helper = conaryhelper.ConaryHelper(cfg)
 
 def handleVersionConflicts(group, error):
@@ -97,14 +98,13 @@ def handleRemovalErrors(group, error):
     return toRemove, toAdd
 
 def checkVersion(ver):
-    mgr._sourceVersion = ver
-    mgr._checkout()
-    mgr._copyVersions()
+    grp = mgr.getGroup(version=ver)
+    grp._copyVersions()
 
     changes = []
 
     try:
-        mgr._sanity.check(mgr._groups, mgr.getErrataState())
+        grp._sanityCheck()
     except GroupValidationFailedError, e:
         for group, error in e.errors:
             if isinstance(error, NameVersionConflictsFoundError):
@@ -158,14 +158,13 @@ import epdb; epdb.st()
 jobIds = []
 removed = {}
 for ver, changed in toUpdate:
-    mgr._sourceVersion = ver
-    mgr._checkout()
+    grp = mgr.getGroup(version=ver)
 
     slog.info('updating %s' % ver)
 
     # Find all names and versions in the group model
     nv = dict([ (y.name, versions.ThawVersion(y.version))
-                for x, y in mgr._groups[mgr._pkgGroupName].iteritems() ])
+                for x, y in grp._groups[grp._pkgGroupName].iteritems() ])
 
     # Set of packages that should be removed
     removals = set([ x for x, y in removed.iteritems() if nv[x] == y ])
@@ -173,13 +172,13 @@ for ver, changed in toUpdate:
     # Remove old removals
     for pkg in removals:
         slog.info('removing %s' % pkg)
-        mgr.remove(pkg)
+        grp.removePackage(pkg)
 
     for toRemove, toAdd in changed:
         # Handle removes
         for pkg in toRemove:
             slog.info('removing %s' % pkg)
-            mgr.remove(pkg)
+            grp.removePackage(pkg)
 
             # cache removals
             removed[pkg] = nv[pkg]
@@ -187,12 +186,14 @@ for ver, changed in toUpdate:
         # Handle adds
         for (n, v), flvs in toAdd.iteritems():
             slog.info('adding %s=%s' % (n, v))
-            mgr.addPackage(n, v, flvs)
+            grp.addPackage(n, v, flvs)
 
-    mgr._copyVersions()
-    mgr._sanity.check(mgr._groups, mgr.getErrataState())
-    version = mgr.save(copyToLatest=True)
-    jobId = mgr._builder.start(((mgr._sourceName, version, None), ))
+    grp._copyVersions()
+    grp._sanityCheck()
+    mgr._persistGroup(grp)
+
+    newGroup = grp.commit(copyToLatest=True)
+    jobId = mgr._builder.start(((mgr._sourceName, newGroup.conaryVersion, None), ))
     jobIds.append(jobId)
 
 for jobId in jobIds:
