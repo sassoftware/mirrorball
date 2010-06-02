@@ -61,7 +61,8 @@ class CfgStringFlavor(CfgFlavor):
                 context = val
                 flavor = None
             else:
-                context, flavorStr = splt
+                context = splt[0]
+                flavorStr = ' '.join(splt[1:])
                 flavor = CfgFlavor.parseString(self, flavorStr)
             return context, flavor
         except versions.ParseError, e:
