@@ -186,9 +186,6 @@ class Group(object):
         # create package group model if it does not exist.
         if groupName not in self._groups:
             self._groups[groupName] = GroupContentsModel(groupName)
-            for key, value in self._cfg.groupContents.get(groupName, []):
-                 value = value == 'True' and True or False
-                 setattr(self._groups[groupName], key, value)
 
         self._groups[groupName].add(*args, **kwargs)
 
@@ -447,6 +444,16 @@ class Group(object):
 
         self._sanity.check(self._groups, self.errataState)
 
+    def _setGroupFlags(self):
+        """
+        Set flags on the group based on the groupContents configuration.
+        """
+
+        for groupName, groupObj in self._groups.iteritems():
+            for key, value in self._cfg.groupContents.get(groupName, []):
+                 value = value == 'True' and True or False
+                 setattr(groupObj, key, value)
+
     @require_write
     def finalize(self):
         """
@@ -458,6 +465,9 @@ class Group(object):
 
         # Check the sanity of all group models.
         self._sanityCheck()
+
+        # Make sure flags on the group match the config.
+        self._setGroupFlags()
 
         # Make as readonly.
         self.setReadOnly()
