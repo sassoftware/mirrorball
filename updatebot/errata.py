@@ -253,7 +253,7 @@ class ErrataFilter(object):
                     seen[srpm.name] = srpm
                     continue
             if dups:
-                log.warn('found duplicates in %s' % updateId)
+                log.error('found duplicates in %s' % updateId)
                 errors.setdefault(updateId, []).append(('duplicates', dups))
 
         # Play though entire update history to check for iregularities.
@@ -417,15 +417,15 @@ class ErrataFilter(object):
 
 
             if obsoleteBinaries:
-                log.warn('found obsolete binary packages in %s' % updateId)
+                log.error('found obsolete binary packages in %s' % updateId)
                 errors.setdefault(updateId, []).append(('obsoleteBinaries',
                                                         obsoleteBinaries))
             if obsoleteSources:
-                log.warn('found obsolete source packages in %s' % updateId)
+                log.error('found obsolete source packages in %s' % updateId)
                 errors.setdefault(updateId, []).append(('obsoleteSources',
                                                         obsoleteSources))
             if removedShouldBeReplaced:
-                log.warn('found removals for replacements in %s' % updateId)
+                log.error('found removals for replacements in %s' % updateId)
                 errors.setdefault(updateId, []).append(('removedShouldBeReplaced',
                                                         removedShouldBeReplaced))
 
@@ -436,7 +436,7 @@ class ErrataFilter(object):
                     one, two = e.why
                     oneNevra = str(' '.join(one.getNevra()))
                     twoNevra = str(' '.join(two.getNevra()))
-                    log.warn('%s %s -revertsTo-> %s' % (updateId,
+                    log.error('%s %s -revertsTo-> %s' % (updateId,
                              oneNevra, twoNevra))
                     if one in srpmToAdvisory and two in srpmToAdvisory:
                         log.info('%s -revertsTo-> %s' % (
@@ -453,13 +453,13 @@ class ErrataFilter(object):
                             updateId, srpmToBucketId[one], errataId))
                 elif isinstance(e, UpdateReusesPackageError):
                     # Note that updateObsoletesPackages not yet implemented...
-                    log.warn('%s %s reused in %s; check for obsoletes?' % (
+                    log.error('%s %s reused in %s; check for obsoletes?' % (
                              updateId, e.pkgNames, e.newspkg))
                     for name in sorted(set(p.name for p in e.pkgList)):
                         log.info('? updateObsoletesPackages %s %s' % (
                                  updateId, name))
                 elif isinstance(e, UpdateRemovesPackageError):
-                    log.warn('%s %s removed in %s' % (
+                    log.error('%s %s removed in %s' % (
                              updateId, e.pkgNames, e.newspkg))
                     for name, p in sorted(dict((p.name, p) for p in e.pkgList).items()):
                         log.info('? updateRemovesPackages %s %s' % (
@@ -471,7 +471,7 @@ class ErrataFilter(object):
                         previousId = sortedOrder[sortedOrder.index(updateId)-1]
                         for dupName, dupSet in e[1].iteritems():
                             dupList = sorted(dupSet)
-                            log.warn('%s contains duplicate %s %s' %(updateId,
+                            log.error('%s contains duplicate %s %s' %(updateId,
                                 dupName, dupList))
                             for srcPkg in sorted(dupList[1:]):
                                 srcNevra = str(' '.join(srcPkg.getNevra()))
@@ -501,14 +501,14 @@ class ErrataFilter(object):
                                 obsoletedNevra = str(' '.join(obsoletedPkg.getNevra()))
                                 obsoleteName = obsoletedPkg.name
                                 obsoleteNames.add(obsoleteName)
-                                log.warn('%s %s obsoletes %s (%s)' % (
+                                log.error('%s %s obsoletes %s (%s)' % (
                                          updateId, obsoletingPkg,
                                          obsoletedPkg, obsoleteName))
                                 log.info('? keepObsolete %s %s' %
                                          (obsoletingNevra, obsoletedNevra))
                                 log.info('? removeObsoleted %s %s' % (updateId,
                                          obsoleteName))
-                            log.warn('Not "removeSource %s"; that would remove non-obsoleted %s' %
+                            log.error('Not "removeSource %s"; that would remove non-obsoleted %s' %
                                      (srcNevraStr, unremovedStr))
 
                     elif e[0] == 'obsoleteSources':
@@ -519,7 +519,7 @@ class ErrataFilter(object):
                             obsoletingSrcPkgNames = str(' '.join(sorted(set(
                                 x.name for x in obsoletingSrcPkgs))))
                             pkgList = str(' '.join(repr(x) for x in binPkgs))
-                            log.warn('%s %s obsolete(s) %s (%s)' % (
+                            log.error('%s %s obsolete(s) %s (%s)' % (
                                      updateId, obsoletingSrcPkgNames,
                                      obsoletedPkg, obsoleteName))
                             log.info('? removeSource %s %s # %s' % (
@@ -532,7 +532,7 @@ class ErrataFilter(object):
                             log.info(' will remove the following: %s' % pkgList)
                     elif e[0] == 'removedShouldBeReplaced':
                         for pkgName in e[1]:
-                            log.warn('%s removed package %s should be replaced' % (
+                            log.error('%s removed package %s should be replaced' % (
                                      updateId, pkgName))
                             log.info('? updateReplacesPackages %s %s' % (
                                      updateId, pkgName))
@@ -727,10 +727,6 @@ class ErrataFilter(object):
         Reschedule a single advisory.
         """
 
-        # Warn when moving advisory into existing bucket.
-        if dest in self._order:
-            log.warn('inserting %s into pre-existing bucket' % advisory)
-
         log.info('rescheduling %s %s -> %s' % (advisory, source, dest))
 
         # Find the srpms that apply to this advisory
@@ -784,10 +780,6 @@ class ErrataFilter(object):
         """
         Reschedule an individual srpm to another bucket.
         """
-
-        # Warn when moving srpm into existing bucket.
-        if dest in self._order:
-            log.warn('inserting %s into pre-existing bucket' % '-'.join(nevra))
 
         log.info('rescheduling %s %s -> %s' % (nevra, source, dest))
 
