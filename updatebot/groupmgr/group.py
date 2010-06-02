@@ -450,7 +450,8 @@ class Group(object):
         """
 
         for groupName, groupObj in self._groups.iteritems():
-            for key, value in self._cfg.groupContents.get(groupName, []):
+            flags = self._cfg.groupContents.get(groupName, {})
+            for key, value in flags.iteritems():
                  value = value == 'True' and True or False
                  setattr(groupObj, key, value)
 
