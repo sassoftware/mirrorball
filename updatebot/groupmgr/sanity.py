@@ -58,11 +58,14 @@ class GroupSanityChecker(object):
             except NameVersionConflictsFoundError, e:
                 errors.append((group, e))
 
-            try:
-                log.info('checking latest versions')
-                self._checkLatestVersion(group)
-            except OldVersionsFoundError, e:
-                errors.append((group, e))
+            # FIXME: This is a hack, there should be a better way of controlling
+            #        what policy runs for a particular group.
+            if 'standard' not in name:
+                try:
+                    log.info('checking latest versions')
+                    self._checkLatestVersion(group)
+                except OldVersionsFoundError, e:
+                    errors.append((group, e))
 
             try:
                 log.info('checking removals')
