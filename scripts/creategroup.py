@@ -122,7 +122,6 @@ if __name__ == '__main__':
     cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
     bot = Bot(cfg, None)
-    bot._pkgSource.load()
     changes = bot.generateInitialGroup()
 
     import epdb; epdb.st()
