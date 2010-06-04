@@ -181,6 +181,13 @@ class YumSource(BasePackageSource):
         elif srcParts[-1].endswith('.nosrc.rpm'):
             srcRelease = srcParts[-1][:-10]
 
+        # Change the source rpm for all -32bit packages to avoid having a binary
+        # that only contains a build log.
+        if package.name.endswith('-32bit'):
+            srcName += '-32bit'
+            package.sourcerpm = ('%s-%s-%s.src.rpm'
+                % (srcName, srcVersion, srcRelease))
+
         rpmMapKey = (srcName, package.epoch, srcVersion, srcRelease, 'src')
         self._rpmMap.setdefault(rpmMapKey, set()).add(package)
 
