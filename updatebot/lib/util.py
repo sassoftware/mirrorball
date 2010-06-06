@@ -24,6 +24,7 @@ import epdb
 import signal
 import resource
 from conary.lib.util import rmtree
+from conary.conaryclient.cmdline import askYn
 from conary.lib.util import convertPackageNameToClassName as _pkgNameToClassName
 
 from rpmutils import rpmvercmp
