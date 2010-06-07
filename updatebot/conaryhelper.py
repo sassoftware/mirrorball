@@ -33,6 +33,7 @@ from conary import conarycfg
 from conary import conaryclient
 from conary.lib import log as clog
 from conary.conaryclient import mirror
+from conary.repository import changeset
 from conary import errors as conaryerrors
 
 from updatebot.lib import util
@@ -1302,3 +1303,86 @@ class ConaryHelper(object):
                                           for x, y in coMap.iteritems() ]))
 
         return coMap
+
+    def markremoved(self, troveSpecs, removeSiblingPackages=False,
+        removeSources=False, removeAllVersions=False):
+        """
+        Remove a list of trove specs from the repository.
+
+        Use this with care, removing troves from the repository is a permanent
+        opperation and can have side affects.
+        @param troveSpecs: list of nvfs
+        @type troveSpecs: list((str, conary.versions.VersionFromString,
+                                     conary.deps.deps.Flavor), ...)
+        @param removeSiblingPackages: Optional parameter that controls if
+                                      packages of the same version built from
+                                      the same source should also be removed,
+                                      default: False.
+        @type removeSibilingPackages: boolean
+        @param removeSources: Optional parameter that controls if the source of
+                              a given version should be removed, default: False.
+                              Removing sources implies removeSiblings.
+        @type removeSources: boolean
+        @param removeAllVersions: Optional prameter that controls if all
+                                  versions of a given trove should be removed,
+                                  default: False.
+        @type removeAllVersions: boolean
+        @return removed trove specs and changeset to commit
+        @rtype tuple(list((str, conary.versions.VersionFromString,
+                                conary.deps.deps.Flavor), ...),
+                     conary.changeset.ChangeSet)
+        """
+
+        if removeSources:
+            removeSiblingPackages = True
+
+        log.info('retrieving troves from repository')
+
+        # Resolve any versions to conary versions and flavors.
+        resultMap = self._repos.findTroves(self._ccfg.buildLabel, troveSpecs,
+                                           getLeaves=removeAllVersions)
+
+        # Build trove query list.
+        query = set()
+        for trv, trvLst in resultMap.iteritems():
+            for n, v, f in trvLst:
+                query.add((n, v, f))
+
+        # Get troves from the repository.
+        troves = self._repos.getTroves(query, withFiles=False)
+
+        # Build set of troveSpecs to be removed.
+        trvSet = set()
+        for trv in troves:
+            # Don't recurse group contents.
+            if trv.getName().startswith('group-'):
+                continue
+            if removeSiblingPackages:
+                srcName = trv.troveInfo.sourceName()
+                srcVersion = trv.getVersion().getSourceVersion()
+                siblings = self._repos.getTrovesBySource(srcName, srcVersion)
+                trvSet.update(set([ x for x in
+                    itertools.chain(*self._repos.findTroves(
+                        self._ccfg.buildLabel, siblings).values()) ]))
+                if removeSources:
+                    srcLst = self._repos.findTrove(self._ccfg.buildLabel,
+                        (srcName, srcVersion, None))
+                    for n, v, f in srcLst:
+                        trvSet.add((n, v, f))
+            trvSet.update(set([ x for x in
+                    trv.iterTroveList(strongRefs=True) ]))
+
+        # Add the original requested troves to set of troves to be removed.
+        trvSet.update(query)
+
+        log.info('building removal changeset')
+
+        # Create a changeset of all of the removal specs.
+        cs = changeset.ChangeSet()
+        for n, v, f in trvSet:
+            trv = trove.Trove(n, v, f, type=trove.TROVE_TYPE_REMOVED)
+            trv.computeDigests()
+            trvCs = trv.diff(None, absolute=True)[0]
+            cs.newTrove(trvCs)
+
+        return trvSet, cs
