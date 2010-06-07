@@ -1304,7 +1304,7 @@ class ConaryHelper(object):
 
         return coMap
 
-    def markremoved(self, troveSpecs, removeSiblingPackages=False,
+    def markremoved(self, troveSpecs, removeSiblings=False,
         removeSources=False, removeAllVersions=False):
         """
         Remove a list of trove specs from the repository.
@@ -1314,11 +1314,10 @@ class ConaryHelper(object):
         @param troveSpecs: list of nvfs
         @type troveSpecs: list((str, conary.versions.VersionFromString,
                                      conary.deps.deps.Flavor), ...)
-        @param removeSiblingPackages: Optional parameter that controls if
-                                      packages of the same version built from
-                                      the same source should also be removed,
-                                      default: False.
-        @type removeSibilingPackages: boolean
+        @param removeSiblings: Optional parameter that controls if packages of
+                               the same version built from the same source
+                               should also be removed, default: False.
+        @type removeSibilings: boolean
         @param removeSources: Optional parameter that controls if the source of
                               a given version should be removed, default: False.
                               Removing sources implies removeSiblings.
@@ -1334,7 +1333,7 @@ class ConaryHelper(object):
         """
 
         if removeSources:
-            removeSiblingPackages = True
+            removeSiblings = True
 
         log.info('retrieving troves from repository')
 
@@ -1357,18 +1356,29 @@ class ConaryHelper(object):
             # Don't recurse group contents.
             if trv.getName().startswith('group-'):
                 continue
-            if removeSiblingPackages:
+            # Find all sibling packages.
+            if removeSiblings:
                 srcName = trv.troveInfo.sourceName()
                 srcVersion = trv.getVersion().getSourceVersion()
                 siblings = self._repos.getTrovesBySource(srcName, srcVersion)
+
+                # Must lookup versions in the repository since getTrovesBySource
+                # does not include timestamps in the returned version objects
+                # and creating a trove requires versions with timestamps.
                 trvSet.update(set([ x for x in
                     itertools.chain(*self._repos.findTroves(
                         self._ccfg.buildLabel, siblings).values()) ]))
+
+                # Add sources to remmove.
                 if removeSources:
+                    # As mentioned above, must lookup version with timestamp.
                     srcLst = self._repos.findTrove(self._ccfg.buildLabel,
                         (srcName, srcVersion, None))
+
+                    assert len(set(srcLst)) == 1
                     for n, v, f in srcLst:
                         trvSet.add((n, v, f))
+
             trvSet.update(set([ x for x in
                     trv.iterTroveList(strongRefs=True) ]))
 
