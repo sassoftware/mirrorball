@@ -53,11 +53,11 @@ class Bot(BotSuperClass):
         BotSuperClass.__init__(self, cfg)
         self._errata = errata.ErrataFilter(self._cfg, self._pkgSource,
             errataSource)
-        self._groupmgr = groupmgr.GroupManager(self._cfg,
+        self._groupmgr = groupmgr.GroupManager(self._cfg, self._ui,
             useMap=self._pkgSource.useMap)
 
         if self._cfg.platformSearchPath:
-            self._parentGroup = groupmgr.GroupManager(self._cfg,
+            self._parentGroup = groupmgr.GroupManager(self._cfg, self._ui,
                                                       parentGroup=True)
 
     def _addPackages(self, pkgMap, group):
@@ -502,7 +502,8 @@ class Bot(BotSuperClass):
 
         # Get latest errataState from the targetLabel so that we can fence group
         # building based on the target label state.
-        targetGroup = groupmgr.GroupManager(self._cfg, targetGroup=True)
+        targetGroup = groupmgr.GroupManager(self._cfg, self._ui,
+                                            targetGroup=True)
         targetErrataState = targetGroup.latest.errataState
 
         log.info('starting errata group processing')
@@ -537,7 +538,7 @@ class Bot(BotSuperClass):
             # Now that we know that the packages that are part of this update
             # should be on the target label we can separate things into
             # advisories.
-            mgr = groupmgr.ErrataGroupManagerSet(self._cfg)
+            mgr = groupmgr.ErrataGroupManagerSet(self._cfg, self._ui)
             groupNames = self._errata.getNames(updateId)
             for advInfo in self._errata.getUpdateDetail(updateId):
                 advisory = advInfo['name']
@@ -547,7 +548,7 @@ class Bot(BotSuperClass):
                 assert srcPkgs
 
                 targetGrp = groupmgr.SingleGroupManager(groupNames[advisory],
-                    self._cfg, targetGroup=True)
+                    self._cfg, self._ui, targetGroup=True)
 
                 if targetGrp.hasBinaryVersion():
                     log.info('%s: found existing version, skipping' % advisory)

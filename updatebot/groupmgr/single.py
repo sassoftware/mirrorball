@@ -50,8 +50,9 @@ class SingleGroupManagerSet(object):
 
     _managerClass = SingleGroupManager
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, ui):
         self._cfg = cfg
+        self._ui = ui
         self._mgrs = {}
 
     def newGroup(self, name):
@@ -60,7 +61,7 @@ class SingleGroupManagerSet(object):
         """
 
         assert name not in self._mgrs
-        mgr = self._managerClass(name, self._cfg)
+        mgr = self._managerClass(name, self._cfg, self._ui)
         self._mgrs[name] = mgr
         return mgr
 

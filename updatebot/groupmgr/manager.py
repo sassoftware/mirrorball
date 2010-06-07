@@ -36,6 +36,8 @@ class GroupManager(object):
     Class for managing groups.
     @param cfg: updatebot configuration object
     @type cfg: updatebot.config.UpdateBotConfig
+    @param ui: updatebot user interface object
+    @type ui: updatebot.cmdline.ui.UserInterface
     @param parentGroup: optional argument, if set to True will setup manager to
                         interact with the parent platform group contents. This
                         is automatically set to readonly to avoid writing
@@ -59,8 +61,11 @@ class GroupManager(object):
     _helperClass = GroupHelper
     _sanityCheckerClass = GroupSanityChecker
 
-    def __init__(self, cfg, parentGroup=False, targetGroup=False, useMap=None):
+    def __init__(self, cfg, ui, parentGroup=False, targetGroup=False,
+        useMap=None):
+
         self._cfg = cfg
+        self._ui = ui
 
         if useMap is None:
             self._useMap = {}
@@ -68,7 +73,8 @@ class GroupManager(object):
             self._useMap = useMap
 
         self._helper = self._helperClass(self._cfg)
-        self._builder = Builder(self._cfg, rmakeCfgFn='rmakerc-groups')
+        self._builder = Builder(self._cfg, self._ui,
+            rmakeCfgFn='rmakerc-groups')
         self._sanity = self._sanityCheckerClass(self._cfg, self._helper)
 
         assert not (parentGroup and targetGroup)

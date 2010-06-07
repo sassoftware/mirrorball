@@ -22,9 +22,10 @@ import itertools
 
 from updatebot import build
 from updatebot import update
-from updatebot import cmdline
 from updatebot import pkgsource
 from updatebot import advisories
+from updatebot.cmdline import ui
+from updatebot.cmdline import clientcfg
 
 log = logging.getLogger('updatebot.bot')
 
@@ -36,8 +37,8 @@ class Bot(object):
     def __init__(self, cfg):
         self._cfg = cfg
 
-        self._clientcfg = cmdline.clientcfg.UpdateBotClientConfig()
-        self._ui = cmdline.ui.UserInterface(self._clientcfg)
+        self._clientcfg = clientcfg.UpdateBotClientConfig()
+        self._ui = ui.UserInterface(self._clientcfg)
 
         self._pkgSource = pkgsource.PackageSource(self._cfg, self._ui)
         self._updater = update.Updater(self._cfg, self._ui, self._pkgSource)
