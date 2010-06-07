@@ -1083,6 +1083,8 @@ class Updater(object):
             commit = util.askYn('remove troves? (y/N):', default=False)
 
         if commit:
+            log.info('committing')
             self._conaryhelper._repos.commitChangeSet(cs)
+            log.info('committed')
 
         return removeSpecs
