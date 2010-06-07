@@ -1359,6 +1359,8 @@ class ConaryHelper(object):
             # Find all sibling packages.
             if removeSiblings:
                 srcName = trv.troveInfo.sourceName()
+                if not srcName:
+                    srcName = trv.getName()
                 srcVersion = trv.getVersion().getSourceVersion()
                 siblings = self._repos.getTrovesBySource(srcName, srcVersion)
 
