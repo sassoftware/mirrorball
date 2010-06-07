@@ -1340,7 +1340,7 @@ class ConaryHelper(object):
 
         # Resolve any versions to conary versions and flavors.
         resultMap = self._repos.findTroves(self._ccfg.buildLabel, troveSpecs,
-                                           getLeaves=removeAllVersions)
+                                           getLeaves=not removeAllVersions)
 
         # Build trove query list.
         query = set()
