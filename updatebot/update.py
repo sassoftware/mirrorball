@@ -1075,8 +1075,10 @@ class Updater(object):
         removeSpecs, cs = self._conaryhelper.markremoved(trvSpecs,
             removeSources=True, removeSiblings=True, removeAllVersions=False)
 
-        for spec in removeSpecs:
+        for spec in sorted(removeSpecs):
             log.info('removing: %s=%s[%s]' % spec)
+
+        log.info('total troves to remove: %s' % len(removeSpecs))
 
         commit = True
         if interactive:
