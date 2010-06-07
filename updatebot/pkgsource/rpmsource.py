@@ -146,8 +146,8 @@ class _RpmSource(PackageSource):
 
     PkgClass = Package
 
-    def __init__(self, cfg, path=None):
-        PackageSource.__init__(self, cfg)
+    def __init__(self, cfg, ui, path=None):
+        PackageSource.__init__(self, cfg, ui)
         self._path = path
 
     def load(self):

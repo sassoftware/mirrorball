@@ -26,8 +26,10 @@ class BasePackageSource(object):
     Base class for pkgSources
     """
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, ui):
         self._cfg = cfg
+        self._ui = ui
+
         self._excludeArch = self._cfg.excludeArch
 
         self._loaded = False

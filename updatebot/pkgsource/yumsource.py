@@ -44,8 +44,8 @@ class YumSource(BasePackageSource):
 
     PkgClass = repomd.packagexml._Package
 
-    def __init__(self, cfg):
-        BasePackageSource.__init__(self, cfg)
+    def __init__(self, cfg, ui):
+        BasePackageSource.__init__(self, cfg, ui)
 
         # {srcTup: srpm}
         self._srcMap = dict()

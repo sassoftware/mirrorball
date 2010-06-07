@@ -18,7 +18,20 @@ Command line client configuration.
 
 import os
 
+from conary.lib import cfg
+from conary.lib.cfgtypes import CfgBool
+
 from updatebot.config import UpdateBotConfig
+
+
+class UpdateBotClientConfigSection(cfg.ConfigSection):
+    """
+    Config class for an updatebot command line client.
+    """
+
+    # control to interupt operations based on various conditions
+    interactive     = (CfgBool, True)
+
 
 class UpdateBotClientConfig(UpdateBotConfig):
     """

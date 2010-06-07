@@ -88,10 +88,13 @@ class Builder(object):
 
     @param cfg: updateBot configuration object
     @type cfg: config.UpdateBotConfig
+    @param ui: command line user interface.
+    @type ui: cmdline.ui.UserInterface
     """
 
-    def __init__(self, cfg, rmakeCfgFn=None):
+    def __init__(self, cfg, ui, rmakeCfgFn=None):
         self._cfg = cfg
+        self._ui = ui
 
         self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
         self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
@@ -364,7 +367,7 @@ class Builder(object):
 
             # Check if this looks like a kernel module source rpm that wasn't
             # handled by the last two checks.
-            elif '-kmod' in name:
+            elif '-kmod' in name or '-kmp' in name:
                 raise UnhandledKernelModule(name=name)
 
             # All other packages.

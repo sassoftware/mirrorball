@@ -42,8 +42,10 @@ class Updater(object):
     Class for finding and updating packages.
     """
 
-    def __init__(self, cfg, pkgSource):
+    def __init__(self, cfg, ui, pkgSource):
         self._cfg = cfg
+        self._ui = ui
+
         self._pkgSource = pkgSource
 
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
@@ -1082,7 +1084,7 @@ class Updater(object):
 
         commit = True
         if interactive:
-            commit = util.askYn('remove troves? (y/N):', default=False)
+            commit = self._ui.ask('remove troves? (y/N):', default=False)
 
         if commit:
             log.info('committing')

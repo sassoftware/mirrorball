@@ -28,8 +28,8 @@ class DebSource(BasePackageSource):
     PackageSource backend for APT repositories.
     """
 
-    def __init__(self, cfg):
-        BasePackageSource.__init__(self, cfg)
+    def __init__(self, cfg, ui):
+        BasePackageSource.__init__(self, cfg, ui)
 
         self._binPkgs = set()
         self._srcPkgs = set()

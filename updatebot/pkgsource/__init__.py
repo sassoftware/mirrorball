@@ -21,16 +21,16 @@ from updatebot.pkgsource.yumsource import YumSource
 from updatebot.pkgsource.debsource import DebSource
 from updatebot.pkgsource.errors import UnsupportedRepositoryError
 
-def PackageSource(cfg):
+def PackageSource(cfg, ui):
     """
     Method that returns an instance of the appropriate package source
     backend based on config data.
     """
 
     if cfg.repositoryFormat == 'apt':
-        return DebSource(cfg)
+        return DebSource(cfg, ui)
     elif cfg.repositoryFormat == 'yum':
-        return YumSource(cfg)
+        return YumSource(cfg, ui)
     else:
         raise UnsupportedRepositoryError(repo=cfg.repositoryFormat,
                                          supported=['apt', 'yum'])
