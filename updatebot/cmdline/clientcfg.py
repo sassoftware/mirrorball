@@ -38,7 +38,7 @@ class UpdateBotClientConfig(UpdateBotConfig):
     Client config object.
     """
 
-    _defaultSecitonType = UpdateBotClientConfigSection
+    _defaultSectionType = UpdateBotClientConfigSection
 
     def __init__(self, readConfigFiles=False, ignoreErrors=False):
         UpdateBotConfig.__init__(self)

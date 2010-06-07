@@ -46,7 +46,7 @@ class UserInterface(object):
     """
 
     def __init__(self, cfg):
-        self._cfg = cfg
+        self.cfg = cfg
 
     def ask(self, prompt, default=None):
         """
@@ -60,7 +60,7 @@ class UserInterface(object):
         @rtype boolean
         """
 
-        if not self._cfg.interactive:
+        if not self.cfg.interactive:
             return default
 
         if default is True:
