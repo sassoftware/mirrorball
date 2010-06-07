@@ -1,0 +1,40 @@
+#!/usr/bin/python
+#
+# Copryright (c) 2008-2009 rPath, Inc.
+#
+
+"""
+Script for cooking packages with updatebot config.
+"""
+
+from header import *
+
+import logging
+log = logging.getLogger('scripts.markremoved')
+
+from updatebot import conaryhelper
+from updatebot.lib.util import askYn
+
+if len(sys.argv) < 3:
+    usage()
+
+helper = conaryhelper.ConaryHelper(cfg)
+
+from conary.conaryclient import cmdline
+
+trvSpecs = set([ cmdline.parseTroveSpec(x) for x in sys.argv[2:] ])
+
+removedSpecs, cs = helper.markremoved(trvSpecs, removeSources=True)
+
+log.info('commiting will remove the following trove specs')
+for spec in sorted(removedSpecs):
+    log.info('removing: %s=%s[%s]' % spec)
+
+import epdb; epdb.st()
+
+if askYn('remove troves? (y/N):', default=False):
+    log.info('committing')
+    helper._repos.commitChangeSet(cs)
+    log.info('committed')
+else:
+    log.info('not committed')
