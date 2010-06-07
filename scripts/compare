@@ -41,6 +41,8 @@ from updatebot import build
 from updatebot import conaryhelper
 from updatebot.lib import util
 
+from updatebot.cmdline import UserInterface
+
 log.addRootLogger()
 
 import logging
@@ -54,8 +56,10 @@ class Platform(object):
         self._cfg = config.UpdateBotConfig()
         self._cfg.read(self._cfgPath)
 
+        self._ui = UserInterface()
+
         self._helper = conaryhelper.ConaryHelper(self._cfg)
-        self._builder = build.Builder(self._cfg)
+        self._builder = build.Builder(self._cfg, self._ui)
 
         self._checkoutdir = tempfile.mkdtemp(prefix='%s-' % self._cfg.platformName, dir=self._workDir)
         self._helper._cacheDir = self._checkoutdir

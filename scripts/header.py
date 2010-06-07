@@ -46,7 +46,11 @@ log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
-builder = build.Builder(cfg)
+from updatebot.cmdline import UserInterface
+
+ui = UserInterface()
+
+builder = build.Builder(cfg, ui)
 
 def displayTrove(nvf):
     flavor = ''

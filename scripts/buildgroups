@@ -9,7 +9,7 @@ Script for cooking groups defined in the updatebot config.
 
 from header import *
 
-builder = build.Builder(cfg, rmakeCfgFn='rmakerc-groups')
+builder = build.Builder(cfg, ui, rmakeCfgFn='rmakerc-groups')
 
 grpTrvMap = builder.build((cfg.topSourceGroup, ))
 

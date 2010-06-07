@@ -30,6 +30,7 @@ from conary import versions
 from updatebot import log
 from updatebot import config
 from updatebot import update
+from udpatebot import cmdline
 from updatebot import pkgsource
 from updatebot.lib import util
 
@@ -45,8 +46,10 @@ cfg.read(util.join(cfgDir, platform, 'updatebotrc'))
 topGroups = [ (cfg.topGroup[0], cfg.targetLabel, cfg.topGroup[2]),
               (cfg.topGroup[0], versions.VersionFromString('/' + cfg.topGroup[1]), cfg.topGroup[2]), ]
 
+ui = cmdline.UserInterface()
+
 pkgSource = pkgsource.PackageSource(cfg)
-updater = update.Updater(cfg, pkgSource)
+updater = update.Updater(cfg, ui, pkgSource)
 helper = updater._conaryhelper
 
 pkgSource.load()
