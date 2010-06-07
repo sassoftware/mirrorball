@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -11,3 +11,6 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
+
+from updatebot.cmdline.ui import UserInterface
+from updatebot.cmdline.clientcfg import UpdateBotClientConfig

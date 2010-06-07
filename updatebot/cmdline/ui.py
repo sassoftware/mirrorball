@@ -17,6 +17,7 @@ Basic client user interface callback for mirrorball.
 """
 
 from updatebot.lib import util
+from updatebot.cmdline import clientcfg
 
 class AbstractUserInterface(object):
     """
@@ -38,15 +39,18 @@ class AbstractUserInterface(object):
         raise NotImplementedError
 
 
-class UserInterface(object):
+class UserInterface(AbstractUserInterface):
     """
     Basic user interface class.
     @param cfg: client config object
     @type cfg: updatebot.cmdline.clientcfg.UpdateBotClientConfig
     """
 
-    def __init__(self, cfg):
-        self.cfg = cfg
+    def __init__(self, cfg=None):
+        if cfg is None:
+            self.cfg = clientcfg.UpdateBotClientConfig()
+        else:
+            self.cfg = cfg
 
     def ask(self, prompt, default=None):
         """
