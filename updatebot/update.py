@@ -861,6 +861,16 @@ class Updater(object):
                     manifest.extend(pkg.files)
         return manifest
 
+    def getPackageFileNames(self, srcPkg):
+        """
+        Get the list of package names with arch flags attached.
+        @param srcPkg: source rpm package object
+        @type srcPkg: repomd.packagexml._Package
+        """
+
+        return [ os.path.basename(x)
+                 for x in self._getManifestFromPkgSource(srcPkg) ]
+
     def _getMetadataFromPkgSource(self, srcPkg):
         """
         Get the data to go into the xml metadata from a srcPkg.

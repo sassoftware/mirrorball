@@ -69,8 +69,7 @@ class Bot(object):
         for (n, v, f), srcPkg in buildSet:
             binaryNames = None
             if srcPkg:
-                binaryNames = tuple([ x.name
-                    for x in self._pkgSource.srcPkgMap[srcPkg] ])
+                binaryNames = tuple(self._updater.getPackageFileNames(srcPkg))
             toBuild.add((n, v, f, binaryNames))
 
         return sorted(toBuild)
@@ -84,7 +83,8 @@ class Bot(object):
         @param recreate - recreate all sources or a specific list of packages
         @type recreate - boolean to recreate all sources or a list of specific
                          package names
-        @param toCreate - set of source package objects to create, implies recreate.
+        @param toCreate - set of source package objects to create, implies
+                          recreate.
         @type toCreate - iterable
         """
 

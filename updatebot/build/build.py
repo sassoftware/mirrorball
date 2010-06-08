@@ -374,14 +374,13 @@ class Builder(object):
             else:
                 # Build all packages as x86 and x86_64.
                 for context, fltr in self._cfg.archContexts:
-                    # If there is a filter and no binary file names or no files
-                    # in the binary names match the filter skip this context.
-                    if (fltr and (not binaryNames or (binaryNames and
-                        not [ x for x in binaryNames if fltr[1].match(x) ]))):
-                        continue
-                    troves.append((name, version, flavor, context))
+                    # If this is no filter or if there is a filter and a binary
+                    # package matches the filter build in this context.
+                    if (not fltr or (fltr and
+                            [ x for x in binaryNames if fltr[1].match(x) ])):
+                        troves.append((name, version, flavor, context))
 
-        return troves
+        return sorted(set(troves))
 
     @jobInfoExceptionHandler
     def _getJob(self, jobId, retry=None):
