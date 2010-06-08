@@ -173,7 +173,7 @@ class Bot(BotSuperClass):
 
         # Try to build the group if everything imported.
         else:
-            self._modifyContents(0, group)
+            self._modifyGroups(0, group)
             group.errataState = '0'
             group.version = '0'
             group = group.commit()
