@@ -61,7 +61,7 @@ class BasePackageSource(object):
     def __copy__(self):
         log.info('copying pkgsource')
         cls = self.__class__
-        obj = cls(self._cfg)
+        obj = cls(self._cfg, self._ui)
         obj.locationMap = copy.copy(self.locationMap)
         obj.srcPkgMap = copy.copy(self.srcPkgMap)
         obj.binPkgMap = copy.copy(self.binPkgMap)
@@ -73,7 +73,7 @@ class BasePackageSource(object):
     def __deepcopy__(self, memo):
         log.info('deepcopying pkgsource')
         cls = self.__class__
-        obj = cls(self._cfg)
+        obj = cls(self._cfg, self._ui)
         obj.locationMap = copy.deepcopy(self.locationMap, memo)
         obj.srcPkgMap = copy.deepcopy(self.srcPkgMap, memo)
         obj.binPkgMap = copy.deepcopy(self.binPkgMap, memo)
