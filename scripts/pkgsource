@@ -30,12 +30,15 @@ updatebot.log.addRootLogger()
 log = logging.getLogger('test')
 
 from updatebot import config
+from updatebot import cmdline
 from updatebot import pkgsource
 
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1] )
 
-pkgSource = pkgsource.PackageSource(cfg)
+ui = cmdline.UserInterface()
+
+pkgSource = pkgsource.PackageSource(cfg, ui)
 pkgSource.load()
 
 srcs = {}

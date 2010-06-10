@@ -32,10 +32,13 @@ log = logging.getLogger('test')
 import rpmutils
 
 from updatebot import config
+from updatebot import cmdline
 from updatebot import pkgsource
 
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1] )
+
+ui = cmdline.UserInterface()
 
 headers = []
 paths = copy.copy(cfg.repositoryPaths)
@@ -61,7 +64,7 @@ class Worker(Process):
                 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % platform)
 
                 cfg.repositoryPaths = [ repoPath, ]
-                pkgSource = pkgsource.PackageSource(cfg)
+                pkgSource = pkgsource.PackageSource(cfg, ui)
                 pkgSource.load()
 
                 for location in pkgSource.locationMap:

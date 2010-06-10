@@ -32,16 +32,19 @@ updatebot.log.addRootLogger()
 log = logging.getLogger('test')
 
 from updatebot import config
+from updatebot import cmdline
 from updatebot.update import Updater
 from updatebot import pkgsource
 
 cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/%s/updatebotrc' % sys.argv[1] )
 
-pkgSource = pkgsource.PackageSource(cfg)
+ui = cmdline.UserInterface()
+
+pkgSource = pkgsource.PackageSource(cfg, ui)
 pkgSource.load()
 
-updater = Updater(cfg, pkgSource)
+updater = Updater(cfg, ui, pkgSource)
 
 virtreqs = {}
 for srcName in pkgSource.srcNameMap.iterkeys():

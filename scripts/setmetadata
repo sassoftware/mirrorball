@@ -48,7 +48,7 @@ topGroups = [ (cfg.topGroup[0], cfg.targetLabel, cfg.topGroup[2]),
 
 ui = cmdline.UserInterface()
 
-pkgSource = pkgsource.PackageSource(cfg)
+pkgSource = pkgsource.PackageSource(cfg, ui)
 updater = update.Updater(cfg, ui, pkgSource)
 helper = updater._conaryhelper
 

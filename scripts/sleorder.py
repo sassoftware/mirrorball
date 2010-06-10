@@ -19,9 +19,10 @@ sys.path.insert(0, mbdir)
 confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
 from updatebot import log
-from updatebot.ordered import Bot
-from updatebot import UpdateBotConfig
+from updatebot import cmdline
 from updatebot import pkgsource
+from updatebot import UpdateBotConfig
+from updatebot.ordered import Bot
 
 from errata.sles import AdvisoryManager as Errata
 
@@ -30,7 +31,9 @@ slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-pkgSource = pkgsource.PackageSource(cfg)
+ui = cmdline.UserInterface()
+
+pkgSource = pkgsource.PackageSource(cfg, ui)
 
 errata = Errata(pkgSource)
 errata.fetch()

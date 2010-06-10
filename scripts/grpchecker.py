@@ -43,6 +43,7 @@ from updatebot import groupmgr
 from updatebot import pkgsource
 from updatebot import conaryhelper
 from updatebot import UpdateBotConfig
+from updatebot.cmdline import UserInterface
 
 from updatebot.errors import OldVersionsFoundError
 from updatebot.errors import GroupValidationFailedError
@@ -53,10 +54,12 @@ slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-pkgSource = pkgsource.PackageSource(cfg)
+ui = UserInterface()
+
+pkgSource = pkgsource.PackageSource(cfg, ui)
 pkgSource.load()
 
-mgr = groupmgr.GroupManager(cfg, useMap=pkgSource.useMap)
+mgr = groupmgr.GroupManager(cfg, ui, useMap=pkgSource.useMap)
 helper = conaryhelper.ConaryHelper(cfg)
 
 def handleVersionConflicts(group, error):

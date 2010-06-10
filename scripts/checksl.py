@@ -25,11 +25,15 @@ sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
 from updatebot import config
 from updatebot import pkgsource
 from updatebot import log as logger
+from updatebot import cmdline
 
 logger.addRootLogger()
 
 cfg = config.UpdateBotConfig()
 cfg.read(os.environ['HOME'] + '/hg/mirrorball/config/scientific/updatebotrc')
-pkgSource = pkgsource.PackageSource(cfg)
+
+ui = cmdline.UserInterface()
+
+pkgSource = pkgsource.PackageSource(cfg, ui)
 
 pkgSource.load()
