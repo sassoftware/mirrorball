@@ -113,7 +113,7 @@ class GroupSanityChecker(object):
 
         seen = {}
         for (n, v, f), pkgSet in sources.iteritems():
-            binVer = list(pkgSet)[1][1]
+            binVer = list(pkgSet)[0][1]
             seen.setdefault(n, set()).add(binVer)
 
         binPkgs = {}
