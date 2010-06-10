@@ -47,7 +47,7 @@ class CfgBranch(CfgLabel):
 
 class CfgStringFlavor(CfgFlavor):
     """
-    Class for representing a two tuple of a string and an optional flavor.
+    Class for representing a three tuple of a string and an optional flavor.
     """
 
     def parseString(self, val):
@@ -67,6 +67,27 @@ class CfgStringFlavor(CfgFlavor):
             return context, flavor
         except versions.ParseError, e:
             raise ParseError, e
+
+
+class CfgStringFlavorUse(CfgStringFlavor):
+    """
+    Class for represnting a three tuple of string and an optional flavor and
+    use flag.
+    """
+
+    def parseString(self, val):
+        """
+        Parse config string.
+        """
+
+        use = None
+        splt = val.split()
+        if len(splt) > 1:
+            use = splt[-1]
+            val = ' '.join(splt[:-1])
+
+        context, flavor = CfgStringFlavor.parseString(self, val)
+        return context, flavor, use
 
 
 class CfgStringFilter(CfgRegExp):
@@ -439,10 +460,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     useOldVersion = (CfgIntDict(CfgList(CfgTroveSpec)), {})
 
     # Add a package to a specific group
-    addPackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavor))), {})
+    addPackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavorUse))), {})
 
     # Remove a package from a specific group
-    removePackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavor))), {})
+    removePackage = (CfgIntDict(CfgDict(CfgList(CfgStringFlavorUse))), {})
 
     # Group name for group that contains all packages in a platform.
     packageGroupName = (CfgString, 'group-packages')

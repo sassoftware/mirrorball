@@ -363,9 +363,9 @@ class Group(object):
         Modify the contents of the group model by adding and/or removing
         packages.
         @param additions: dictionary of group names to add packages to.
-        @type additions: dict(groupName=[(pkgName, frzPkgFlavor), ...])
+        @type additions: dict(groupName=[(pkgName, PkgFlavor, use), ...])
         @param removals: dictionary of group names to remove packages from.
-        @type additions: dict(groupName=[(pkgName, frzPkgFlavor), ...])
+        @type additions: dict(groupName=[(pkgName, PkgFlavor, use), ...])
         """
 
         if additions is None:
@@ -380,7 +380,7 @@ class Group(object):
         # Remove requested packages.
         for groupName, pkgs in removals.iteritems():
             group = self._groups[groupName]
-            for pkgName, pkgFlv in pkgs:
+            for pkgName, pkgFlv, use in pkgs:
                 if pkgFlv:
                     group.removePackageFlavor(pkgName, pkgFlv.freeze())
                 else:
@@ -394,10 +394,10 @@ class Group(object):
                 continue
 
             flavoredPackages = {}
-            for pkgName, pkgFlv in pkgs:
+            for pkgName, pkgFlv, use in pkgs:
                 # deffer packages with specifc flavors for later.
                 if pkgFlv is not None:
-                    flavoredPackages.setdefault(pkgName, set()).add(pkgFlv)
+                    flavoredPackages.setdefault(pkgName, set()).add((pkgFlv, use))
 
                 # handle packages where flavor is not specified
                 else:
@@ -409,9 +409,9 @@ class Group(object):
                                       groupName=groupName)
 
             # Add all specifically flavored packages.
-            for pkgName, flavors in flavoredPackages.iteritems():
-                for flv in flavors:
-                    self._add(pkgName, version=None, flavor=flv, use=None,
+            for pkgName, flags in flavoredPackages.iteritems():
+                for flv, use in flags:
+                    self._add(pkgName, version=None, flavor=flv, use=use,
                               groupName=groupName)
 
     @require_write
