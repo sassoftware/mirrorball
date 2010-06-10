@@ -48,8 +48,9 @@ class ErrataFilter(object):
     Filter data from a given errataSource in chronological order.
     """
 
-    def __init__(self, cfg, pkgSource, errataSource):
+    def __init__(self, cfg, ui, pkgSource, errataSource):
         self._cfg = cfg
+        self._ui = ui
         self._pkgSource = pkgSource
         self._errata = errataSource
 
@@ -211,7 +212,7 @@ class ErrataFilter(object):
 
         # duplicate updater and pkgsource so as to not change state.
         pkgSource = copy.copy(self._pkgSource)
-        updater = update.Updater(self._cfg, pkgSource)
+        updater = update.Updater(self._cfg, self._ui, pkgSource)
         updater._conaryhelper = _ConaryHelperShim(self._cfg)
 
         if self._cfg.platformSearchPath:
