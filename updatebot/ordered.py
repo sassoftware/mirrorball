@@ -51,7 +51,7 @@ class Bot(BotSuperClass):
 
     def __init__(self, cfg, errataSource):
         BotSuperClass.__init__(self, cfg)
-        self._errata = errata.ErrataFilter(self._cfg, self._pkgSource,
+        self._errata = errata.ErrataFilter(self._cfg, self._ui, self._pkgSource,
             errataSource)
         self._groupmgr = groupmgr.GroupManager(self._cfg, self._ui,
             useMap=self._pkgSource.useMap)
