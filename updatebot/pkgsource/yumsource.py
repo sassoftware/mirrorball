@@ -343,6 +343,7 @@ class YumSource(BasePackageSource):
                     log.warn('\t%s' % loc)
 
         if self._repoMap:
+            sourceSet = set()
             for binPkg, archSet in self._repoMap.iteritems():
                 # lookup the source for the binary package
                 srcPkg = self.binPkgMap[binPkg]
@@ -370,15 +371,18 @@ class YumSource(BasePackageSource):
                 for flv in possibleFlavors:
                     trvSpecs = set([
                         (binPkg.name, conaryVersion, flv),
+                        (binPkg.name, flv),
+                    ])
+
+                    sourceSet.update(set([
                         # Always include a package with the source name since
                         # every build will generate a conary package with the
                         # given build flavor, even if the package only contains
                         # a buildlog.
                         (srcPkg.name, conaryVersion, flv),
-
-                        (binPkg.name, flv),
                         (srcPkg.name, flv),
-                    ])
+                    ]))
+
                     for trvSpec in trvSpecs:
                         useSet = set()
                         if binPkg.arch == 'noarch':
@@ -392,6 +396,10 @@ class YumSource(BasePackageSource):
 
                         if useSet:
                             self.useMap.setdefault(trvSpec, set()).update(useSet)
+
+            for source in sourceSet:
+                if source not in self.useMap:
+                    self.useMap.setdefault(source, set()).add(source[-1])
 
         # In the case of SLES 10 we need to combine several source entries in
         # the srcPkgMap to create a single unified kernel source package.
