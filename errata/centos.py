@@ -114,7 +114,7 @@ class AdvisoryManager(common.AdvisoryManager):
         slices = {}
         for srcPkg in self._pkgSource.srcPkgMap:
             updateId = slice(int(srcPkg.buildTimestamp))
-            slices.setdefault(updateId, set()).set(srcPkg)
+            slices.setdefault(updateId, set()).add(srcPkg)
 
         # find labels
         for label in self._pkgSource._clients:
