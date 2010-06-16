@@ -25,8 +25,13 @@ from updatebot import OrderedBot
 log = logging.getLogger('tmplogger')
 
 class Bot(OrderedBot):
-    def rebuildpackage(self, name):
+    def rebuildpackage(self, name, useLatest=None):
         """
+        Rebuild all versions of a given package in order.
+        @param useLatest: A list of package names to use the latest versions of.
+                          For instance, you may want to use the latest version
+                          of conary to get fixed dependencies.
+        @type useLatest: list(str, ...)
         """
 
         # Find all versions of name.
@@ -34,7 +39,7 @@ class Bot(OrderedBot):
             ('%s:source' % name, None, None), getLeaves=False)
         trvSpecs = [ (x[0].split(':')[0], x[1], None) for x in nvfs ]
 
-        trvMap = self._builder.rebuild(trvSpecs)
+        trvMap = self._builder.rebuild(trvSpecs, useLatest=useLatest)
 
         return trvMap
 
@@ -77,6 +82,6 @@ if __name__ == '__main__':
     errata.fetch()
 
     bot = Bot(cfg, errata)
-    bot.rebuildpackage(sys.argv[2])
+    bot.rebuildpackage(sys.argv[2], useLatest=['conary', 'conary-build', 'conary-policy'])
 
     import epdb; epdb.st()
