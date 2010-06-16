@@ -43,6 +43,7 @@ from updatebot.lib import util
 from updatebot.errors import JobFailedError
 from updatebot.errors import CommitFailedError
 from updatebot.errors import UnhandledKernelModule
+from updatebot.errors import GroupBuildNotSupportedError
 from updatebot.errors import InvalidBuildTroveInputError
 from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
@@ -233,6 +234,105 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
+    def rebuild(self, troveSpecs):
+        """
+        Rebuild a set of troves in the same environment that they were
+        orignally built in.
+        @param troveSpecs: set of name, version, flavor tuples
+        @type troveSpecs: set([(name, version, flavor), ..])
+        @return troveMap: dictionary of troveSpecs to built troves
+        """
+
+        def grpByNameVersion(jobLst):
+            lst = {}
+            for job in jobLst:
+                lst.setdefault(tuple(job[:2]), set()).add(job)
+            return sorted(lst.values())
+
+        def startOne(job):
+            # Get a new builder so that we don't change the configuration of the
+            # existing builder.
+            cls = self.__class__
+            builder = cls(self._cfg, self._ui)
+
+            # Find the troves that were originally used to build the requested
+            # trove.
+            n, v = list(job)[0][:2]
+            # So that we can find the latest binary built from the closest
+            # versioned source we need to lookup binary versions and then use
+            # that source to get the rest of the binaries. We need to do this
+            # in the case that we are building a source that has been modified
+            # to remove a recipe or something like that.
+            upVer = '/'.join([v.branch().label().asString(),
+                              v.trailingRevision().version])
+            binSpecs = self._client.repos.findTrove(v.branch().label(),
+                                                    (n, upVer, None))
+            binTrv = self._client.repos.getTrove(*binSpecs[0], withFiles=False)
+            srcName = binTrv.troveInfo.sourceName()
+            srcVersion = binTrv.getVersion().getSourceVersion()
+
+            specs = self._client.repos.getTrovesBySource(srcName, srcVersion)
+
+            # Find the latest version of each package
+            vMap = {}
+            for n, v, f in specs:
+                n = n.split(':')[0]
+                vMap.setdefault(v, dict()).setdefault(n, set()).add(f)
+
+            latest = sorted(vMap)[-1]
+            trvSpecs = []
+            for n, flvs in vMap[latest].iteritems():
+                for f in flvs:
+                    trvSpecs.append((n, latest, f))
+
+            # Get the troves for all binaries built from the given source.
+            troves = self._client.repos.getTroves(trvSpecs, withFiles=False)
+
+            # Take the union of all buildreqs for all flavors of the package.
+            reqs = set()
+            for trv in troves:
+                reqs |= set([ (x.name(), x.version())
+                              for x in trv.troveInfo.buildReqs.iter() ])
+
+            # Reconfigure builder to use previous buildrequires as
+            # resolveTroves.
+            resolveTroves = ' '.join([ '%s=%s' % x for x in reqs ])
+            builder._rmakeCfg.resolveTroves = []
+            builder._rmakeCfg.configLine('resolveTroves %s' % resolveTroves)
+
+            # Start the job.
+            jobId = builder._startJob(job)
+
+            return jobId
+
+
+        # Handle empty set.
+        if not troveSpecs:
+            return {}
+
+        jobs = self._formatInput(troveSpecs)
+
+        # Sanity check input to make sure there are no groups.
+        if [ x for x in jobs if x[0].startswith('group-') ]:
+            raise GroupBuildNotSupportedError
+
+        # Start all of the jobs.
+        jobIds = []
+        for job in grpByNameVersion(jobs):
+            jobIds.append(startOne(job))
+
+        # Wait for jobs to complete
+        dispatcher = NonCommittalDispatcher(self, 0)
+        dispatcher.watchmany(jobIds)
+
+        # Commit jobs in order, conary does not do this for you.
+        trvMap = {}
+        for jobId in jobIds:
+            trvMap.update(self._commitJob(jobId))
+        ret = self._formatOutput(trvMap)
+
+        return ret
+
     def start(self, troveSpecs):
         """
         Public version of start job that starts a job without monitoring.
@@ -411,7 +511,7 @@ class Builder(object):
 
         # Create rMake job
         log.info('Creating build job: %s' % (troveSpecs, ))
-        job = self._helper.createBuildJob(troveSpecs)
+        job = self._helper.createBuildJob(list(troveSpecs))
         jobId = self._helper.buildJob(job)
         log.info('Started jobId: %s' % jobId)
 

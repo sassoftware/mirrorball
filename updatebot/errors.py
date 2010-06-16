@@ -120,6 +120,16 @@ class UnhandledKernelModule(BuildError):
         'define the set of flavors this kernel module should be built in.')
 
 
+class GroupBuildNotSupportedError(BuildError):
+    """
+    GroupBuildNotSupportedError, raised when a group is submitted for building
+    through a method that does not support building groups.
+    """
+
+    _param = []
+    _template = 'This build method does not support building groups.'
+
+
 class UnhandledUpdateError(UpdateBotError):
     """
     UnhandledUpdateError, raised when the bot finds a state that it does not

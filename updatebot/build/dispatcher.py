@@ -260,3 +260,26 @@ class NonCommittalDispatcher(Dispatcher):
         res = self._builder.commit(jobIds)
 
         return res, self._failures
+
+    def watchmany(self, jobIds):
+        """
+        Watch a list of jobIds. Blocks until jobs are complete.
+        @param jobIds: list of jobIds
+        @type jobIds: list(int, ...)
+        """
+
+        # Start monitoring each job.
+        for jobId in jobIds:
+            self._jobs[jobId] = [None, JobStatus.JOB_NOT_STARTED, None]
+            self._monitor.monitorJob(jobId)
+
+        # Wait for jobs to complete.
+        while not self._jobDone():
+            # Update job status changes.
+            for jobId, status in self._monitor.getStatus():
+                self._jobs[jobId][1] = status
+
+        # Make sure all jobs are built.
+        for jobId, (trove, status, result) in self._jobs.iteritems():
+            if status != buildjob.JOB_STATE_BUILT:
+                raise JobNotCompleteError(jobId=jobId)
