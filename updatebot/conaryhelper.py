@@ -1398,3 +1398,49 @@ class ConaryHelper(object):
             cs.newTrove(trvCs)
 
         return trvSet, cs
+
+    def clone(self, targetBranch, troveList, writeClonedFromInfo=True,
+        commit=True):
+        """
+        Clone a list of troves to the target branch.
+        @param targetBranch: branch to clone to.
+        @type targetBranch: conary.versions.Branch
+        @param troveList: list of troves to promote.
+        @type troveList: list((str, conary.versions.VersionFromString,
+                                    conary.deps.deps.Flavor), ..)
+        @param withClonedFromInfo: Optional flag to control the writing of
+                                   cloned from information in the troveinfo.
+                                   Defaults to True.
+        @type withClonedFromInfo: boolean
+        @param commit: commit the promote changeset or just return it.
+        @type commit: boolean
+        """
+
+        log.info('creating clone changeset')
+
+        callback = UpdateBotCloneCallback(self._ccfg, 'automated clone',
+            log=log)
+
+        success, cs = self._client.createCloneChangeSet(
+            targetBranch, troveList,
+            updateBuildInfo=writeClonedFromInfo,
+            callback=callback,
+            cloneSources=True)
+
+        log.info('changeset created')
+
+        if not success:
+            raise PromoteFailedError(what=troveList)
+
+        packageList = [ x.getNewNameVersionFlavor()
+                        for x in cs.iterNewTroveList() ]
+
+        if not commit:
+            return cs, packageList
+
+        import epdb; epdb.st()
+        log.info('committing changeset')
+        self._repos.commitChangeSet(cs, callback=callback)
+        log.info('changeset committed')
+
+        return packageList
