@@ -143,6 +143,13 @@ class Group(object):
 
         return self._groups.iteritems()
 
+    def iterpackages(self):
+        """
+        Iterate over the set of packages in the package group.
+        """
+
+        return self._groups[self._pkgGroupName]
+
     ###
     # Start of group manager interface
     #
