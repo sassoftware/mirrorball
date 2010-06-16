@@ -195,6 +195,8 @@ for ver, changed in toUpdate:
     grp._sanityCheck()
     mgr._persistGroup(grp)
 
+    import epdb; epdb.st()
+
     newGroup = grp.commit(copyToLatest=True)
     jobId = mgr._builder.start(((mgr._sourceName, newGroup.conaryVersion, None), ))
     jobIds.append(jobId)
