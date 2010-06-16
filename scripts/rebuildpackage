@@ -25,23 +25,78 @@ from updatebot import OrderedBot
 log = logging.getLogger('tmplogger')
 
 class Bot(OrderedBot):
+    def _getAllVersions(self, name):
+        """
+        Get all of the versions of a given source.
+        """
+
+        # Find all versions of name.
+        nvfs = self._updater._conaryhelper.findTrove(
+            ('%s:source' % name, None, None), getLeaves=False)
+
+        return sorted(nvfs)
+
     def rebuildpackage(self, name, useLatest=None):
         """
         Rebuild all versions of a given package in order.
+        @param name: name of the package to rebuild.
+        @type name: str
         @param useLatest: A list of package names to use the latest versions of.
                           For instance, you may want to use the latest version
                           of conary to get fixed dependencies.
         @type useLatest: list(str, ...)
         """
 
-        # Find all versions of name.
-        nvfs = self._updater._conaryhelper.findTrove(
-            ('%s:source' % name, None, None), getLeaves=False)
-        trvSpecs = [ (x[0].split(':')[0], x[1], None) for x in nvfs ]
-
+        trvSpecs = [ (x[0].split(':')[0], x[1], None)
+                     for x in self._getAllVersions(name) ]
         trvMap = self._builder.rebuild(trvSpecs, useLatest=useLatest)
 
         return trvMap
+
+    def removeSourceFiles(self, name, keepFiles=None):
+        """
+        Remove all of the files from all source versions of a package that are
+        not listed in keepFiles.
+        @param name: name of the package to rebuild.
+        @type name: str
+        @param keepFiles: Set of files to keep in the source component. By
+                          default manifest and CONARY will always been kept.
+        @type keepFiles: set(str, ...)
+        """
+
+        if not keepFiles:
+            keepFiles = set()
+
+        # Always avoid removing the CONARY file and the manifest.
+        keepFiles.add('CONARY')
+        keepFiles.add('manifest')
+
+        helper = self._updater._conaryhelper
+
+        # Get a list of source verisons.
+        trvSpecs = self._getAllVersions(name)
+
+        # Rewrite source versions by cloning old versions forward and then
+        # modifying them.
+        for spec in trvSpecs:
+            # Clone version to tip
+            targetBranch = spec[1].branch()
+            newPkgs = helper.clone(targetBranch, [spec, ], commit=False)
+
+            assert len(newPkgs) == 1
+            n, v, f = newPkgs[0]
+
+            # Edit the source to remove files.
+            checkoutDir = helper._edit(n, version=v)
+            files = set(os.listdir(checkoutDir))
+            removeFiles = files - keepFiles
+            for fn in removeFiles:
+                helper._removeFile(checkoutDir, fn)
+
+            # Commit changes if anything changed.
+            if removeFiles:
+                helper._commit(checkoutDir, 'automated file removal')
+
 
 if __name__ == '__main__':
     import os
@@ -81,7 +136,13 @@ if __name__ == '__main__':
     errata = rhnmirror.Errata(mcfg)
     errata.fetch()
 
+    pkgNames = sys.argv[2:]
+
     bot = Bot(cfg, errata)
-    bot.rebuildpackage(sys.argv[2], useLatest=['conary', 'conary-build', 'conary-policy'])
+
+    for pkgName in pkgNames:
+        bot.removeSourceFiles(pkgName)
+        bot.rebuildpackage(pkgName,
+            useLatest=['conary', 'conary-build', 'conary-policy'])
 
     import epdb; epdb.st()
