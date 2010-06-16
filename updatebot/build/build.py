@@ -234,12 +234,16 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def rebuild(self, troveSpecs):
+    def rebuild(self, troveSpecs, useLatest=None):
         """
         Rebuild a set of troves in the same environment that they were
         orignally built in.
         @param troveSpecs: set of name, version, flavor tuples
         @type troveSpecs: set([(name, version, flavor), ..])
+        @param useLatest: A list of package names to use the latest versions of.
+                          For instance, you may want to use the latest version
+                          of conary to get fixed dependencies.
+        @type useLatest: list(str, ...)
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
@@ -291,8 +295,12 @@ class Builder(object):
             # Take the union of all buildreqs for all flavors of the package.
             reqs = set()
             for trv in troves:
-                reqs |= set([ (x.name(), x.version())
-                              for x in trv.troveInfo.buildReqs.iter() ])
+                for req in trv.troveInfo.buildReqs.iter():
+                    name = req.name()
+                    version = req.version()
+                    if useLatest and name.split(':')[0] in useLatest:
+                        version = version.branch()
+                    reqs.add((name, version))
 
             # Reconfigure builder to use previous buildrequires as
             # resolveTroves.
