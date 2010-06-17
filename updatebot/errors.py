@@ -41,6 +41,18 @@ class UpdateBotError(Exception):
         return '%s(%s)' % (self.__class__, params)
 
 
+class InvalidUpdateModeError(UpdateBotError):
+    """
+    InvalidUpdateModeError, raised when trying to use an update mode that is
+    not supported.
+    """
+
+    _params = ['mode', 'expected']
+    _template = ('This platform is not configured with a valid updateMode for '
+                 'the selected workflow. found: "%(mode)s", expected: '
+                 '"%(expected)s"')
+
+
 class BuildError(UpdateBotError):
     """
     BuildError, abstract error for all other build related errors.

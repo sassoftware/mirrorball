@@ -46,6 +46,8 @@ class Bot(BotSuperClass):
     Implement errata driven create/update interface.
     """
 
+    _updateMode = 'ordered'
+
     _create = BotSuperClass.create
     _update = BotSuperClass.update
 

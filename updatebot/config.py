@@ -203,6 +203,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # R0904 - to many public methods
     # pylint: disable-msg=R0904
 
+    # Mode that updatebot is running in. (possible values ar
+    # 'ordered' and 'latest'.
+    updateMode          = CfgString
+
     # name of the product to use in advisories
     productName         = CfgString
 

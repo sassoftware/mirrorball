@@ -26,6 +26,8 @@ from updatebot import cmdline
 from updatebot import pkgsource
 from updatebot import advisories
 
+from updatebot.errors import InvalidUpdateModeError
+
 log = logging.getLogger('updatebot.bot')
 
 class Bot(object):
@@ -33,7 +35,11 @@ class Bot(object):
     Top level object for driving update process.
     """
 
+    _updateMode = 'latest'
+
     def __init__(self, cfg):
+        self._validateMode(cfg)
+
         self._cfg = cfg
 
         self._clientcfg = cmdline.UpdateBotClientConfig()
@@ -47,6 +53,11 @@ class Bot(object):
             self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
                                                self._cfg.platformName)
 
+    @classmethod
+    def _validateMode(cls, cfg):
+        if cfg.updateMode != cls._updateMode:
+            raise InvalidUpdateModeError(
+                mode=cfg.updateMode, expected=cls._updateMode)
 
     @staticmethod
     def _flattenSetDict(setDict):
