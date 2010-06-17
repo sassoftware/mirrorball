@@ -467,7 +467,8 @@ class Updater(object):
                         removedPackages.add(binPkg)
 
                 if not removedPackages:
-                    reusedPackages.add(binPkg)
+                    if binPkg.getNevra() not in keepRemovedPackages:
+                        reusedPackages.add(binPkg)
                     log.warn('using old version of package %s' % (binPkg, ))
                     self._pkgSource.srcPkgMap[srpm].add(binPkg)
 
