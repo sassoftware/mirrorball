@@ -419,7 +419,8 @@ class Updater(object):
 
                 # get the correct arch
                 pkg = [ x for x in self._getLatestOfAvailableArches(pkgs)
-                        if x.arch == binPkg.arch ][0]
+                        if x.arch == binPkg.arch and
+                           x.version == binPkg.version ][0]
 
                 # Raise an exception if the versions of the packages aren't
                 # equal or the discovered package comes from a different source.
