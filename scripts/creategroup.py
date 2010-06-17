@@ -120,6 +120,7 @@ class Bot(OrderedBot):
         # you can do a local test cook.
         group._copyVersions()
         group._sanityCheck()
+        group._setGroupFlags()
         group._mgr._persistGroup(group)
 
         # You probably want to do a test cook if your groups here. It would be
