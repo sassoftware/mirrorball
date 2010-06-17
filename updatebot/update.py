@@ -415,20 +415,38 @@ class Updater(object):
                 # Novell releases updates to only the binary rpms of a package
                 # that have chnaged. We have to use binaries from the old srpm.
                 # Get the last version of the pkg and add it to the srcPkgMap.
-                pkgs = list(self._pkgSource.binNameMap[binPkg.name])
+                pkgs = sorted([
+                    x for x in self._pkgSource.binNameMap[binPkg.name]
+                        if x.arch == binPkg.arch ])
 
-                # get the correct arch
-                pkg = [ x for x in self._getLatestOfAvailableArches(pkgs)
-                        if x.arch == binPkg.arch and
-                           x.version == binPkg.version ][0]
+                # If running in latest mode we really want to compare to the
+                # latest version of this binary, but if we are running in
+                # ordered we really want the "next" version of this binary.
+                pkg = None
+                if self._cfg.updateMode == 'latest':
+                    # get the correct arch
+                    latestPkgs = self._getLatestOfAvailableArches(pkgs)
+                    assert latestPkgs
+                    pkg = latestPkgs[0]
 
-                # Raise an exception if the versions of the packages aren't
-                # equal or the discovered package comes from a different source.
-                #
+                elif self._cfg.updateMode == 'ordered':
+                    idx = pkgs.index(binPkg)
+                    if len(pkgs) - 1 > idx:
+                        pkg = pkgs[idx+1]
+                    else:
+                        # This means that this package has no newer versions.
+                        log.info('no newer version of %s found' % binPkg.name)
+
                 # Get the source that the package was built from for version
                 # comparison since the source and binary can have different
                 # versions.
-                src = self._pkgSource.binPkgMap[pkg]
+                if pkg:
+                    src = self._pkgSource.binPkgMap[pkg]
+                else:
+                    src = srcPkg
+
+                # Raise an exception if the versions of the packages aren't
+                # equal or the discovered package comes from a different source.
                 if (rpmvercmp(src.epoch, srpm.epoch) != 0 or
                     rpmvercmp(src.version, srpm.version) != 0 or
                     # in the suse case we have to ignore release
@@ -437,21 +455,21 @@ class Updater(object):
                     # binary does not come from the same source as it used to
                     src.name != srpm.name):
                     log.warn('update removes package (%s) %s -> %s'
-                             % (pkg.name, srcPkg.getNevra(), srpm.getNevra()))
+                            % (binPkg.name, srcPkg.getNevra(), srpm.getNevra()))
 
                     # allow some packages to be removed.
-                    if expectedRemovals and pkg.name in expectedRemovals:
+                    if expectedRemovals and binPkg.name in expectedRemovals:
                         log.info('package removal (%s) handled in configuration'
-                                 % pkg.name)
+                                 % binPkg.name)
                         continue
 
-                    if pkg.getNevra() not in keepRemovedPackages:
-                        removedPackages.add(pkg)
+                    if binPkg.getNevra() not in keepRemovedPackages:
+                        removedPackages.add(binPkg)
 
                 if not removedPackages:
-                    reusedPackages.add(pkg)
-                    log.warn('using old version of package %s' % (pkg, ))
-                    self._pkgSource.srcPkgMap[srpm].add(pkg)
+                    reusedPackages.add(binPkg)
+                    log.warn('using old version of package %s' % (binPkg, ))
+                    self._pkgSource.srcPkgMap[srpm].add(binPkg)
 
         if removedPackages and not self._cfg.allowRemovedPackages:
             pkgList=sorted(removedPackages)
