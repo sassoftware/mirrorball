@@ -1458,16 +1458,37 @@ class ConaryHelper(object):
                           conary.deps.deps.Flavor), ...)
         """
 
-        trv = self._repos.getTrove(*nvf, withFiles=False)
+        if isinstance(nvf, list):
+            nvfs = nvf
+        else:
+            nvfs = [nvf, ]
 
-        srcName = trv.troveInfo.sourceName()
-        if not srcName:
-            srcName = trv.getName()
+        trvs = self._repos.getTroves(nvfs, withFiles=False)
 
-        srcVersion = trv.getVersion().getSourceVersion()
-        siblings = self._repos.getTrovesBySource(srcName, srcVersion)
+        # Figure out unique source names and versions for all nvfs in an attempt
+        # to minimize the number of repository calls.
+        sources = {}
+        for trvSpec, trv in itertools.izip(nvfs, trvs):
+            srcName = trv.troveInfo.sourceName()
+            if not srcName:
+                srcName = trv.getName()
 
-        if not allVersions:
-            siblings = [ x for x in siblings if x[1] == nvf[1] ]
+            srcVersion = trv.getVersion().getSourceVersion()
 
-        return siblings
+            sources.setdefault((srcName, srcVersion), set()).add(trvSpec)
+
+        # Map siblings back to nvfs.
+        siblingMap = {}
+        for (srcName, srcVersion), trvSpecs in sources.iteritems():
+            siblings = self._repos.getTrovesBySource(srcName, srcVersion)
+
+            for trvSpec in trvSpecs:
+                if not allVersions:
+                    siblings = [ x for x in siblings if x[1] == trvSpec[1] ]
+
+                siblingMap.setdefault(trvSpec, set()).update(set(siblings))
+
+        if isinstance(nvf, list):
+            return siblingMap
+        else:
+            return siblingMap[nvf]

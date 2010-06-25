@@ -58,13 +58,18 @@ class Bot(OrderedBot):
         # source.
         siblingPackages = set()
         for name in updatedPackages:
+            log.info('looking up siblings for %s' % name)
             nvfs = self._updater._conaryhelper.findTrove((name, None, None),
                 getLeaves=False)
-            for nvf in nvfs:
-                siblings = self._updater._conaryhelper.getSiblingPackages(
-                    nvf, allVersions=True)
-                siblingPackages.update(set([ x[0] for x in siblings ]))
+            siblingMap = self._updater._conaryhelper.getSiblingPackages(
+                nvfs, allVersions=True)
+            for siblings in siblingMap.itervalues():
+                siblingPackages |= set([ x[0] for x in siblings ])
         updatedPackages = list(siblingPackages)
+
+        results = []
+
+        log.info('done loading siblings')
 
         # Iterate over all upstream group versions that should exist.
         for updateId, updates in self._errata.iterByIssueDate(current=-1):
@@ -76,7 +81,6 @@ class Bot(OrderedBot):
 
             log.info('%s: retrieving group model information' % version)
             group = self._groupmgr.getGroup(version=version)
-
 
             # Get all of the nvfs from the group model.
             nvfs = set()
@@ -108,9 +112,10 @@ class Bot(OrderedBot):
                 upVer = '/'.join([v.branch().label().asString(),
                                   v.trailingRevision().version])
                 binSpecs = self._updater._conaryhelper._repos.findTrove(
-                    v.branch().label(), (n, upVer, f))
+                    v.branch().label(), (n, upVer, None), bestFlavor=False)
 
                 assert len(binSpecs) > 1
+
                 latest = sorted(binSpecs)[-1]
 
                 log.info('%s: found updated version of %s %s -> %s'
@@ -157,20 +162,28 @@ class Bot(OrderedBot):
             group._groups.pop(standardName, None)
 
             # Run through all of the adds and removes for the standard group.
-            for updateId in range(0, group.errataState + 1):
-                self._modifyGroups(updateId, group)
+            for uid, ups in self._errata.iterByIssueDate(current=-1):
+                if uid > group.errataState:
+                    break
+                self._modifyGroups(uid, group)
 
             log.info('%s: committing contents to latest' % version)
             group = group.commit(copyToLatest=True)
 
             log.info('%s: building group' % version)
-            trvMap = group.build()
+            res = group.buildmany()
+            results.append(res)
 
-            for src, bins in trvMap.iteritems():
-                log.info('%s: built troves' % version)
-                for n, v, f in sorted(bins):
-                    log.info('    %s=%s[%s]' % (n, v, f))
+            import epdb; epdb.st()
 
+            completed = [ x for x in results if x.isDone ]
+            if completed:
+                for res in completed:
+                    for src, bins in res.results.iteritems():
+                        log.info('%s: built troves' % version)
+                        for n, v, f in sorted(bins):
+                            log.info('    %s=%s[%s]' % (n, v, f))
+                results.remove(res)
 
 
 if __name__ == '__main__':
@@ -206,6 +219,6 @@ if __name__ == '__main__':
     errata.fetch()
 
     bot = Bot(cfg, errata)
-    bot.rebuildgroups(updatedPackages=['chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango', 'setup', 'shadow-utils', 'shared-mime-info', 'texinfo', 'xorg-x11-font-utils', ])
+    bot.rebuildgroups(updatedPackages=['chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango', 'setup', 'shadow-utils', 'shared-mime-info', 'texinfo', 'xorg-x11-font-utils', 'kernel', 'xenpv', 'lpfc-kmod', 'be2net-kmod', 'alacarte', 'alchemist', 'audit', 'authconfig', 'avahi', 'beecrypt', 'cracklib', 'dbus-python', 'dogtail', 'eruby', 'gamin', 'gnome-applets', 'gnome-bluetooth', 'gnome-menus', 'gnome-python2', 'gnome-python2-desktop', 'gnome-python2-extras', 'gtk-vnc', 'hplip', 'iscsi-initiator-utils', 'java-1.4.2-gcj-compat', 'kdebindings', 'kudzu', 'lcms', 'libbtctl', 'libieee1284', 'libselinux', 'libsemanage', 'libuser', 'libxml2', 'libxslt', 'm2crypto', 'mkinitrd', 'mod_python', 'mx', 'MySQL-python', 'newt', 'notify-python', 'oddjob', 'OpenIPMI', 'orca', 'pexpect', 'pirut', 'policycoreutils', 'postgresql', 'postgresql84', 'pycairo', 'pygobject2', 'pygtk2', 'pykickstart', 'pyOpenSSL', 'pyorbit', 'pyparted', 'PyQt', 'Pyrex', 'pyspi', 'python', 'python-dmidecode', 'python-elementtree', 'python-imaging', 'python-iniparse', 'python-ldap', 'python-numeric', 'python-pyblock', 'python-setuptools', 'python-sqlite', 'python-urlgrabber', 'pyxf86config', 'PyXML', 'rhel-instnum', 'rhnlib', 'rhpl', 'rhpxl', 'rpm', 'ruby', 'sabayon', 'setroubleshoot', 'sip', 'sos', 'subversion', 'system-config-printer', 'vte', 'wireshark', 'yum', 'yum-metadata-parser',])
 
     import epdb; epdb.st()

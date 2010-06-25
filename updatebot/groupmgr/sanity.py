@@ -154,7 +154,7 @@ class GroupSanityChecker(object):
 
                 # FIXME: This should probably be a fully formed version
                 #        as above.
-                version = upstreamVersion
+                version = version.branch().label().asString() + '/' + upstreamVersion
 
             flavor = None
             # FIXME: At some point we might want to add proper flavor handling,
