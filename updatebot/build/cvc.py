@@ -16,8 +16,10 @@
 An abstraction layer around cvc cook.
 """
 
+import os
 import copy
 import logging
+import tempfile
 
 log = logging.getLogger('updatebot.build.cvc')
 
@@ -58,22 +60,31 @@ class Cvc(object):
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 
-    def cook(self, troveSpecs, flavorFilter=None):
+    def cook(self, troveSpecs, flavorFilter=None, commit=True):
         """
         Cook a set of trove specs, currently limited to groups.
         @params troveSpecs: list of name, version, and flavor tuples.
         @type troveSpecs: [(name, version, flavor), ... ]
-        @params flavorFilter: Allow caller to filter out the contexts that they
-                              want to build. This is mostly used for group
-                              building where a given group should not be built
-                              for a context.
+        @param flavorFilter: Allow caller to filter out the contexts that they
+                             want to build. This is mostly used for group
+                             building where a given group should not be built
+                             for a context.
         @type flavorFilter: iterable of context names.
+        @param commit: Optional parameter to control when a changeset is
+                       committed.
+        @type commit: boolean
         """
 
         # TODO: Look at conary.build.cook.cookCommand for how to setup
         #       environment when building anything other than groups.
 
         troveSpecs = self._formatInput(troveSpecs)
+
+        if commit:
+            changeSetFile = None
+        else:
+            fd, changeSetFile = tempfile.mkstemp(prefix='changeset-')
+            os.close(fd)
 
         if flavorFilter:
             troveSpecs = self._filterTroveSpecs(troveSpecs, flavorFilter)
@@ -103,6 +114,7 @@ class Cvc(object):
             logBuild=True,
             callback=conarycallbacks.UpdateBotCookCallback(),
             groupOptions=groupCookOptions,
+            changeSetFile=changeSetFile,
         )
 
         if built is None:
@@ -122,7 +134,23 @@ class Cvc(object):
                       for x, y, z in components)
 
         res = { (troveSpecs[0][0], troveSpecs[0][1], None): results }
-        return res
+
+        if commit:
+            return res
+        else:
+            return changeSetFile, res
+
+    def commitChangeSetFile(self, changeSetFile, callback=None):
+        """
+        Expose commit changeset interface.
+        @param changeSetFile: changeset file name
+        @type changeSetFile: str
+        @param callback: optional commit callback.
+        @type callback: conary.callbacks.ChangesetCallback
+        """
+
+        return self._client.repos.commitChangeSetFile(
+            changeSetFile, callback=callback)
 
     def build(self, trvSpec, flavorFilter=None):
         """
