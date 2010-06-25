@@ -171,6 +171,13 @@ class Group(object):
 
         return self._mgr.buildGroup(self)
 
+    def buildmany(self):
+        """
+        Build this group alongside other groups.
+        """
+
+        return self._mgr.buildGroup(self, multiBuild=True)
+
     def hasBinaryVersion(self):
         """
         Check if this group has a binary version.

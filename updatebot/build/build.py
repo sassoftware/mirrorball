@@ -49,6 +49,7 @@ from updatebot.errors import FailedToRetrieveChangesetError
 from updatebot.errors import ChangesetValidationFailedError
 
 from updatebot.build.cvc import Cvc
+from updatebot.build.jobs import LocalDispatcher
 from updatebot.build.dispatcher import Dispatcher
 from updatebot.build.dispatcher import NonCommittalDispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
@@ -149,7 +150,8 @@ class Builder(object):
 
         self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
 
-        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput)
+        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput,
+                       LocalDispatcher(self, 12))
 
     def build(self, troveSpecs):
         """

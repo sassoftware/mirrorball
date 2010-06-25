@@ -47,9 +47,10 @@ class Cvc(object):
     @type inputFormatter: method
     """
 
-    def __init__(self, cfg, ccfg, inputFormatter):
+    def __init__(self, cfg, ccfg, inputFormatter, dispatcher):
         self._cfg = cfg
         self._ccfg = copy.deepcopy(ccfg)
+        self._dispatcher = dispatcher
         self._formatInput = inputFormatter
 
         # Restet dbPath to the default value for local cooking.
@@ -122,6 +123,22 @@ class Cvc(object):
 
         res = { (troveSpecs[0][0], troveSpecs[0][1], None): results }
         return res
+
+    def build(self, trvSpec, flavorFilter=None):
+        """
+        Build trove locally.
+        @param trvSpec: trove spec to build.
+        @type trvSpec: tuple(str, conary.versions.VersionFromString,
+                                  conary.deps.deps.Flavor)
+        @param flavorFilter: Allow caller to filter out the contexts that they
+                             want to build. This is mostly used for group
+                             building where a given group should not be built
+                             for a context.
+        @type flavorFilter: iterable of context names.
+        @return status results instance.
+        """
+
+        return self._dispatcher.build(trvSpec, flavorFilter=flavorFilter)
 
     def _filterTroveSpecs(self, troveSpecs, useFlags):
         """

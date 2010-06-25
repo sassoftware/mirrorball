@@ -17,16 +17,18 @@ Module for common abstract classes.
 """
 
 import logging
-from Queue import Queue
 from Queue import Empty
+from Queue import Queue
 from threading import Thread
 
-from updatebot.build.constants import ThreadTypes
+from multiprocessing import Process
+from multiprocessing.queues import Queue as ProcessQueue
+
 from updatebot.build.constants import MessageTypes
 
 log = logging.getLogger('updatebot.build')
 
-class AbstractWorker(Thread):
+class AbstractWorker(object):
     """
     Abstract class for all worker nodes.
     """
@@ -34,8 +36,6 @@ class AbstractWorker(Thread):
     threadType = None
 
     def __init__(self, status):
-        Thread.__init__(self)
-
         self.status = status
         self.workerId = None
 
@@ -48,7 +48,7 @@ class AbstractWorker(Thread):
             self.work()
         except Exception, e:
             self.status.put((MessageTypes.THREAD_ERROR,
-                             (self.threadType, self.workerId, e)))
+                             (self.threadType, self.workerId, str(e))))
 
         self.status.put((MessageTypes.THREAD_DONE, self.workerId))
 
@@ -58,6 +58,30 @@ class AbstractWorker(Thread):
         """
 
         raise NotImplementedError
+
+
+class AbstractWorkerThread(AbstractWorker, Thread):
+    """
+    Abstract class for worker threads.
+    """
+
+    queueClass = Queue
+
+    def __init__(self, status):
+        AbstractWorker.__init__(self, status)
+        Thread.__init__(self)
+
+
+class AbstractWorkerProcess(AbstractWorker, Process):
+    """
+    Abstract class for worker processes.
+    """
+
+    queueClass = ProcessQueue
+
+    def __init__(self, status):
+        AbstractWorker.__init__(self, status)
+        Process.__init__(self)
 
 
 class AbstractStatusMonitor(object):
@@ -72,7 +96,7 @@ class AbstractStatusMonitor(object):
             threadArgs = (threadArgs, )
         self._threadArgs = threadArgs
 
-        self._status = Queue()
+        self._status = self.workerClass.queueClass()
         self._workers = {}
         self._errors = []
 

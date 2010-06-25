@@ -296,13 +296,16 @@ class GroupManager(object):
         return self.getGroup(version=newVersion)
 
     @require_write
-    def buildGroup(self, group):
+    def buildGroup(self, group, multiBuild=False):
         """
         Build the binary version of a given group.
         @param group: group model to build.
         @type group: updatebot.groupmgr.group.Group
-        @return mapping of built troves.
-        @rtype dict(sourceTrv=[binTrv, ..])
+        @param multiBuild: Optional parameter, defaults to False, control if
+                           builder can build multiple packages at once.
+        @type mutliBuild: boolean
+        @return mapping of built troves, if multiBuild return results object.
+        @rtype dict(sourceTrv=[binTrv, ..]) or updatebot.build.jobs.Status
         """
 
         # Make sure this group has been committed to the repository before
@@ -324,7 +327,12 @@ class GroupManager(object):
 
         # Create a build job and build groups using cvc.
         job = ((self._sourceName, group.conaryVersion, None), )
-        results = self._builder.cvc.cook(job, flavorFilter=use)
+
+        if not multiBuild:
+            results = self._builder.cvc.cook(job, flavorFilter=use)
+        else:
+            results = self._builder.cvc.build(job[0], flavorFilter=use)
+
         return results
 
     def getSourceVersions(self):

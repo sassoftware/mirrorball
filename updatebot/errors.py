@@ -142,6 +142,31 @@ class GroupBuildNotSupportedError(BuildError):
     _template = 'This build method does not support building groups.'
 
 
+class LocalBuildError(BuildError):
+    """
+    Abstract class for local errors.
+    """
+
+
+class BuildFailedError(LocalBuildError):
+    """
+    BuildFailedError, raised when a local build fails to build or commit.
+    """
+
+    _params = ['trove', 'error', ]
+    _template = 'Failed to complete build of %(trove)s: %(error)s'
+
+
+class ResultsNotReadyError(LocalBuildError):
+    """
+    ResultsNotReadyError, raised when results are requested from a build status
+    before the job is completed.
+    """
+
+    _params = ['trove', ]
+    _template = 'Job for %(trove)s is not yet complete'
+
+
 class UnhandledUpdateError(UpdateBotError):
     """
     UnhandledUpdateError, raised when the bot finds a state that it does not

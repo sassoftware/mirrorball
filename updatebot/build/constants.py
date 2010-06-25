@@ -27,7 +27,7 @@ class MessageTypes(object):
     THREAD_ERROR = 3
 
 
-class ThreadTypes(object):
+class WorkerTypes(object):
     """
     Class for storing thread types.
     """
@@ -35,11 +35,15 @@ class ThreadTypes(object):
     START = 0
     MONITOR = 1
     COMMIT = 2
+    LOCAL_GROUP_BUILD = 3
+    LOCAL_CHANGESET_COMMIT = 4
 
     names = {
         START: 'Start',
         MONITOR: 'Monitor',
         COMMIT: 'Commit',
+        LOCAL_GROUP_BUILD: 'Local Group Build',
+        LOCAL_CHANGESET_COMMIT: 'Local Changeset Commit',
     }
 
 
@@ -52,3 +56,7 @@ class JobStatus(object):
     ERROR_MONITOR_FAILURE = -2
     ERROR_COMMITTER_FAILURE = -3
     JOB_COMMITTING = -4
+    JOB_BUILDING = -5
+    JOB_BUILT = -6
+    JOB_COMMITTED = -7
+    JOB_FAILED = -8

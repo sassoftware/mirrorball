@@ -20,10 +20,10 @@ import os
 
 from rmake.cmdline import monitor
 
-from updatebot.build.common import AbstractWorker
 from updatebot.build.common import AbstractStatusMonitor
+from updatebot.build.common import AbstractWorkerThread as AbstractWorker
 
-from updatebot.build.constants import ThreadTypes
+from updatebot.build.constants import WorkerTypes
 from updatebot.build.constants import MessageTypes
 from updatebot.build.callbacks import JobMonitorCallback
 
@@ -32,7 +32,7 @@ class StartWorker(AbstractWorker):
     Worker thread for starting jobs and reporting status.
     """
 
-    threadType = ThreadTypes.START
+    threadType = WorkerTypes.START
 
     def __init__(self, status, (builder, trove)):
         AbstractWorker.__init__(self, status)
@@ -47,7 +47,7 @@ class StartWorker(AbstractWorker):
         """
 
         jobId = self.builder.start(self.trove)
-        self.status.put((MessageTypes.DATA, (jobId, self.trove)))
+        self.status.put((MessageTypes.DATA, (self.trove, jobId)))
 
 
 class MonitorWorker(AbstractWorker):
@@ -55,7 +55,7 @@ class MonitorWorker(AbstractWorker):
     Worker thread for monitoring jobs and reporting status.
     """
 
-    threadType = ThreadTypes.MONITOR
+    threadType = WorkerTypes.MONITOR
     displayClass = JobMonitorCallback
 
     def __init__(self, status, (rmakeClient, jobId)):
@@ -92,7 +92,7 @@ class CommitWorker(AbstractWorker):
     Worker thread for committing jobs.
     """
 
-    threadType = ThreadTypes.COMMIT
+    threadType = WorkerTypes.COMMIT
 
     def __init__(self, status, (builder, jobId)):
         AbstractWorker.__init__(self, status)

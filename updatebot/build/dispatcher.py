@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) 2009-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -29,11 +29,50 @@ from updatebot.build.monitor import JobMonitor
 from updatebot.build.monitor import JobCommitter
 from updatebot.build.constants import JobStatus
 
+
 from updatebot.errors import JobNotCompleteError
 
 log = logging.getLogger('updatebot.build')
 
-class Dispatcher(object):
+class AbstractDispatcher(object):
+    """
+    Abstract class for managing builds.
+    """
+
+    _completed = ()
+
+    def __init__(self, builder, maxSlots):
+        self._builder = builder
+        self._maxSlots = maxSlots
+        self._slots = self._maxSlots
+
+        # jobId: (trv, status, commitData)
+        self._jobs = {}
+        self._failures = []
+
+    def _jobDone(self):
+        """
+        Check if all jobs are complete.
+        """
+
+        if not len(self._jobs):
+            return False
+
+        for jobId, (trove, status, result) in self._jobs.iteritems():
+            if status not in self._completed:
+                return False
+        return True
+
+    def _availableFDs(self, setMax=False):
+        """
+        Get 80% of available file descriptors in hopes of not running out.
+        """
+
+        avail = util.getAvailableFileDescriptors(setMax=setMax)
+        return math.floor(0.8 * avail)
+
+
+class Dispatcher(AbstractDispatcher):
     """
     Manage building a list of troves in a way that doesn't bring rMake to its
     knees.
@@ -53,9 +92,7 @@ class Dispatcher(object):
 
 
     def __init__(self, builder, maxSlots):
-        self._builder = builder
-        self._maxSlots = maxSlots
-        self._slots = maxSlots
+        AbstractDispatcher.__init__(self, builder, maxSlots)
 
         self._maxStartSlots = 10
         self._startSlots = self._maxStartSlots
@@ -66,11 +103,6 @@ class Dispatcher(object):
         self._starter = JobStarter(self._builder)
         self._monitor = JobMonitor(self._builder._helper.client)
         self._committer = JobCommitter(self._builder)
-
-        # jobId: (trv, status, commitData)
-        self._jobs = {}
-
-        self._failures = []
 
     def buildmany(self, troveSpecs):
         """
@@ -100,7 +132,7 @@ class Dispatcher(object):
                     self._startSlots -= 1
 
             # get started status
-            for jobId, trove in self._starter.getStatus():
+            for trove, jobId in self._starter.getStatus():
                 self._jobs[jobId] = [trove, JobStatus.JOB_NOT_STARTED, None]
                 self._startSlots += 1
                 self._monitor.monitorJob(jobId)
@@ -190,27 +222,6 @@ class Dispatcher(object):
                 results.update(result)
 
         return results, self._failures
-
-    def _jobDone(self):
-        """
-        Check if all jobs are complete.
-        """
-
-        if not len(self._jobs):
-            return False
-
-        for jobId, (trove, status, result) in self._jobs.iteritems():
-            if status not in self._completed:
-                return False
-        return True
-
-    def _availableFDs(self, setMax=False):
-        """
-        Get 80% of available file descriptors in hopes of not running out.
-        """
-
-        avail = util.getAvailableFileDescriptors(setMax=setMax)
-        return math.floor(0.8 * avail)
 
 
 class NonCommittalDispatcher(Dispatcher):
