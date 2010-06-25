@@ -236,7 +236,7 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def rebuild(self, troveSpecs, useLatest=None):
+    def rebuild(self, troveSpecs, useLatest=None, additionalResolveTroves=None):
         """
         Rebuild a set of troves in the same environment that they were
         orignally built in.
@@ -246,14 +246,24 @@ class Builder(object):
                           For instance, you may want to use the latest version
                           of conary to get fixed dependencies.
         @type useLatest: list(str, ...)
+        @param additionalResolveTroves: List of additional trove specs to add to
+                                        the resolve troves.
+        @type additionalResolveTroves: list(str, ...)
         @return troveMap: dictionary of troveSpecs to built troves
         """
+
+        # Set some defaults
+        if useLatest is None:
+            useLatest = []
+        if additionalResolveTroves is None:
+            additionalResolveTroves = []
 
         def grpByNameVersion(jobLst):
             lst = {}
             for job in jobLst:
                 lst.setdefault(tuple(job[:2]), set()).add(job)
-            return sorted(lst.values())
+
+            return [ lst[x] for x in sorted(lst.keys()) ]
 
         def startOne(job):
             # Get a new builder so that we don't change the configuration of the
@@ -307,6 +317,10 @@ class Builder(object):
             # Reconfigure builder to use previous buildrequires as
             # resolveTroves.
             resolveTroves = ' '.join([ '%s=%s' % x for x in reqs ])
+
+            # Add any additional resolve troves.
+            resolveTroves += ' ' + ' '.join(additionalResolveTroves)
+
             builder._rmakeCfg.resolveTroves = []
             builder._rmakeCfg.configLine('resolveTroves %s' % resolveTroves)
 

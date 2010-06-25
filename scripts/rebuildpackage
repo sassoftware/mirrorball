@@ -36,7 +36,8 @@ class Bot(OrderedBot):
 
         return sorted(nvfs)
 
-    def rebuildpackage(self, name, useLatest=None):
+    def rebuildpackage(self, name, useLatest=None,
+        additionalResolveTroves=None):
         """
         Rebuild all versions of a given package in order.
         @param name: name of the package to rebuild.
@@ -45,11 +46,23 @@ class Bot(OrderedBot):
                           For instance, you may want to use the latest version
                           of conary to get fixed dependencies.
         @type useLatest: list(str, ...)
+        @param additionalResolveTroves: List of additional trove specs to add to
+                                        the resolve troves.
+        @type additionalResolveTroves: list(str, ...)
         """
 
         trvSpecs = [ (x[0].split(':')[0], x[1], None)
                      for x in self._getAllVersions(name) ]
-        trvMap = self._builder.rebuild(trvSpecs, useLatest=useLatest)
+
+        # Build only the latest versions of each sources.
+        latestMap = {}
+        for n, v, f in reversed(sorted(trvSpecs)):
+            upVer = v.trailingRevision().version
+            if upVer not in latestMap:
+                latestMap[upVer] = (n, v, f)
+
+        trvMap = self._builder.rebuild(latestMap.values(), useLatest=useLatest,
+            additionalResolveTroves=additionalResolveTroves)
 
         return trvMap
 
@@ -79,12 +92,19 @@ class Bot(OrderedBot):
         # Rewrite source versions by cloning old versions forward and then
         # modifying them.
         for spec in trvSpecs:
-            # Clone version to tip
-            targetBranch = spec[1].branch()
-            newPkgs = helper.clone(targetBranch, [spec, ], commit=False)
+            # Clone version to tip, only need to clone if there is more than
+            # one version.
+            if len(trvSpecs) > 1:
+                targetBranch = spec[1].branch()
+                cs, newPkgs = helper.clone(targetBranch, [spec, ], commit=False)
 
-            assert len(newPkgs) == 1
-            n, v, f = newPkgs[0]
+                assert len(newPkgs) == 1
+                n, v, f = newPkgs[0]
+
+                # Commit the changeset now that it has been validated.
+                helper._repos.commitChangeSet(cs)
+            else:
+                n, v, f = spec
 
             # Edit the source to remove files.
             checkoutDir = helper._edit(n, version=v)
@@ -95,7 +115,8 @@ class Bot(OrderedBot):
 
             # Commit changes if anything changed.
             if removeFiles:
-                helper._commit(checkoutDir, 'automated file removal')
+                helper.commit(n, version=v,
+                              commitMessage='automated file removal')
 
 
 if __name__ == '__main__':
@@ -141,8 +162,14 @@ if __name__ == '__main__':
     bot = Bot(cfg, errata)
 
     for pkgName in pkgNames:
-        bot.removeSourceFiles(pkgName)
+#        bot.removeSourceFiles(pkgName)
         bot.rebuildpackage(pkgName,
-            useLatest=['conary', 'conary-build', 'conary-policy'])
+            useLatest=['conary', 'conary-build', 'conary-policy', 'rpm', ],
+            additionalResolveTroves=[
+                'libelf-lgpl=rhel.rpath.com@rpath:rhel-5-devel',
+                'conary=rhel.rpath.com@rpath:rhel-5-devel',
+                'conary-build=rhel.rpath.com@rpath:rhel-5-devel',
+                'conary-policy=rhel.rpath.com@rpath:rhel-5-devel',
+                'rpm=rhel.rpath.com@rpath:rhel-5-server-devel', ])
 
     import epdb; epdb.st()
