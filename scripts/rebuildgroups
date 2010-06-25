@@ -13,48 +13,167 @@
 # full details.
 #
 
+import os
+import sys
 import logging
+import itertools
 
-from updatebot import groupmgr
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+
+
+from conary import versions
+from conary.deps import deps
+
 from updatebot import OrderedBot
 
 log = logging.getLogger('tmplogger')
 
 class Bot(OrderedBot):
-    def rebuildgroups(self):
+    def rebuildgroups(self, updatedPackages=None):
         """
         Rebuild all groups on the devel label. This requires rewriting the group
         model to point at the target label and readding content.
+        @param updatedPackages: List of package names that have been rebuilt and
+                                thus need to be updated when modifying the
+                                groups.
+        @type updatedPackages: list(str, ...)
         """
+
+        if not updatedPackages:
+            updatedPackages = []
 
         # load package source
         self._pkgSource.load()
 
+        versionMap = {
+            'rhel': {'4': '4.0',
+                     '5': '5.0', },
+        }
+
+        # Make sure to include any packages that were built from the same
+        # source.
+        siblingPackages = set()
+        for name in updatedPackages:
+            nvfs = self._updater._conaryhelper.findTrove((name, None, None),
+                getLeaves=False)
+            for nvf in nvfs:
+                siblings = self._updater._conaryhelper.getSiblingPackages(
+                    nvf, allVersions=True)
+                siblingPackages.update(set([ x[0] for x in siblings ]))
+        updatedPackages = list(siblingPackages)
+
+        # Iterate over all upstream group versions that should exist.
         for updateId, updates in self._errata.iterByIssueDate(current=-1):
-            mgr = groupmgr.GroupManager(self._cfg,
-                useMap=self._pkgSource.useMap)
+            if updateId == 0:
+                prodMap = versionMap[self._cfg.platformName]
+                version = prodMap[self._cfg.upstreamProductVersion]
+            else:
+                version = self._errata.getBucketVersion(updateId)
 
-            
+            log.info('%s: retrieving group model information' % version)
+            group = self._groupmgr.getGroup(version=version)
 
-            # Find any version exceptions for this update.
-            multiVersionExceptions = dict([
-                (x[0], x[1]) for x in itertools.chain(
-                    self._updater.getTargetVersions(itertools.chain(
-                *self._getOldVersionExceptions(updateId).itervalues()
-                    ))[0]
-                )
-            ])
+
+            # Get all of the nvfs from the group model.
+            nvfs = set()
+            checkUpdates = set()
+            emptyFlavors = set()
+            for pkg in group.iterpackages():
+                n = str(pkg.name)
+                v = versions.ThawVersion(str(pkg.version))
+
+                f = deps.ThawFlavor(str(pkg.flavor))
+                if str(f) == '':
+                    f = None
+
+                if n in updatedPackages:
+                    checkUpdates.add((n, v, f))
+                elif f is None:
+                    emptyFlavors.add((n, v, f))
+                else:
+                    nvfs.add((n, v, f))
+
+            # Lookup anything that has an empty flavor.
+            req = set([ (x[0], x[1], None) for x in emptyFlavors ])
+            found = self._updater._conaryhelper.findTroves(req)
+            for n, v, f in itertools.chain(*found.values()):
+                nvfs.add((n, v, f))
+
+            # Lookup anything that is expected to have been rebuilt.
+            for n, v, f in checkUpdates:
+                upVer = '/'.join([v.branch().label().asString(),
+                                  v.trailingRevision().version])
+                binSpecs = self._updater._conaryhelper._repos.findTrove(
+                    v.branch().label(), (n, upVer, f))
+
+                assert len(binSpecs) > 1
+                latest = sorted(binSpecs)[-1]
+
+                log.info('%s: found updated version of %s %s -> %s'
+                         % (version, n, v, latest[1]))
+
+                if v != latest[1]:
+                    nvfs.add(latest)
+                else:
+                    nvfs.add((n, v, f))
+
+            # Lookup cloned from info for all versions.
+            log.info('%s: retrieving target version information' % version)
+            targetVersions, failed = self._updater.getTargetVersions(nvfs)
+
+            # Make sure any that failed are in the set of packages that are
+            # expected to have updates.
+            assert not [ x for x in failed if x[0] not in updatedPackages ]
+
+            # Take the union of all versions on the target label and those that
+            # have not yet been promoted.
+            newVersions = set(targetVersions) | set(failed)
+
+            # Add all of the new versions.
+            log.info('%s: adding remapped versions' % version)
+            pkgs = {}
+            for n, v, f in newVersions:
+                pkgs.setdefault(n, dict()).setdefault(v, set()).add(f)
+
+            for n, vMap in pkgs.iteritems():
+                assert len(vMap) == 1
+                group.removePackage(n)
+                for v, flvs in vMap.iteritems():
+                    group.addPackage(n, v, flvs)
+
+            # Now deal with the standard group contents by recreating the
+            # standard group from the new group configuration information.
+
+            # Remove the existing standard group if there is one.
+            log.info('%s: regenerating standard group' % version)
+            standardNames = [ n for n, m in group.iteritems()
+                              if 'standard' in n ]
+            assert len(standardNames) == 1
+            standardName = standardNames[0]
+            group._groups.pop(standardName, None)
+
+            # Run through all of the adds and removes for the standard group.
+            for updateId in range(0, group.errataState + 1):
+                self._modifyGroups(updateId, group)
+
+            log.info('%s: committing contents to latest' % version)
+            group = group.commit(copyToLatest=True)
+
+            log.info('%s: building group' % version)
+            trvMap = group.build()
+
+            for src, bins in trvMap.iteritems():
+                log.info('%s: built troves' % version)
+                for n, v, f in sorted(bins):
+                    log.info('    %s=%s[%s]' % (n, v, f))
+
+
 
 if __name__ == '__main__':
-    import os
-    import sys
-
-    mirrorballDir = os.path.abspath('../')
-    sys.path.insert(0, mirrorballDir)
-
-    if 'CONARY_PATH' in os.environ:
-        sys.path.insert(0, os.environ['CONARY_PATH'])
-
     import rmake
     import conary
     import updatebot
@@ -75,8 +194,10 @@ if __name__ == '__main__':
 
     log = logging.getLogger('grouprebuild')
 
+    confDir = mirrorballDir + '/config/%s' % sys.argv[1]
+
     cfg = config.UpdateBotConfig()
-    cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
+    cfg.read(confDir + '/updatebotrc')
 
     mcfg = rhnmirror.MirrorConfig()
     mcfg.read(confDir + '/erratarc')
@@ -85,6 +206,6 @@ if __name__ == '__main__':
     errata.fetch()
 
     bot = Bot(cfg, errata)
-    bot.rebuildgroups()
+    bot.rebuildgroups(updatedPackages=['chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango', 'setup', 'shadow-utils', 'shared-mime-info', 'texinfo', 'xorg-x11-font-utils', ])
 
     import epdb; epdb.st()

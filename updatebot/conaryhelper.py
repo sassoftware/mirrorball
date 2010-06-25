@@ -1438,9 +1438,36 @@ class ConaryHelper(object):
         if not commit:
             return cs, packageList
 
-        import epdb; epdb.st()
         log.info('committing changeset')
         self._repos.commitChangeSet(cs, callback=callback)
         log.info('changeset committed')
 
         return packageList
+
+    def getSiblingPackages(self, nvf, allVersions=False):
+        """
+        Get a list of packages built from the same source with the same version.
+        @param nvf: name, verison, flavor tuple
+        @type nvf: tuple(str, conary.versions.VersionFromString,
+                              conary.deps.deps.Flavor)
+        @param allVersions: Optional argument, defaults to False; to include all
+                            binary versions built from the same source version.
+        @type allVersions: boolean
+        @return list of name, version, flavor tuples
+        @rtype list((str, conary.versions.VersionFromString,
+                          conary.deps.deps.Flavor), ...)
+        """
+
+        trv = self._repos.getTrove(*nvf, withFiles=False)
+
+        srcName = trv.troveInfo.sourceName()
+        if not srcName:
+            srcName = trv.getName()
+
+        srcVersion = trv.getVersion().getSourceVersion()
+        siblings = self._repos.getTrovesBySource(srcName, srcVersion)
+
+        if not allVersions:
+            siblings = [ x for x in siblings if x[1] == nvf[1] ]
+
+        return siblings
