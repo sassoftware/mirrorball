@@ -30,8 +30,6 @@ log.info('commiting will remove the following trove specs')
 for spec in sorted(removedSpecs):
     log.info('removing: %s=%s[%s]' % spec)
 
-import epdb; epdb.st()
-
 if askYn('remove troves? (y/N):', default=False):
     log.info('committing')
     helper._repos.commitChangeSet(cs)
