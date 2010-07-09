@@ -170,6 +170,7 @@ if __name__ == '__main__':
                 'conary=rhel.rpath.com@rpath:rhel-5-devel',
                 'conary-build=rhel.rpath.com@rpath:rhel-5-devel',
                 'conary-policy=rhel.rpath.com@rpath:rhel-5-devel',
-                'rpm=rhel.rpath.com@rpath:rhel-5-server-devel', ])
+                'rpm=rhel.rpath.com@rpath:rhel-5-server-devel', 
+                'group-os=rhel.rpath.com@rpath:rhel-5-server-devel',])
 
     import epdb; epdb.st()
