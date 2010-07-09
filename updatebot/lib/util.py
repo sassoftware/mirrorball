@@ -24,7 +24,6 @@ import epdb
 import signal
 import resource
 from conary.lib.util import rmtree
-from conary.conaryclient.cmdline import askYn
 from conary.lib.util import convertPackageNameToClassName as _pkgNameToClassName
 
 from rpmutils import rpmvercmp
@@ -189,3 +188,24 @@ def setupDebugHandler(serve=False):
 def convertPackageNameToClassName(pkgName):
     name = _pkgNameToClassName(pkgName)
     return name.replace('.', '_')
+
+def askYn(prompt, default=None):
+    while True:
+        try:
+            resp = raw_input(prompt + ' ')
+        except EOFError:
+            return False
+
+        resp = resp.lower()
+        if resp in ('y', 'yes'):
+            return True
+        elif resp in ('n', 'no'):
+            return False
+        elif resp in ('d', 'debug'):
+            epdb.st()
+        elif not resp:
+            return default
+        else:
+            print "Unknown response '%s'." % resp
+
+
