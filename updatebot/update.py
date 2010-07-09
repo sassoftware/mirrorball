@@ -1084,6 +1084,11 @@ class Updater(object):
             srcSpec = (trvSpec[0], trvSpec[1], None)
 
         srcTrvs = self._conaryhelper.findTrove(srcSpec, getLeaves=False)
+
+        if not srcTrvs:
+            log.warn('no versions of %s found on %s' % (srcSpec[0], srcSpec[1]))
+            return {}
+
         filteredSrcTrvs = [ (x, y, None) for x, y, z in srcTrvs ]
         assert filteredSrcTrvs
         srcMap = self._conaryhelper.getBinaryVersions(filteredSrcTrvs,
