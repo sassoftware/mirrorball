@@ -15,16 +15,16 @@
 
 from header import *
 
+import logging
 import tempfile
 
-from updatebot import conaryhelper
-helper = conaryhelper.ConaryHelper(cfg)
+slog = logging.getLogger('script')
 
-from conary import versions
 from conary.deps import deps
 
-import logging
-slog = logging.getLogger('script')
+from updatebot import conaryhelper
+
+helper = conaryhelper.ConaryHelper(cfg)
 
 #import cProfile
 #prof = cProfile.Profile()
@@ -49,7 +49,8 @@ slog.info('changeset created')
 #prof.dump_stats('promote.lsprof')
 #prof.print_stats()
 
-newPkgs = set([ (x[0].split(':')[0], x[1].getSourceVersion(), x[2]) for x in packages])
+newPkgs = set([ (x[0].split(':')[0], x[1].getSourceVersion(), x[2])
+                for x in packages])
 
 pkgMap = {}
 for n, v, f in newPkgs:
@@ -68,12 +69,16 @@ for pkg in pkgs:
             continue
         slog.info('promoting %s=%s[%s]' % (pkg[0], pkg[1], flv))
 
-#csFileName = tempfile.mktemp()
-#slog.info('writing changeset to %s' % csFileName)
-#cs.writeToFile(csFileName)
 
-slog.info('committing')
+if ui.ask('commit?', default=False):
+    slog.info('committing')
+    helper._repos.commitChangeSet(cs)
+elif ui.ask('write to file?', default=True):
+    csFileName = tempfile.mktemp()
+    slog.info('writing changeset to %s' % csFileName)
+    cs.writeToFile(csFileName)
+else:
+    slog.info('not committing')
 
-helper._repos.commitChangeSet(cs)
-
+# Log a done mostly for timing purposes
 slog.info('done')
