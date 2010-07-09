@@ -31,8 +31,6 @@ sys.path.insert(0, mbdir)
 
 confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
-import rhnmirror
-
 from updatebot import log
 from updatebot import OrderedBot
 from updatebot import UpdateBotConfig
@@ -41,13 +39,32 @@ slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-mcfg = rhnmirror.MirrorConfig()
-mcfg.read(confDir + '/erratarc')
+if cfg.platformName == 'rhel':
+    import rhnmirror
 
-errata = rhnmirror.Errata(mcfg)
-errata.fetch()
+    mcfg = rhnmirror.MirrorConfig()
+    mcfg.read(confDir + '/erratarc')
 
-bot = OrderedBot(cfg, errata)
+    errata = rhnmirror.Errata(mcfg)
+    errata.fetch()
+
+    bot = OrderedBot(cfg, errata)
+
+else:
+    bot = OrderedBot(cfg, None)
+
+    if cfg.platformName == 'sles':
+        from errata.sles import AdvisoryManager as Errata
+
+    elif cfg.platformName == 'centos':
+        from errata.centos import AdvisoryManager as Errata
+
+    else:
+        raise RuntimeError, 'no errata source found for %s' % cfg.platformName
+
+    errata = Errata(bot._pkgSource)
+    bot._errata._errata = errata
+
 bot.promote()
 
 import epdb; epdb.st()
