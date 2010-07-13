@@ -195,6 +195,21 @@ class CfgIntDict(CfgDict):
         return CfgDict.toStrings(self, value, displayOptions)
 
 
+class CfgStringFourTuple(CfgString):
+    """
+    Config class to represent a three tuple of strings.
+    """
+
+    def parseString(self, val):
+        splt = val.split(val)
+        if len(splt) != 4:
+            raise ParseError
+        vals = []
+        for val in splt:
+            vals.append(CfgString.parseString(self, splt[0]))
+        return tuple(vals)
+
+
 class UpdateBotConfigSection(cfg.ConfigSection):
     """
     Config class for updatebot.
@@ -240,6 +255,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # repository is meant for.
     # repositoryName archString
     repositoryArch      = (CfgDict(CfgString), {})
+
+    # Add a package to a particular repository. This is useful for adding x86
+    # packages to an x86_64 group. Normally in the form: pkgName conaryVersion
+    # archStr repositoryArch
+    repositoryPackage   = (CfgList(CfgStringFourTuple), [])
 
     # Associate binaries generated from a nosrc package with a source package
     # name if the nosrc package matches a given regular expression.

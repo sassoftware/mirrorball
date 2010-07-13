@@ -401,6 +401,14 @@ class YumSource(BasePackageSource):
                 if source not in self.useMap:
                     self.useMap.setdefault(source, set()).add(source[-1])
 
+            for n, v, a, repoArch in self._cfg.repositoryPackages:
+                specs = [
+                    (n, v, a),
+                    (n, a),
+                ]
+                for spec in specs:
+                    self.useMap.setdefault(spec, set()).add(repoArch)
+
         # In the case of SLES 10 we need to combine several source entries in
         # the srcPkgMap to create a single unified kernel source package.
         if self._cfg.nosrcFilter:
