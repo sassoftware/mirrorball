@@ -83,7 +83,6 @@ else:
     errata = Errata(bot._pkgSource)
     bot._errata._errata = errata
 
-
-pkgMap = bot.update(fltr=fltr)
+pkgMap = bot.update(fltr=fltr, restoreFile=restoreFile)
 
 import epdb; epdb.st()
