@@ -401,7 +401,7 @@ class YumSource(BasePackageSource):
                 if source not in self.useMap:
                     self.useMap.setdefault(source, set()).add(source[-1])
 
-            for n, v, a, repoArch in self._cfg.repositoryPackages:
+            for n, v, a, repoArch in self._cfg.repositoryPackage:
                 specs = [
                     (n, v, a),
                     (n, a),

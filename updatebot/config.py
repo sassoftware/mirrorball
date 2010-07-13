@@ -201,12 +201,12 @@ class CfgStringFourTuple(CfgString):
     """
 
     def parseString(self, val):
-        splt = val.split(val)
+        splt = val.split()
         if len(splt) != 4:
             raise ParseError
         vals = []
         for val in splt:
-            vals.append(CfgString.parseString(self, splt[0]))
+            vals.append(CfgString.parseString(self, val))
         return tuple(vals)
 
 
