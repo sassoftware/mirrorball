@@ -338,7 +338,7 @@ class Bot(BotSuperClass):
                 log.info('removing the following packages from the managed '
                     'group: %s' % ', '.join(requiredRemovals))
                 for pkg in requiredRemovals:
-                    group.removePackage(pkg)
+                    group.removePackage(pkg, missingOk=True)
             if removeObsoleted:
                 log.info('removing any of obsoleted packages from the managed '
                     'group: %s' % ', '.join(removeObsoleted))
