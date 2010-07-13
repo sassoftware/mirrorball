@@ -303,7 +303,7 @@ class Bot(BotSuperClass):
             # When deriving from an upstream platform sometimes we don't want
             # the latest versions.
             oldVersions = self._cfg.useOldVersion.get(updateId, None)
-            if self._cfg.platformSearchPath and oldVersions:
+            if oldVersions:
                 for nvf in oldVersions:
                     # Lookup all source and binaries that match this binary.
                     srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
