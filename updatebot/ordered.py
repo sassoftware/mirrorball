@@ -286,19 +286,27 @@ class Bot(BotSuperClass):
             allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
 
             # If recovering from a failure, restore the pkgMap from disk.
+            pkgMap = {}
             if restoreFile:
                 pkgMap = self._restorePackages(restoreFile)
                 restoreFile = None
 
+                # Filter out anything that has already been built from the list
+                # of updates.
+                upMap = dict([ (x.name, x) for x in updates ])
+                for n, v, f in pkgMap:
+                    if n in upMap:
+                        updates.remove(upMap[n])
+
             # Update package set.
-            else:
+            if updates:
                 fltr = kwargs.pop('fltr', None)
                 if fltr:
                     updates = fltr(updates)
 
-                pkgMap = self._update(*args, updatePkgs=updates,
+                pkgMap.update(self._update(*args, updatePkgs=updates,
                     expectedRemovals=expectedRemovals,
-                    allowPackageDowngrades=allowDowngrades, **kwargs)
+                    allowPackageDowngrades=allowDowngrades, **kwargs))
 
             # When deriving from an upstream platform sometimes we don't want
             # the latest versions.
