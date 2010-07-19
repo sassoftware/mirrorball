@@ -124,6 +124,7 @@ class LocalDispatcher(AbstractDispatcher, Thread):
 
         self._order = []
         self._started = False
+        self._done = False
 
         self.daemon = True
 
@@ -140,7 +141,9 @@ class LocalDispatcher(AbstractDispatcher, Thread):
         Polling loop to monitor and update job status.
         """
 
-        while not self._jobDone():
+        totalWait = 0
+        committed = []
+        while not self._done:
             # Start any jobs that are waiting to be started as long as there
             # are available slots.
             notStarted = self._getNotStarted()
@@ -175,6 +178,10 @@ class LocalDispatcher(AbstractDispatcher, Thread):
             # Find jobs that are ready to be committed. Jobs must be committed
             # in the order that they were submitted.
             for trove in self._order:
+                # continue if this trove has already been committed.
+                if self._jobs[trove][1] in self._completed:
+                    continue
+
                 # Make sure everything has committed in order.
                 if self._jobs[trove][1] not in self._slotdone:
                     break
@@ -200,7 +207,8 @@ class LocalDispatcher(AbstractDispatcher, Thread):
                 self._jobs[trove][1] = JobStatus.JOB_COMMITTED
                 res = self._jobs[trove][2]
                 res.setStatus('committed')
-                res.setResults(results)
+                res.setResults(res.data.buildResults)
+                committed.append(trove)
 
             # Check for commit errors.
             for trove, error in self._committer.getErrors():
@@ -209,11 +217,20 @@ class LocalDispatcher(AbstractDispatcher, Thread):
                 self._jobs[trove][2].setError(error)
 
             time.sleep(3)
+            totalWait += 3
+
+            # Only log slot status once a minute
+            if not totalWait % 60:
+                log.info('build slots: %s' % self._slots)
+                log.info('commit slots: %s' % self._commitSlots)
 
     def build(self, troveSpec, flavorFilter=None):
         """
         Add one trove spec to the build queue.
         """
+
+        # Make sure this instance hasn't been marked as done.
+        assert not self._done
 
         # Require at least one trove.
         if not troveSpec:
@@ -223,14 +240,28 @@ class LocalDispatcher(AbstractDispatcher, Thread):
         while not self._slots:
             time.sleep(3)
 
-        status = self.statusClass(troveSpec)
-        status.data.flavorFilter = frozenset(flavorFilter)
+        if troveSpec not in self._jobs:
+            status = self.statusClass(troveSpec)
+            status.data.flavorFilter = frozenset(flavorFilter)
 
-        self._jobs[troveSpec] = [troveSpec, JobStatus.JOB_NOT_STARTED, status]
-        self._order.append(troveSpec)
+            self._jobs[troveSpec] = [troveSpec, JobStatus.JOB_NOT_STARTED,
+                status]
+            self._order.append(troveSpec)
+        else:
+            log.warn('already building/built requested trove: %s=%s'
+                     % (troveSpec[0], troveSpec[1]))
+            return self._jobs[troveSpec][2]
 
         if not self._started:
             self.start()
             self._started = True
 
         return status
+
+    def done(self):
+        """
+        Mark this worker as complete. This stops the worker thread. Note that
+        once this is called this instance may no longer be used for building.
+        """
+
+        self._done = True

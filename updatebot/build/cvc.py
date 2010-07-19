@@ -18,6 +18,7 @@ An abstraction layer around cvc cook.
 
 import os
 import copy
+import time
 import logging
 import tempfile
 
@@ -60,7 +61,7 @@ class Cvc(object):
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 
-    def cook(self, troveSpecs, flavorFilter=None, commit=True):
+    def cook(self, troveSpecs, flavorFilter=None, commit=True, callback=None):
         """
         Cook a set of trove specs, currently limited to groups.
         @params troveSpecs: list of name, version, and flavor tuples.
@@ -73,6 +74,8 @@ class Cvc(object):
         @param commit: Optional parameter to control when a changeset is
                        committed.
         @type commit: boolean
+        @param callback: Cook callback to use when building.
+        @type callback: conary.build.cook.CookCallback
         """
 
         # TODO: Look at conary.build.cook.cookCommand for how to setup
@@ -98,7 +101,7 @@ class Cvc(object):
         # pulled from conary.cvc
         groupCookOptions = cook.GroupCookOptions(
             alwaysBumpCount = True,
-            errorOnFlavorChange = True,
+            errorOnFlavorChange = False,
             shortenFlavors = self._ccfg.shortenGroupFlavors
         )
 
@@ -106,13 +109,16 @@ class Cvc(object):
         flavors = set([ x[2] for x in troveSpecs ])
         item = (troveSpecs[0][0], troveSpecs[0][1], flavors)
 
+        if not callback:
+            callback = conarycallbacks.UpdateBotCookCallback()
+
         built = cook.cookItem(
             self._client.repos,
             self._ccfg,
             item,
             ignoreDeps=True,
             logBuild=True,
-            callback=conarycallbacks.UpdateBotCookCallback(),
+            callback=callback,
             groupOptions=groupCookOptions,
             changeSetFile=changeSetFile,
         )
@@ -149,8 +155,16 @@ class Cvc(object):
         @type callback: conary.callbacks.ChangesetCallback
         """
 
-        return self._client.repos.commitChangeSetFile(
+        log.info('starting commit of %s' % changeSetFile)
+
+        start = time.time()
+        res = self._client.repos.commitChangeSetFile(
             changeSetFile, callback=callback)
+
+        elapsed = time.time() - start
+        log.info('completed commit of %s in %s' % (changeSetFile, elapsed))
+
+        return True
 
     def build(self, trvSpec, flavorFilter=None):
         """

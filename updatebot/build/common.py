@@ -24,9 +24,36 @@ from threading import Thread
 from multiprocessing import Process
 from multiprocessing.queues import Queue as ProcessQueue
 
+from updatebot.lib import util
 from updatebot.build.constants import MessageTypes
 
 log = logging.getLogger('updatebot.build')
+
+class LogQueue(object):
+    def __init__(self, logger):
+        self._log = logger
+        self._prefix = None
+
+    def setPrefix(self, prefix):
+        self._prefix = prefix
+
+    def log(self, level, msg):
+        if self._prefix:
+            msg = self._prefix + msg
+        self._log.put((MessageTypes.LOG, msg))
+
+    def info(self, msg):
+        self.log(logging.INFO, msg)
+
+    def warn(self, msg):
+        self.log(logging.WARNING, msg)
+
+    def critical(self, msg):
+        self.log(logging.CRITICAL, msg)
+
+    def error(self, msg):
+        self.log(logging.ERROR, msg)
+
 
 class AbstractWorker(object):
     """
@@ -38,6 +65,7 @@ class AbstractWorker(object):
     def __init__(self, status):
         self.status = status
         self.workerId = None
+        self.log = LogQueue(status)
 
     def run(self):
         """
@@ -82,6 +110,16 @@ class AbstractWorkerProcess(AbstractWorker, Process):
     def __init__(self, status):
         AbstractWorker.__init__(self, status)
         Process.__init__(self)
+        self.processId = '[none set]'
+        self.daemon = True
+
+    def run(self):
+        util.setproctitle(self.processId)
+        self.log.setPrefix('[%s] ' % self.pid)
+        self.log.info('starting %s' % self.processId)
+        AbstractWorker.run(self)
+        self.status.close()
+        self.status.join_thread()
 
 
 class AbstractStatusMonitor(object):

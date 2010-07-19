@@ -16,9 +16,9 @@
 Module for cordinating local group builds.
 """
 
+from updatebot.lib import conarycallbacks
 from updatebot.build.constants import WorkerTypes
 from updatebot.build.constants import MessageTypes
-
 from updatebot.build.common import AbstractStatusMonitor
 from updatebot.build.common import AbstractWorkerProcess as AbstractWorker
 
@@ -35,6 +35,7 @@ class LocalGroupCookWorker(AbstractWorker):
         self.builder = builder
         self.trove = trove
         self.workerId = trove
+        self.processId = 'cook %s=%s' % (trove[0], trove[1])
         self.flavorFilter = flavorFilter
 
     def work(self):
@@ -42,7 +43,9 @@ class LocalGroupCookWorker(AbstractWorker):
         Build the specified trove and commit it to the repository.
         """
 
-        res, csfn = self.builder.cvc.cook(self.trove, flavorFilter=self.flavorFilter, commit=False)
+        res, csfn = self.builder.cvc.cook(self.trove,
+            flavorFilter=self.flavorFilter, commit=False,
+            callback=conarycallbacks.UpdateBotCookCallback(log=self.log))
         self.status.put((MessageTypes.DATA, (self.trove, res, csfn)))
 
 
@@ -60,13 +63,15 @@ class LocalChangeSetCommitWorker(AbstractWorker):
         self.csfn = csfn
         self.trove = trove
         self.workerId = trove
+        self.processId = 'commit %s=%s' % (trove[0], trove[1])
 
     def work(self):
         """
         Commit the specified changeset.
         """
 
-        results = self.builder.cvc.commitChangeSetFile(self.csfn)
+        results = self.builder.cvc.commitChangeSetFile(self.csfn,
+            callback=conarycallbacks.UpdateBotCookCallback(log=self.log))
         self.status.put((MessageTypes.DATA, (self.trove, results)))
 
 
