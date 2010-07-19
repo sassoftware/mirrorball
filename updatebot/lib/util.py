@@ -23,6 +23,8 @@ import os
 import epdb
 import signal
 import resource
+
+from rmake.lib import osutil
 from conary.lib.util import rmtree
 from conary.lib.util import convertPackageNameToClassName as _pkgNameToClassName
 
@@ -208,4 +210,8 @@ def askYn(prompt, default=None):
         else:
             print "Unknown response '%s'." % resp
 
-
+def setproctitle(title):
+    try:
+        osutil.setproctitle('mirrorball %s' % (title,))
+    except:
+        pass
