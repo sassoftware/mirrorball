@@ -283,7 +283,7 @@ class Updater(object):
 
         return binMap
 
-    def getTargetVersions(self, binTrvSpecs):
+    def getTargetVersions(self, binTrvSpecs, logErrors=True):
         """
         Given a list of binary trove specs from the devel label return a list of
         promoted trove versions.
@@ -306,8 +306,9 @@ class Updater(object):
                  for x, y, z in failed
                  if (x, y.getSourceVersion()) not in seen ]
 
-        for spec in fail:
-            log.critical('%s=%s[%s] not found in cloned from map' % spec)
+        if logErrors:
+            for spec in fail:
+                log.critical('%s=%s[%s] not found in cloned from map' % spec)
 
         return targetSpecs, fail
 
