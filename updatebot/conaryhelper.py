@@ -1341,11 +1341,29 @@ class ConaryHelper(object):
         resultMap = self._repos.findTroves(self._ccfg.buildLabel, troveSpecs,
                                            getLeaves=not removeAllVersions)
 
-        # Build trove query list.
         query = set()
-        for trv, trvLst in resultMap.iteritems():
-            for n, v, f in trvLst:
-                query.add((n, v, f))
+        if not removeAllVersions:
+            trvMap = {}
+            for trvLst in resultMap.itervalues():
+                for n, v, f in trvLst:
+                    trvMap.setdefault(n, dict()).setdefault(v, set()).add(f)
+
+            # We almost always want the latest versions that were found.
+            for n, vMap in trvMap.iteritems():
+                if len(vMap) > 1:
+                    vers = sorted(vMap)
+                    latest = vers[-1]
+                else:
+                    latest = vMap.keys()[0]
+                for f in vMap[latest]:
+                    query.add((n, v, f))
+
+        # Build trove query list.
+        else:
+            query = set()
+            for trv, trvLst in resultMap.iteritems():
+                for n, v, f in trvLst:
+                    query.add((n, v, f))
 
         # Get troves from the repository.
         troves = self._repos.getTroves(query, withFiles=False)
@@ -1353,9 +1371,6 @@ class ConaryHelper(object):
         # Build set of troveSpecs to be removed.
         trvSet = set()
         for trv in troves:
-            # Don't recurse group contents.
-            if trv.getName().startswith('group-'):
-                continue
             # Find all sibling packages.
             if removeSiblings:
                 srcName = trv.troveInfo.sourceName()
@@ -1381,6 +1396,9 @@ class ConaryHelper(object):
                     for n, v, f in srcLst:
                         trvSet.add((n, v, f))
 
+            # Don't recurse group contents.
+            if trv.getName().startswith('group-'):
+                continue
             trvSet.update(set([ x for x in
                     trv.iterTroveList(strongRefs=True) ]))
 
