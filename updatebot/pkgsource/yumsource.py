@@ -254,7 +254,7 @@ class YumSource(BasePackageSource):
                 continue
 
             if key not in self._rpmMap:
-                log.warn('found source without binary rpms: %s' % pkg)
+                log.debug('found source without binary rpms: %s' % pkg)
                 #log.debug(key)
                 #log.debug([ x for x in self._rpmMap if x[0] == key[0] ])
 
