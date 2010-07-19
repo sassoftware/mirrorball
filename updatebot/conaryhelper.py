@@ -1481,19 +1481,19 @@ class ConaryHelper(object):
         else:
             nvfs = [nvf, ]
 
-        trvs = self._repos.getTroves(nvfs, withFiles=False)
+        srcTroveInfo = self._repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME, nvfs)
 
         # Figure out unique source names and versions for all nvfs in an attempt
         # to minimize the number of repository calls.
         sources = {}
-        for trvSpec, trv in itertools.izip(nvfs, trvs):
-            srcName = trv.troveInfo.sourceName()
+        for (n, v, f), frzSrcName in itertools.izip(nvfs, srcTroveInfo):
+            srcName = frzSrcName()
             if not srcName:
-                srcName = trv.getName()
+                srcName = n.split(':')[0]
 
-            srcVersion = trv.getVersion().getSourceVersion()
+            srcVersion = v.getSourceVersion()
 
-            sources.setdefault((srcName, srcVersion), set()).add(trvSpec)
+            sources.setdefault((srcName, srcVersion), set()).add((n, v, f))
 
         # Map siblings back to nvfs.
         siblingMap = {}
