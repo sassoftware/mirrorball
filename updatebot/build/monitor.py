@@ -50,6 +50,36 @@ class StartWorker(AbstractWorker):
         self.status.put((MessageTypes.DATA, (self.trove, jobId)))
 
 
+class RebuildStartWorker(StartWorker):
+    """
+    Worker thread for starting package rebuild jobs and reporting status.
+    """
+
+    threadType = WorkerTypes.REBUILD_START
+
+    def __init__(self, status, (builder, useLatest,
+        additionalResolveTroves, trove)):
+        StartWorker.__init__(self, status, (builder, trove))
+
+        self.useLatest = useLatest
+        self.additionalResolveTroves = additionalResolveTroves
+
+    def work(self):
+        """
+        Start the specified build and report jobId.
+        """
+
+        jobIds = self.builder.rebuildstart(self.trove, useLatest=self.useLatest,
+            additionalResolveTroves=self.additionalResolveTroves, commit=False)
+
+        if len(jobIds) != 1:
+            self.status.put((MessageTypes.THREAD_ERROR, (self.threadType,
+                self.workerId, 'More jobIds returned than expected while '
+                'building %s' % self.trove)))
+        else:
+            self.status.put((MessageTypes.DATA, (self.trove, jobIds[0])))
+
+
 class MonitorWorker(AbstractWorker):
     """
     Worker thread for monitoring jobs and reporting status.
@@ -116,6 +146,15 @@ class JobStarter(AbstractStatusMonitor):
     """
 
     workerClass = StartWorker
+    startJob = AbstractStatusMonitor.addJob
+
+
+class JobRebuildStarter(AbstractStatusMonitor):
+    """
+    Abstraction around threaded rebuild starter model.
+    """
+
+    workerClass = RebuildStartWorker
     startJob = AbstractStatusMonitor.addJob
 
 

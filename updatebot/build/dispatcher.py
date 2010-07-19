@@ -27,6 +27,7 @@ from updatebot.lib import util
 from updatebot.build.monitor import JobStarter
 from updatebot.build.monitor import JobMonitor
 from updatebot.build.monitor import JobCommitter
+from updatebot.build.monitor import JobRebuildStarter
 from updatebot.build.constants import JobStatus
 
 
@@ -90,6 +91,9 @@ class Dispatcher(AbstractDispatcher):
         buildjob.JOB_STATE_BUILT,
     )
 
+    _starterClass = JobStarter
+    _monitorClass = JobMonitor
+    _committerClass = JobCommitter
 
     def __init__(self, builder, maxSlots):
         AbstractDispatcher.__init__(self, builder, maxSlots)
@@ -100,9 +104,9 @@ class Dispatcher(AbstractDispatcher):
         self._maxCommitSlots = 2
         self._commitSlots = self._maxCommitSlots
 
-        self._starter = JobStarter(self._builder)
-        self._monitor = JobMonitor(self._builder._helper.client)
-        self._committer = JobCommitter(self._builder)
+        self._starter = self._starterClass(self._builder)
+        self._monitor = self._monitorClass(self._builder._helper.client)
+        self._committer = self._committerClass(self._builder)
 
     def buildmany(self, troveSpecs):
         """
@@ -155,21 +159,14 @@ class Dispatcher(AbstractDispatcher):
 
             # submit any jobs that are ready to commit as long as there are
             # commit slots
-            toCommit = set()
-            for jobId, (trove, status, result) in self._jobs.iteritems():
-                # don't try to commit anything if there are no free commit
-                # slots.
-                if not self._commitSlots:
-                    break
-                # batch up all jobs that are ready to be committed
-                if status == buildjob.JOB_STATE_BUILT:
+            toCommit = self._getCommitJobs()
+            # commit all available jobs at one time.
+            if toCommit:
+                for jobId in toCommit:
                     # update status to !BUILT so that we don't try to commit
                     # this job more than once.
                     self._jobs[jobId][1] = JobStatus.JOB_COMMITTING
-                    toCommit.add(jobId)
 
-            # commit all available jobs at one time.
-            if toCommit:
                 self._committer.commitJob(tuple(toCommit))
                 self._commitSlots -= 1
 
@@ -222,6 +219,24 @@ class Dispatcher(AbstractDispatcher):
                 results.update(result)
 
         return results, self._failures
+
+    def _getCommitJobs(self):
+        """
+        Get a set of jobIds that are ready to be committed.
+        """
+
+        toCommit = set()
+
+        # don't try to commit anything if there are no free commit slots.
+        if not self._commitSlots:
+            return toCommit
+
+        for jobId, (trove, status, result) in self._jobs.iteritems():
+            # batch up all jobs that are ready to be committed
+            if status == buildjob.JOB_STATE_BUILT:
+                toCommit.add(jobId)
+
+        return toCommit
 
 
 class NonCommittalDispatcher(Dispatcher):
@@ -294,3 +309,68 @@ class NonCommittalDispatcher(Dispatcher):
         for jobId, (trove, status, result) in self._jobs.iteritems():
             if status != buildjob.JOB_STATE_BUILT:
                 raise JobNotCompleteError(jobId=jobId)
+
+
+class MultiVersionRebuildDispatcher(Dispatcher):
+    """
+    A dispatcher implementation for building many packages with multiple
+    versions of the same package.
+    """
+
+    _starterClass = JobRebuildStarter
+
+    def __init__(self, builder, maxSlots, useLatest=None,
+        additionalResolveTroves=None):
+        Dispatcher.__init__(self, builder, maxSlots)
+
+        self._starter = self._starterClass((builder, useLatest,
+            additionalResolveTroves))
+
+        self._maxCommitSlots = 1
+        self._commitSlots = self._maxCommitSlots
+
+        # Mapping of pkgname to ordered list of trove specs
+        self._pkgs = {}
+
+    def buildmany(self, troveSpecs):
+        """
+        Build as many packages as possible until we run out of slots.
+        """
+
+        for spec in troveSpecs:
+            self._pkgs.setdefault(spec[0], []).append(spec)
+        for name, specLst in self._pkgs.iteritems():
+            self._pkgs[name] = sorted(specLst)
+
+        troveSpecs = sorted(troveSpecs)
+
+        return Dispatcher.buildmany(self, troveSpecs)
+
+    def _getCommitJobs(self):
+        """
+        Get a set of jobIds that are ready to be committed.
+        """
+
+        toCommit = set()
+
+        # don't try to commit anything if there are no free commit slots.
+        if not self._commitSlots:
+            return toCommit
+
+        built = {}
+        for jobId, (trove, status, result) in self._jobs.iteritems():
+            # batch up all jobs that are ready to be committed
+            if status == buildjob.JOB_STATE_BUILT:
+                built.setdefault(trove[0], dict())[trove] = jobId
+
+        toCommit = set()
+        for name, jobDict in built.iteritems():
+            # Wait for all versions of a package to build.
+            if len(jobDict) == len(self._pkgs[name]):
+                # Pop off the first trove spec to commit.
+                spec = self._pkgs[name].pop(0)
+
+                jobId = jobDict[spec]
+                toCommit.add(jobId)
+
+        return toCommit

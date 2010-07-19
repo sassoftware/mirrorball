@@ -37,6 +37,7 @@ class WorkerTypes(object):
     COMMIT = 2
     LOCAL_GROUP_BUILD = 3
     LOCAL_CHANGESET_COMMIT = 4
+    REBUILD_START = 5
 
     names = {
         START: 'Start',
@@ -44,6 +45,7 @@ class WorkerTypes(object):
         COMMIT: 'Commit',
         LOCAL_GROUP_BUILD: 'Local Group Build',
         LOCAL_CHANGESET_COMMIT: 'Local Changeset Commit',
+        REBUILD_START: 'Rebuild Start',
     }
 
 

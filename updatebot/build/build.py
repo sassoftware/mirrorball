@@ -52,6 +52,7 @@ from updatebot.build.cvc import Cvc
 from updatebot.build.jobs import LocalDispatcher
 from updatebot.build.dispatcher import Dispatcher
 from updatebot.build.dispatcher import NonCommittalDispatcher
+from updatebot.build.dispatcher import MultiVersionRebuildDispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
 
 log = logging.getLogger('updatebot.build')
@@ -236,7 +237,8 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def rebuild(self, troveSpecs, useLatest=None, additionalResolveTroves=None):
+    def rebuild(self, troveSpecs, useLatest=None, additionalResolveTroves=None,
+        commit=True):
         """
         Rebuild a set of troves in the same environment that they were
         orignally built in.
@@ -249,7 +251,11 @@ class Builder(object):
         @param additionalResolveTroves: List of additional trove specs to add to
                                         the resolve troves.
         @type additionalResolveTroves: list(str, ...)
-        @return troveMap: dictionary of troveSpecs to built troves
+        @param commit: Controls waiting for jobs to complete and then committing
+                       them one at a time. (default: True)
+        @type commit: boolean
+        @return if commit: troveMap: dictionary of troveSpecs to built troves
+        @return if not commit: list of jobIds
         """
 
         # Set some defaults
@@ -345,6 +351,10 @@ class Builder(object):
         for job in grpByNameVersion(jobs):
             jobIds.append(startOne(job))
 
+        # If not committing jobs, return the list of ids.
+        if not commit:
+            return jobIds
+
         # Wait for jobs to complete
         dispatcher = NonCommittalDispatcher(self, 0)
         dispatcher.watchmany(jobIds)
@@ -356,6 +366,34 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
 
         return ret
+
+    def rebuildmany(self, troveSpecs, useLatest=None,
+        additionalResolveTroves=None, commit=True):
+        """
+        Rebuild a set of troves in the same environment that they were
+        orignally built in.
+        @param troveSpecs: set of name, version, flavor tuples
+        @type troveSpecs: set([(name, version, flavor), ..])
+        @param useLatest: A list of package names to use the latest versions of.
+                          For instance, you may want to use the latest version
+                          of conary to get fixed dependencies.
+        @type useLatest: list(str, ...)
+        @param additionalResolveTroves: List of additional trove specs to add to
+                                        the resolve troves.
+        @type additionalResolveTroves: list(str, ...)
+        @param commit: Controls waiting for jobs to complete and then committing
+                       them one at a time. (default: True)
+        @type commit: boolean
+        @return if commit: troveMap: dictionary of troveSpecs to built troves
+        @return if not commit: list of jobIds
+        """
+
+        dispatcher = MultiVersionRebuildDispatcher(self, 30,
+            useLatest=useLatest,
+            additionalResolveTroves=additionalResolveTroves)
+
+        return dispatcher.buildmany(troveSpecs)
+
 
     def start(self, troveSpecs):
         """
