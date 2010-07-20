@@ -398,7 +398,12 @@ class Group(object):
                 if pkgFlv:
                     group.removePackageFlavor(pkgName, pkgFlv.freeze())
                 else:
-                    group.remove(pkgName)
+                    # Need to set missingok to True in case this package was
+                    # never added to the group in the first place because it is
+                    # no longer in the packages group. This tends to happen
+                    # during a group rebuild when regenerating the standard
+                    # group.
+                    group.remove(pkgName, missingOk=True)
 
         # Add requested packages.
         for groupName, pkgs in additions.iteritems():
