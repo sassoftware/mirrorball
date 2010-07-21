@@ -69,7 +69,7 @@ class RebuildStartWorker(StartWorker):
         Start the specified build and report jobId.
         """
 
-        jobIds = self.builder.rebuildstart(self.trove, useLatest=self.useLatest,
+        jobIds = self.builder.rebuild(self.trove, useLatest=self.useLatest,
             additionalResolveTroves=self.additionalResolveTroves, commit=False)
 
         if len(jobIds) != 1:
