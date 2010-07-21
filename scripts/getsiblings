@@ -1,0 +1,41 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2010 rPath, Inc.
+#
+
+import sys
+import itertools
+
+from conary import trove
+from conary import conarycfg
+from conary import conaryclient
+from conary.conaryclient import cmdline
+
+if __name__ == '__main__':
+    cfg = conarycfg.ConaryConfiguration(True)
+    client = conaryclient.ConaryClient(cfg)
+    trvSpec = cmdline.parseTroveSpec(sys.argv[1])
+
+    nvfLst = client.repos.findTrove(cfg.installLabelPath, trvSpec)
+    sources = client.repos.getTroveInfo(trove._TROVEINFO_TAG_SOURCENAME, nvfLst)
+
+    srcreq = set()
+    for (n, v, f), src in itertools.izip(nvfLst, sources):
+        sn = src()
+        sv = v.getSourceVersion()
+
+        srcreq.add((sn, sv))
+
+    nvfmap = {}
+    for sn, sv in srcreq:
+        nvfmap[(sn, sv)] = client.repos.getTrovesBySource(sn, sv)
+
+    for (sn, sv), trvs in nvfmap.iteritems():
+        print '%s=%s' % (sn, sv)
+        vn = {}
+        for n, v, f in trvs:
+            vn.setdefault(v, set()).add(n)
+        for v in reversed(sorted(vn)):
+            print
+            for n in sorted(vn[v]):
+                print '    %s=%s' % (n, v)
