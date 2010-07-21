@@ -34,7 +34,8 @@ from updatebot import OrderedBot
 log = logging.getLogger('tmplogger')
 
 class Bot(OrderedBot):
-    def rebuildgroups(self, updatedPackages=None):
+    def rebuildgroups(self, updatedPackages=None, resolveTargetVersions=True,
+        readdPackages=True, restart=False):
         """
         Rebuild all groups on the devel label. This requires rewriting the group
         model to point at the target label and readding content.
@@ -47,6 +48,9 @@ class Bot(OrderedBot):
         if not updatedPackages:
             updatedPackages = []
 
+        if resolveTargetVersions or updatedPackages:
+            readdPackages = True
+
         # load package source
         self._pkgSource.load()
 
@@ -57,24 +61,27 @@ class Bot(OrderedBot):
 
         # Make sure to include any packages that were built from the same
         # source.
-        siblingPackages = set()
+        if updatedPackages:
+            siblingPackages = set()
 
-        log.info('looking up siblings')
-        req = [ (x, None, None) for x in updatedPackages ]
-        nvfMap = self._updater._conaryhelper.findTroves(req, getLeaves=False)
-        nvfs = [ x for x in itertools.chain(*nvfMap.itervalues()) ]
+            log.info('looking up siblings')
+            req = [ (x, None, None) for x in updatedPackages ]
+            nvfMap = self._updater._conaryhelper.findTroves(req, getLeaves=False)
+            nvfs = [ x for x in itertools.chain(*nvfMap.itervalues()) ]
 
-        siblingMap = self._updater._conaryhelper.getSiblingPackages(nvfs,
-            allVersions=True)
+            siblingMap = self._updater._conaryhelper.getSiblingPackages(nvfs,
+                allVersions=True)
 
-        for siblings in siblingMap.itervalues():
-            siblingPackages |= set([ x[0].split(':')[0] for x in siblings ])
-        updatedPackages = list(siblingPackages)
+            for siblings in siblingMap.itervalues():
+                siblingPackages |= set([ x[0].split(':')[0] for x in siblings ])
+            updatedPackages = list(siblingPackages)
 
+            log.info('done loading siblings')
+
+        seen = {}
         trvMap = {}
         results = []
-
-        log.info('done loading siblings')
+        startReplace = False
 
         # Iterate over all upstream group versions that should exist.
         for updateId, updates in self._errata.iterByIssueDate(current=-1):
@@ -83,6 +90,13 @@ class Bot(OrderedBot):
                 version = prodMap[self._cfg.upstreamProductVersion]
             else:
                 version = self._errata.getBucketVersion(updateId)
+
+            if not restart or updateId > self._groupmgr.latest.errataState:
+                startReplace = True
+            elif startReplace:
+                raise RuntimeError, 'found out of order groups'
+            else:
+                continue
 
             log.info('%s: retrieving group model information' % version)
             group = self._groupmgr.getGroup(version=version)
@@ -107,8 +121,9 @@ class Bot(OrderedBot):
                     nvfs.add((n, v, f))
 
             # Lookup anything that is expected to have been rebuilt.
-            log.info('%s: looking up version information for rebuild packages'
-                     % version)
+            if checkUpdates:
+                log.info('%s: looking up version information for rebuild '
+                         'packages' % version)
             for n, v, f in checkUpdates:
                 upVer = '/'.join([v.branch().label().asString(),
                                   v.trailingRevision().version])
@@ -140,31 +155,35 @@ class Bot(OrderedBot):
                 nvfs.add((n, v, f))
 
             # Lookup cloned from info for all versions.
-            log.info('%s: retrieving target version information' % version)
-            targetVersions, failed = self._updater.getTargetVersions(nvfs,
-                logErrors=False)
+            if resolveTargetVersions:
+                log.info('%s: retrieving target version information' % version)
+                targetVersions, failed = self._updater.getTargetVersions(nvfs,
+                    logErrors=False)
 
-            # Make sure any that failed are in the set of packages that are
-            # expected to have updates.
-            # NOTE: This normally happens if the group model has already been
-            #       remapped to the target label.
-            assert not [ x for x in failed if x[0] not in updatedPackages ]
+                # Make sure any that failed are in the set of packages that are
+                # expected to have updates.
+                # NOTE: This normally happens if the group model has already
+                #       been remapped to the target label.
+                assert not [ x for x in failed if x[0] not in updatedPackages ]
 
-            # Take the union of all versions on the target label and those that
-            # have not yet been promoted.
-            newVersions = set(targetVersions) | set(failed)
+                # Take the union of all versions on the target label and those
+                # that have not yet been promoted.
+                newVersions = set(targetVersions) | set(failed)
+            else:
+                newVersions = nvfs
 
             # Add all of the new versions.
-            log.info('%s: adding remapped versions' % version)
-            pkgs = {}
-            for n, v, f in newVersions:
-                pkgs.setdefault(n, dict()).setdefault(v, set()).add(f)
+            if readdPackages:
+                log.info('%s: adding remapped versions' % version)
+                pkgs = {}
+                for n, v, f in newVersions:
+                    pkgs.setdefault(n, dict()).setdefault(v, set()).add(f)
 
-            for n, vMap in pkgs.iteritems():
-                assert len(vMap) == 1
-                group.removePackage(n)
-                for v, flvs in vMap.iteritems():
-                    group.addPackage(n, v, flvs)
+                for n, vMap in pkgs.iteritems():
+                    assert len(vMap) == 1
+                    group.removePackage(n)
+                    for v, flvs in vMap.iteritems():
+                        group.addPackage(n, v, flvs)
 
             # Now deal with the standard group contents by recreating the
             # standard group from the new group configuration information.
@@ -192,10 +211,10 @@ class Bot(OrderedBot):
 
             # Wait for the first results to make sure the group will rebuild
             # properly.
-            #if not trvMap:
-            #    log.info('waiting for first build to complete before continuing')
-            #    while not res.isDone:
-            #        time.sleep(1)
+            if not trvMap:
+                log.info('waiting for first build to complete before continuing')
+                while not res.isDone:
+                    time.sleep(1)
 
             # Check for any built groups.
             completed = [ x for x in results if x.isDone ]
@@ -244,6 +263,6 @@ if __name__ == '__main__':
     errata.fetch()
 
     bot = Bot(cfg, errata)
-    bot.rebuildgroups(updatedPackages=['chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango', 'setup', 'shadow-utils', 'shared-mime-info', 'texinfo', 'xorg-x11-font-utils', 'kernel', 'xenpv', 'lpfc-kmod', 'be2net-kmod', 'alacarte', 'alchemist', 'audit', 'authconfig', 'avahi', 'beecrypt', 'cracklib', 'dbus-python', 'dogtail', 'eruby', 'gamin', 'gnome-applets', 'gnome-bluetooth', 'gnome-menus', 'gnome-python2', 'gnome-python2-desktop', 'gnome-python2-extras', 'gtk-vnc', 'hplip', 'iscsi-initiator-utils', 'java-1.4.2-gcj-compat', 'kdebindings', 'kudzu', 'lcms', 'libbtctl', 'libieee1284', 'libselinux', 'libsemanage', 'libuser', 'libxml2', 'libxslt', 'm2crypto', 'mkinitrd', 'mod_python', 'mx', 'MySQL-python', 'newt', 'notify-python', 'oddjob', 'OpenIPMI', 'orca', 'pexpect', 'pirut', 'policycoreutils', 'postgresql', 'postgresql84', 'pycairo', 'pygobject2', 'pygtk2', 'pykickstart', 'pyOpenSSL', 'pyorbit', 'pyparted', 'PyQt', 'Pyrex', 'pyspi', 'python', 'python-dmidecode', 'python-elementtree', 'python-imaging', 'python-iniparse', 'python-ldap', 'python-numeric', 'python-pyblock', 'python-setuptools', 'python-sqlite', 'python-urlgrabber', 'pyxf86config', 'PyXML', 'rhel-instnum', 'rhnlib', 'rhpl', 'rhpxl', 'rpm', 'ruby', 'sabayon', 'setroubleshoot', 'sip', 'sos', 'subversion', 'system-config-printer', 'vte', 'wireshark', 'yum', 'yum-metadata-parser', 'mvapich2', 'gnome-doc-utils', 'system-config-lvm', 'booty', 'smartmontools', 'devhelp', 'system-switch-mail', 'gedit', 'system-config-nfs', 'ant', 'kexec-tools', 'inn', 'tetex', 'docbook-style-xsl', 'firstboot', 'system-config-kickstart', 'kdesdk', 'system-config-display', 'switchdesk', 'gimp', 'system-config-samba', 'kdevelop', 'hal', 'frysk', 'redhat-release', 'gettext', 'libglade2', 'system-config-bind', 'system-config-httpd', 'system-config-keyboard', 'system-config-language', 'system-config-kdump', 'libhugetlbfs', 'comps-extras', 'system-config-soundcard', 'systemtap', 'vnc', 'conary-policy', 'system-config-services', 'createrepo', 'blktrace', 'yum-utils', 'system-config-netboot', 'sblim', 'setroubleshoot-plugins', 'xinetd', 'rhn-client-tools', 'libevent', 'mailman', 'system-config-securitylevel', 'selinux-policy', 'hwbrowser', 'bluez-utils', 'system-config-users', 'cman', 'yum-rhn-plugin', 'system-config-boot', 'system-config-network', 'system-config-date', 'ecryptfs-utils', 'tix', 'anaconda', 'system-config-rootpassword', 'dstat'])
+    bot.rebuildgroups(restart=True, updatedPackages=['chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango', 'setup', 'shadow-utils', 'shared-mime-info', 'texinfo', 'xorg-x11-font-utils', 'kernel', 'xenpv', 'lpfc-kmod', 'be2net-kmod', 'alacarte', 'alchemist', 'audit', 'authconfig', 'avahi', 'beecrypt', 'cracklib', 'dbus-python', 'dogtail', 'eruby', 'gamin', 'gnome-applets', 'gnome-bluetooth', 'gnome-menus', 'gnome-python2', 'gnome-python2-desktop', 'gnome-python2-extras', 'gtk-vnc', 'hplip', 'iscsi-initiator-utils', 'java-1.4.2-gcj-compat', 'kdebindings', 'kudzu', 'lcms', 'libbtctl', 'libieee1284', 'libselinux', 'libsemanage', 'libuser', 'libxml2', 'libxslt', 'm2crypto', 'mkinitrd', 'mod_python', 'mx', 'MySQL-python', 'newt', 'notify-python', 'oddjob', 'OpenIPMI', 'orca', 'pexpect', 'pirut', 'policycoreutils', 'postgresql', 'postgresql84', 'pycairo', 'pygobject2', 'pygtk2', 'pykickstart', 'pyOpenSSL', 'pyorbit', 'pyparted', 'PyQt', 'Pyrex', 'pyspi', 'python', 'python-dmidecode', 'python-elementtree', 'python-imaging', 'python-iniparse', 'python-ldap', 'python-numeric', 'python-pyblock', 'python-setuptools', 'python-sqlite', 'python-urlgrabber', 'pyxf86config', 'PyXML', 'rhel-instnum', 'rhnlib', 'rhpl', 'rhpxl', 'rpm', 'ruby', 'sabayon', 'setroubleshoot', 'sip', 'sos', 'subversion', 'system-config-printer', 'vte', 'wireshark', 'yum', 'yum-metadata-parser', 'mvapich2', 'gnome-doc-utils', 'system-config-lvm', 'booty', 'smartmontools', 'devhelp', 'system-switch-mail', 'gedit', 'system-config-nfs', 'ant', 'kexec-tools', 'inn', 'tetex', 'docbook-style-xsl', 'firstboot', 'system-config-kickstart', 'kdesdk', 'system-config-display', 'switchdesk', 'gimp', 'system-config-samba', 'kdevelop', 'hal', 'frysk', 'redhat-release', 'gettext', 'libglade2', 'system-config-bind', 'system-config-httpd', 'system-config-keyboard', 'system-config-language', 'system-config-kdump', 'libhugetlbfs', 'comps-extras', 'system-config-soundcard', 'systemtap', 'vnc', 'conary-policy', 'system-config-services', 'createrepo', 'blktrace', 'yum-utils', 'system-config-netboot', 'sblim', 'setroubleshoot-plugins', 'xinetd', 'rhn-client-tools', 'libevent', 'mailman', 'system-config-securitylevel', 'selinux-policy', 'hwbrowser', 'bluez-utils', 'system-config-users', 'cman', 'yum-rhn-plugin', 'system-config-boot', 'system-config-network', 'system-config-date', 'ecryptfs-utils', 'tix', 'anaconda', 'system-config-rootpassword', 'dstat'])
 
     import epdb; epdb.st()
