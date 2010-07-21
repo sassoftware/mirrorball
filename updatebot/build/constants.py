@@ -62,3 +62,4 @@ class JobStatus(object):
     JOB_BUILT = -6
     JOB_COMMITTED = -7
     JOB_FAILED = -8
+    JOB_STARTING = -9

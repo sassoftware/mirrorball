@@ -50,6 +50,7 @@ from updatebot.errors import ChangesetValidationFailedError
 
 from updatebot.build.cvc import Cvc
 from updatebot.build.jobs import LocalDispatcher
+from updatebot.build.jobs import OrderedCommitDispatcher
 from updatebot.build.dispatcher import Dispatcher
 from updatebot.build.dispatcher import NonCommittalDispatcher
 from updatebot.build.dispatcher import RebuildDispatcher
@@ -154,6 +155,8 @@ class Builder(object):
         self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput,
                        LocalDispatcher(self, 12))
 
+        self._asyncDispatcher = OrderedCommitDispatcher(self, 30)
+
     def build(self, troveSpecs):
         """
         Build a list of troves.
@@ -236,6 +239,18 @@ class Builder(object):
 
         ret = self._formatOutput(trvMap)
         return ret
+
+    def buildasync(self, troveSpec):
+        """
+        Build troves in much the same way buildmany does, but without blocking
+        the main thread.
+        @param troveSpec: name, version, flavor tuple
+        @type troveSpec: tuple(str, conary.versions.VersionFromString, None)
+        @return status object
+        @rtype updatebot.build.jobs.Status
+        """
+
+        return self._asyncDispatcher.build(troveSpec)
 
     def rebuild(self, troveSpecs, useLatest=None, additionalResolveTroves=None,
         commit=True):

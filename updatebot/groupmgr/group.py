@@ -176,7 +176,7 @@ class Group(object):
         Build this group alongside other groups.
         """
 
-        return self._mgr.buildGroup(self, multiBuild=True)
+        return self._mgr.buildGroup(self, async=True)
 
     def hasBinaryVersion(self):
         """
