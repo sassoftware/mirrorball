@@ -61,7 +61,8 @@ class Bot(OrderedBot):
             if upVer not in latestMap:
                 latestMap[upVer] = (n, v, f)
 
-        trvMap = self._builder.rebuild(latestMap.values(), useLatest=useLatest,
+        trvMap = self._builder.rebuildmany(latestMap.values(),
+            useLatest=useLatest,
             additionalResolveTroves=additionalResolveTroves)
 
         return trvMap
