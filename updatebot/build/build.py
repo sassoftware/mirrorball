@@ -52,7 +52,7 @@ from updatebot.build.cvc import Cvc
 from updatebot.build.jobs import LocalDispatcher
 from updatebot.build.dispatcher import Dispatcher
 from updatebot.build.dispatcher import NonCommittalDispatcher
-from updatebot.build.dispatcher import MultiVersionRebuildDispatcher
+from updatebot.build.dispatcher import RebuildDispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
 
 log = logging.getLogger('updatebot.build')
@@ -388,8 +388,7 @@ class Builder(object):
         @return if not commit: list of jobIds
         """
 
-        dispatcher = MultiVersionRebuildDispatcher(self, 30,
-            useLatest=useLatest,
+        dispatcher = RebuildDispatcher(self, 30, useLatest=useLatest,
             additionalResolveTroves=additionalResolveTroves)
 
         return dispatcher.buildmany(troveSpecs)

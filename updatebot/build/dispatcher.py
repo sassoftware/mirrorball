@@ -311,20 +311,16 @@ class NonCommittalDispatcher(Dispatcher):
                 raise JobNotCompleteError(jobId=jobId)
 
 
-class MultiVersionRebuildDispatcher(Dispatcher):
+class MultiVersionDispatcher(Dispatcher):
     """
     A dispatcher implementation for building many packages with multiple
     versions of the same package.
     """
 
-    _starterClass = JobRebuildStarter
-
-    def __init__(self, builder, maxSlots, useLatest=None,
-        additionalResolveTroves=None):
+    def __init__(self, builder, maxSlots, waitForAllVersions=False):
         Dispatcher.__init__(self, builder, maxSlots)
 
-        self._starter = self._starterClass((builder, useLatest,
-            additionalResolveTroves))
+        self._waitForAllVersions = waitForAllVersions
 
         self._maxCommitSlots = 1
         self._commitSlots = self._maxCommitSlots
@@ -363,10 +359,14 @@ class MultiVersionRebuildDispatcher(Dispatcher):
             if status == buildjob.JOB_STATE_BUILT:
                 built.setdefault(trove[0], dict())[trove] = jobId
 
-        toCommit = set()
         for name, jobDict in built.iteritems():
-            # Wait for all versions of a package to build.
-            if len(jobDict) == len(self._pkgs[name]):
+                # Wait for all versions of a package to build.
+            if ((self._waitForAllVersions and
+                 len(jobDict) == len(self._pkgs[name])) or
+                # Wait for the first version to be built.
+                (not self._waitForAllVersions and
+                 self._pkgs[name] and
+                 self._pkgs[name][0] in jobDict)):
                 # Pop off the first trove spec to commit.
                 spec = self._pkgs[name].pop(0)
 
@@ -374,3 +374,19 @@ class MultiVersionRebuildDispatcher(Dispatcher):
                 toCommit.add(jobId)
 
         return toCommit
+
+
+class RebuildDispatcher(MultiVersionDispatcher):
+    """
+    Dispatcher for coordinating massive package rebuilds.
+    """
+
+    _starterClass = JobRebuildStarter
+
+    def __init__(self, builder, maxSlots, useLatest=None,
+        additionalResolveTroves=None):
+        MultiVersionDispatcher.__init__(self, builder, maxSlots,
+            waitForAllVersions=True)
+
+        self._starter = self._starterClass((builder, useLatest,
+            additionalResolveTroves))
