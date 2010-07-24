@@ -539,4 +539,8 @@ class OrderedCommitDispatcher(JobBasedDispatcher):
                 jobId = troveMap[spec]
                 toCommit.add(jobId)
 
+        if toCommit:
+            waiting = sum([ len(x) for x in built.itervalues() ])
+            log.info('committing %s of %s' % (len(toCommit), waiting))
+
         return toCommit
