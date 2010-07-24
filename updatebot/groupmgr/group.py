@@ -407,11 +407,6 @@ class Group(object):
 
         # Add requested packages.
         for groupName, pkgs in additions.iteritems():
-            if groupName == self._pkgGroupName:
-                log.warn('modifyContents does not support modifying the package'
-                         'group, please update your config file')
-                continue
-
             flavoredPackages = {}
             for pkgName, pkgFlv, use in pkgs:
                 # deffer packages with specifc flavors for later.
@@ -440,12 +435,18 @@ class Group(object):
         """
 
         # Get the versions of all packge names.
-        pkgs = dict([ (x.name, x) for x in self._groups[self._pkgGroupName] ])
+        pkgs = dict([ (x.name, x) for x in self._groups[self._pkgGroupName]
+                      if x.version is not None ])
 
         for group in self:
             # skip over package group since it is the version source.
             if group.groupName == self._pkgGroupName:
-                continue
+                required = [ x for x in group if x.version is None ]
+                for pkg in required:
+                    if pkg.name in pkgs:
+                        pkg.version = pkgs[pkg.name].version
+                    else:
+                        raise UnknownPackageFoundInManagedGroupError(what=pkg.name)
 
             # for all other groups iterate over contents and set versions to
             # match package group.
