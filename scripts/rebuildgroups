@@ -57,6 +57,7 @@ class Bot(OrderedBot):
         versionMap = {
             'rhel': {'4': '4.0',
                      '5': '5.0', },
+            'centos': {'5': '0', },
         }
 
         # Make sure to include any packages that were built from the same
@@ -85,6 +86,9 @@ class Bot(OrderedBot):
 
         # Iterate over all upstream group versions that should exist.
         for updateId, updates in self._errata.iterByIssueDate(current=-1):
+#            if updateId == 1192521600:
+#                # Stop here so we can restore path-conflict checking.
+#                import epdb ; epdb.st()
             if updateId == 0:
                 prodMap = versionMap[self._cfg.platformName]
                 version = prodMap[self._cfg.upstreamProductVersion]
@@ -101,13 +105,20 @@ class Bot(OrderedBot):
             log.info('%s: retrieving group model information' % version)
             group = self._groupmgr.getGroup(version=version)
 
+            if version == '0':
+                group.version = '5.0'
+
             # Get all of the nvfs from the group model.
             nvfs = set()
             checkUpdates = set()
             emptyFlavors = set()
+            vmap = dict([ (x.name, x.version) for x in group.iterpackages()
+                          if x.version is not None ])
             for pkg in group.iterpackages():
                 n = str(pkg.name)
-                v = versions.ThawVersion(str(pkg.version))
+                if pkg.version is None:
+                    pkg.version = vmap[pkg.name]
+	        v = versions.ThawVersion(str(pkg.version))
 
                 f = deps.ThawFlavor(str(pkg.flavor))
                 if str(f) == '':
@@ -242,8 +253,6 @@ if __name__ == '__main__':
     from conary.lib import util
     sys.excepthook = util.genExcepthook()
 
-    import rhnmirror
-
     from updatebot import config
     from updatebot import log as logSetup
 
@@ -256,13 +265,32 @@ if __name__ == '__main__':
     cfg = config.UpdateBotConfig()
     cfg.read(confDir + '/updatebotrc')
 
-    mcfg = rhnmirror.MirrorConfig()
-    mcfg.read(confDir + '/erratarc')
+    if cfg.platformName == 'rhel':
+        import rhnmirror
 
-    errata = rhnmirror.Errata(mcfg)
-    errata.fetch()
+        mcfg = rhnmirror.MirrorConfig()
+        mcfg.read(confDir + '/erratarc')
 
-    bot = Bot(cfg, errata)
-    bot.rebuildgroups(restart=False, resolveTargetVersions=False, readdPackages=False)
+        errata = rhnmirror.Errata(mcfg)
+
+        bot = Bot(cfg, errata)
+
+    else:
+        bot = Bot(cfg, None)
+
+        if cfg.platformName == 'sles':
+            from errata.sles import AdvisoryManager as Errata
+
+        elif cfg.platformName == 'centos':
+            from errata.centos import AdvisoryManager as Errata
+
+        else:
+            raise RuntimeError, 'no errata source found for %s' % cfg.platformName
+
+        errata = Errata(bot._pkgSource)
+        bot._errata._errata = errata
+
+    bot.rebuildgroups(restart=True, resolveTargetVersions=False, readdPackages=True,
+        updatedPackages=['anaconda', 'yum-cron', ])
 
     import epdb; epdb.st()
