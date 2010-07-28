@@ -308,6 +308,15 @@ class Bot(BotSuperClass):
                     expectedRemovals=expectedRemovals,
                     allowPackageDowngrades=allowDowngrades, **kwargs))
 
+                # Comment out the above pkgMap.update() call and
+                # uncomment the below call with list of rmake job id's
+                # in order to commit already-built packages.  (Useful in
+                # cases where a large commit has failed and a retry
+                # would save time.)  Also, set a breakpoint at end of
+                # enclosing loop so mirrorball won't keep trying this
+                # over and over!
+                #pkgMap.update(self._builder.commit([job1,job2,...]))
+
             # When deriving from an upstream platform sometimes we don't want
             # the latest versions.
             oldVersions = self._cfg.useOldVersion.get(updateId, None)
@@ -401,6 +410,10 @@ class Bot(BotSuperClass):
             totalTime = time.time() - start
             log.info('published update %s in %s seconds' % (advTime, totalTime))
             count += 1
+
+            # Set this breakpoint when you're committing a list of
+            # already-built job id's.  (See long comment above.)
+            #import epdb ; epdb.st()
 
         log.info('update completed')
         log.info('applied %s updates in %s seconds'
