@@ -36,7 +36,12 @@ class _Patch(SlotNode):
                  'release', 'requires', 'recommends', 'rebootNeeded',
                  'licenseToConfirm', 'packageManager', 'category',
                  'packages', 'provides', 'supplements', 'conflicts',
-                 'obsoletes')
+                 'obsoletes', 'timestamp')
+
+    def __init__(self, *args, **kwargs):
+        SlotNode.__init__(self, *args, **kwargs)
+        self.timestamp = self.getAttribute('timestamp')
+
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
