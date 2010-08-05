@@ -155,6 +155,13 @@ class _Package(SlotNode, PackageCompare):
         if pkgcmp != 0:
             return pkgcmp
 
+        # Compare arch before checksum to catch cases of multiple
+        # arch-specific packages that happen to have same content
+        # (e.g. SLES xorg-x11-fonts packages).
+        archcmp = cmp(self.arch, other.arch)
+        if archcmp != 0:
+            return archcmp
+        
         # Compare checksum only for equality, otherwise sorting will result in
         # checksum ordering.
         if (self.checksum and other.checksum and
