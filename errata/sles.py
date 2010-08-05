@@ -165,28 +165,28 @@ class AdvisoryManager(common.AdvisoryManager):
                 # Untested beyond 2.
                 assert(len(timestamps) == 2)
                 # FIXME: refactor this monster.
-                splitpatch = [ (patch.timestamp, patch.getAttribute('patchid'),
+                splitpatch = [ (patch.getAttribute('patchid'),
                                 set(patch.packages), patch) for patch in
                                patches if '-'.join(patch.getAttribute('patchid').split('-')[1:]) == patchid ]
-                if splitpatch[0][2].issubset(splitpatch[1][2]):
+                if splitpatch[0][1].issubset(splitpatch[1][1]):
                     log.info('syncing timestamps (%s %s) ' % (
-                        splitpatch[0][3].timestamp,
-                        splitpatch[1][3].timestamp) +
+                        splitpatch[0][2].timestamp,
+                        splitpatch[1][2].timestamp) +
                              'across repositories for %s & %s ' % (
-                        splitpatch[0][1], splitpatch[1][1]) +
-                             'to superset timestamp %s' % splitpatch[1][3].timestamp)
-                    splitpatch[0][3].timestamp = splitpatch[1][3].timestamp
-                elif splitpatch[1][2].issubset(splitpatch[0][2]):
+                        splitpatch[0][0], splitpatch[1][0]) +
+                             'to superset timestamp %s' % splitpatch[1][2].timestamp)
+                    splitpatch[0][2].timestamp = splitpatch[1][2].timestamp
+                elif splitpatch[1][1].issubset(splitpatch[0][1]):
                     log.info('syncing timestamps (%s %s) ' % (
-                        splitpatch[0][3].timestamp,
-                        splitpatch[1][3].timestamp) +
+                        splitpatch[0][2].timestamp,
+                        splitpatch[1][2].timestamp) +
                              'across repositories for %s & %s ' % (
-                        splitpatch[0][1], splitpatch[1][1]) +
-                             'to superset timestamp %s' % splitpatch[0][3].timestamp)
-                    splitpatch[1][3].timestamp = splitpatch[0][3].timestamp
+                        splitpatch[0][0], splitpatch[1][0]) +
+                             'to superset timestamp %s' % splitpatch[0][2].timestamp)
+                    splitpatch[1][2].timestamp = splitpatch[0][2].timestamp
                 # So far this has only been tested in pure-subset cases.
                 else:
-                    raise RuntimeError , 'neither %s nor %s is a subset of the other' % (splitpatch[0][1], splitpatch[1][1])
+                    raise RuntimeError , 'neither %s nor %s is a subset of the other' % (splitpatch[0][0], splitpatch[1][0])
 
         advPkgMap = {}
         nevras = {}
