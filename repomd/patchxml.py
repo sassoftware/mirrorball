@@ -1,5 +1,5 @@
 #
-# Copryright (c) 2008-2009 rPath, Inc.
+# Copryright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -15,6 +15,10 @@
 """
 Module for parsing patch-*.xml files from the repository metadata.
 """
+
+import logging
+
+log = logging.getLogger('repomd')
 
 __all__ = ('PatchXml', )
 
@@ -40,8 +44,9 @@ class _Patch(SlotNode):
 
     def __init__(self, *args, **kwargs):
         SlotNode.__init__(self, *args, **kwargs)
+        # Need access to this so it can be modified when syncing a
+        # patch's timestamp across architectures.
         self.timestamp = self.getAttribute('timestamp')
-
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -109,6 +114,14 @@ class _Patch(SlotNode):
         desccmp = cmp(self.description, other.description)
         if desccmp != 0:
             return desccmp
+
+        if self.timestamp != other.timestamp:
+            maxtime = max(self.timestamp, other.timestamp)
+            log.info('syncing timestamps (%s %s) ' % (self.timestamp,
+                                                      other.timestamp) +
+                     'for %s-%s to %s' % (self.name, self.version, maxtime))
+            self.timestamp = other.timestamp = maxtime
+            # Don't return here--they're now equal.
 
         for pkg in other.packages:
             if pkg not in self.packages:
