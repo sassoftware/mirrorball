@@ -593,7 +593,7 @@ class ErrataFilter(object):
 
         for src, bins in srcMap.iteritems():
             # Pull out any package sets that look like they are incomplete.
-            if len(bins) != len(self._pkgSource.srcPkgMap[src]) - 1:
+            if len(bins) != len(set([ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[src] ])) - 1:
                 extras[src] = bins
                 continue
 
