@@ -117,6 +117,21 @@ class AdvisoryManager(common.AdvisoryManager):
                                   set()).add(patch.getAttribute('patchid'))
             return slices
 
+        def map_patchids(slices):
+            """
+            Build a dictionary of patchids and their corresponding timestamps.
+            Used to determine if a patchid across multiple repositories also
+            has multiple timestamps.
+            """
+
+            patchidMap = {}
+
+            for timestamp, patchids in slices.iteritems():
+                for patchid in patchids:
+                    patchidMap.setdefault('-'.join(patchid.split('-')[1:]),
+                                          set()).add(timestamp)
+            return patchidMap
+
         def getChannel(pkg):
             for label, channel in self._channels.iteritems():
                 if label in pkg.location:
@@ -139,18 +154,14 @@ class AdvisoryManager(common.AdvisoryManager):
                     pkg.location = path + '/' + pkg.location
                 patches.add(patch)
 
-        # ...and (time-)slice it up
+        # ...and (time-)slice it up.
         slices = slice(patches)
 
         for label in self._pkgSource._clients:
             self._channels[label] = Channel(label)
-    
-        patchmap = {}
 
-        for timestamp, patchids in slices.iteritems():
-            for patchid in patchids:
-                patchmap.setdefault('-'.join(patchid.split('-')[1:]),
-                                    set()).add(timestamp)
+        # This maps patchid (without regard to repos) to timeslice.
+        patchidMap = map_patchids(slices)
 
         # This requires no more than two timestamps per patchid;
         # one each for slesp3 and sdkp3 (bails out otherwise):
@@ -160,7 +171,7 @@ class AdvisoryManager(common.AdvisoryManager):
         #
         # Also needs tightening up!
         #
-        for patchid, timestamps in patchmap.iteritems():
+        for patchid, timestamps in patchidMap.iteritems():
             if len(timestamps) > 1:
                 # Untested beyond 2.
                 assert(len(timestamps) == 2)
