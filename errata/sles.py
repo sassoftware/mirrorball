@@ -243,27 +243,6 @@ class AdvisoryManager(common.AdvisoryManager):
                 nevra = binPkg.getNevra()
                 nevraObj = nevras.setdefault(nevra, Nevra(*nevra))
                 channelObj = getChannel(binPkg)
-
-# This was a horrible experiment.
-#                if srcPkgPatchidMap[srcPkgObj] != set([patchid]):
-#                    print "*** Duplicate srcPackage? %s: %s" % (srcPkgObj, srcPkgAdvMap[srcPkgObj])
-#                    # Untested beyond two, and expected case is two
-#                    # different advisories issued for the same source
-#                    # package, one each for x86 and x86_64.  (Lots of
-#                    # these for the kernel, for instance.)
-#                    assert(len(srcPkgPatchidMap[srcPkgObj]) == 2)
-#                    srcPkgAdvs = [ getPatchById(patches, srcPkgAdv)
-#                                   for srcPkgAdv in srcPkgAdvMap[srcPkgObj] ]
-#                    maxTimestamp = max(srcPkgAdvs[0].timestamp,
-#                                       srcPkgAdvs[1].timestamp)
-#                    log.info('syncing timestamps (%s %s) ' % (
-#                        srcPkgAdvs[0].timestamp, srcPkgAdvs[1].timestamp) +
-#                             'across same-source advisories for %s & %s ' % (
-#                        srcPkgAdvs[0].getAttribute('patchid'),
-#                        srcPkgAdvs[1].getAttribute('patchid')) +
-#                             'to later timestamp %s' % maxTimestamp)
-#                    srcPkgAdvs[0].timestamp = srcPkgAdvs[1].timestamp = maxTimestamp
-
                 package = Package(channelObj, nevraObj)
                 packageObj = packages.setdefault(package, package)
                 advPkgMap.setdefault(advisory, set()).add(packageObj)
