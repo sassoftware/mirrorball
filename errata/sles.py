@@ -117,18 +117,28 @@ class AdvisoryManager(common.AdvisoryManager):
                                   set()).add(patch.getAttribute('patchid'))
             return slices
 
+        def patchidNoRepo(patchid):
+            """
+            Trims the leading (repository) information from a patchid.
+            Used for folding patches across repositories, among other things.
+            """
+            return '-'.join(patchid.split('-')[1:])
+
         def map_patchids(slices):
             """
-            Build a dictionary of patchids and their corresponding timestamps.
-            Used to determine if a patchid across multiple repositories also
-            has multiple timestamps.
+            Build a dictionary of (partial) patchids and their
+            corresponding timestamps.  Used to determine if a patchid
+            across multiple repositories also has multiple timestamps.
             """
 
             patchidMap = {}
 
             for timestamp, patchids in slices.iteritems():
                 for patchid in patchids:
-                    patchidMap.setdefault('-'.join(patchid.split('-')[1:]),
+                    # Map excludes leading segment of patchid, which
+                    # carries repository information; we're folding
+                    # across repositories.
+                    patchidMap.setdefault(patchidNoRepo(patchid),
                                           set()).add(timestamp)
             return patchidMap
 
@@ -138,6 +148,18 @@ class AdvisoryManager(common.AdvisoryManager):
                     return channel
             raise RuntimeError , 'unable to find channel for %s' % pkg.location
 
+        def getSrcPkg(binPkg):
+            for srcPkg, binPkgs in self._pkgSource.srcPkgMap.iteritems():
+                if binPkg in binPkgs:
+                    return srcPkg
+            raise RuntimeError , 'unable to find source package for %s' % binPkg.location
+
+        def getPatchById(patches, patchid):
+            for patch in patches:
+                if patch.getAttribute('patchid') == patchid:
+                    return patch
+            raise RuntimeError , 'unable to find patch %s' % patchid
+            
         # make sure the pkg source is loaded.
         self._pkgSource.load()
 
@@ -154,11 +176,19 @@ class AdvisoryManager(common.AdvisoryManager):
                     pkg.location = path + '/' + pkg.location
                 patches.add(patch)
 
+        for label in self._pkgSource._clients:
+            self._channels[label] = Channel(label)
+
         # ...and (time-)slice it up.
         slices = slice(patches)
 
-        for label in self._pkgSource._clients:
-            self._channels[label] = Channel(label)
+        for timeslice, patchSet in slices.iteritems():
+            for patchId in patchSet:
+                patchObj = getPatchById(patches, patchId)
+                if patchObj.timestamp != timeslice:
+                    log.info('syncing %s timestamp (%s) to slice timestamp %s' % (
+                    patchId, patchObj.timestamp, timeslice))
+                    patchObj.timestamp = timeslice
 
         # This maps patchid (without regard to repos) to timeslice.
         patchidMap = map_patchids(slices)
@@ -178,7 +208,7 @@ class AdvisoryManager(common.AdvisoryManager):
                 # FIXME: refactor this monster.
                 splitpatch = [ (patch.getAttribute('patchid'),
                                 set(patch.packages), patch) for patch in
-                               patches if '-'.join(patch.getAttribute('patchid').split('-')[1:]) == patchid ]
+                               patches if patchidNoRepo(patch.getAttribute('patchid')) == patchid ]
                 if splitpatch[0][1].issubset(splitpatch[1][1]):
                     log.info('syncing timestamps (%s %s) ' % (
                         splitpatch[0][2].timestamp,
@@ -202,20 +232,51 @@ class AdvisoryManager(common.AdvisoryManager):
         advPkgMap = {}
         nevras = {}
         packages = {}
+        srcPkgAdvMap = {}
+        srcPkgPatchidMap = {}
         
         for patch in patches:
             advisory = patch.getAttribute('patchid')
-            issue_date = time.strftime('%Y-%m-%d %H:%M:%S',
-                                       time.gmtime(int(patch.timestamp)))
+            patchid = patchidNoRepo(advisory)
 
             for binPkg in patch.packages:
                 nevra = binPkg.getNevra()
                 nevraObj = nevras.setdefault(nevra, Nevra(*nevra))
                 channelObj = getChannel(binPkg)
+
+# This was a horrible experiment.
+#                if srcPkgPatchidMap[srcPkgObj] != set([patchid]):
+#                    print "*** Duplicate srcPackage? %s: %s" % (srcPkgObj, srcPkgAdvMap[srcPkgObj])
+#                    # Untested beyond two, and expected case is two
+#                    # different advisories issued for the same source
+#                    # package, one each for x86 and x86_64.  (Lots of
+#                    # these for the kernel, for instance.)
+#                    assert(len(srcPkgPatchidMap[srcPkgObj]) == 2)
+#                    srcPkgAdvs = [ getPatchById(patches, srcPkgAdv)
+#                                   for srcPkgAdv in srcPkgAdvMap[srcPkgObj] ]
+#                    maxTimestamp = max(srcPkgAdvs[0].timestamp,
+#                                       srcPkgAdvs[1].timestamp)
+#                    log.info('syncing timestamps (%s %s) ' % (
+#                        srcPkgAdvs[0].timestamp, srcPkgAdvs[1].timestamp) +
+#                             'across same-source advisories for %s & %s ' % (
+#                        srcPkgAdvs[0].getAttribute('patchid'),
+#                        srcPkgAdvs[1].getAttribute('patchid')) +
+#                             'to later timestamp %s' % maxTimestamp)
+#                    srcPkgAdvs[0].timestamp = srcPkgAdvs[1].timestamp = maxTimestamp
+
                 package = Package(channelObj, nevraObj)
                 packageObj = packages.setdefault(package, package)
                 advPkgMap.setdefault(advisory, set()).add(packageObj)
 
+                srcPkgObj = getSrcPkg(binPkg)
+                srcPkgAdvMap.setdefault(srcPkgObj, set()).add(advisory)
+                srcPkgPatchidMap.setdefault(srcPkgObj, set()).add(patchid)
+
+            # There should be no srcPkgs with more than two patchids.
+            assert(len([ x for x, y in srcPkgPatchidMap.iteritems()
+                         if len(y) > 2 ]) == 0)
+            issue_date = time.strftime('%Y-%m-%d %H:%M:%S',
+                                       time.gmtime(int(patch.timestamp)))
             log.info('creating advisory: %s' % advisory)
             adv = Advisory(advisory, patch.summary, issue_date,
                            advPkgMap[advisory])
