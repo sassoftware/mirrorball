@@ -908,9 +908,13 @@ class ErrataFilter(object):
         # separate out golden bits
         other = []
         golden = []
-        firstErrata = int(time.time())
-        if len(buckets):
-            firstErrata = sorted(buckets.keys())[0]
+        if self._cfg.firstErrata:
+            firstErrata = self._cfg.firstErrata
+        else:
+            firstErrata = int(time.time())
+            if len(buckets):
+                firstErrata = sorted(buckets.keys())[0]
+                
         for nevra, pkg in nevras.iteritems():
             buildtime = int(pkg.buildTimestamp)
             if buildtime < firstErrata:

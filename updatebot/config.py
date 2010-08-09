@@ -408,6 +408,14 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # bucket listed.
     mergeUpdates = (CfgList(CfgQuotedLineList(CfgInt)), [])
 
+    # Timestamp of first erratum.  This is used as a baseline for
+    # determining if any update packages are missing errata.  It should
+    # auto-detect correctly, but in some cases--for instance, when a
+    # distribution releases the same package as a baseline package on
+    # one channel and an update on a parallel channel--this will require
+    # manual specification.
+    firstErrata = CfgInt
+
     # Errata timestamp pairs for rescheduling when updates are applied. The
     # first element is the current timestamp of the update. The second element
     # is the new timestamp. You may need to use this option if it appears that
