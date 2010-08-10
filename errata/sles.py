@@ -202,7 +202,7 @@ class AdvisoryManager(common.AdvisoryManager):
         # Pondering how this can be consolidated with above code to
         # reduce iterating...
         #
-        # Also needs tightening up!
+        # Just so it's clear, I hate this code (i.e. FIXME).
         #
         for patchid, timestamps in patchidMap.iteritems():
             if len(timestamps) > 1:
@@ -235,6 +235,7 @@ class AdvisoryManager(common.AdvisoryManager):
         advPkgMap = {}
         nevras = {}
         packages = {}
+        srcPkgAdvMap = {}
         srcPkgPatchidMap = {}
 
         for patch in patches:
@@ -248,9 +249,34 @@ class AdvisoryManager(common.AdvisoryManager):
                 package = Package(channelObj, nevraObj)
                 packageObj = packages.setdefault(package, package)
                 advPkgMap.setdefault(advisory, set()).add(packageObj)
-
                 srcPkgObj = getSrcPkg(binPkg)
+                srcPkgAdvMap.setdefault(srcPkgObj, set()).add(advisory)
                 srcPkgPatchidMap.setdefault(srcPkgObj, set()).add(patchid)
+
+                # FIXME: I hate this code too.
+                if srcPkgPatchidMap[srcPkgObj] != set([patchid]):
+                    # Untested beyond two, and expected case is two
+                    # different advisories issued for the same source
+                    # package, one each for x86 and x86_64.  (Lots of
+                    # these for the kernel, for instance.)
+                    assert(len(srcPkgPatchidMap[srcPkgObj]) == 2)
+                    srcPkgAdvs = [ getPatchById(patches, srcPkgAdv)
+                                   for srcPkgAdv in srcPkgAdvMap[srcPkgObj] ]
+                    # Only sync the same source package once.  (It may
+                    # appear for multiple binary packages.)
+                    if srcPkgAdvs[0].timestamp != srcPkgAdvs[1].timestamp:
+                        # Using the min here in case the first advisory
+                        # for this source package has already been
+                        # published.
+                        syncTimestamp = min(srcPkgAdvs[0].timestamp,
+                                           srcPkgAdvs[1].timestamp)
+                        log.info('syncing timestamps (%s %s) ' % (
+                            srcPkgAdvs[0].timestamp, srcPkgAdvs[1].timestamp) +
+                                 'across same-SRPM advisories for %s & %s ' % (
+                            srcPkgAdvs[0].getAttribute('patchid'),
+                            srcPkgAdvs[1].getAttribute('patchid')) +
+                                 'to earlier timestamp %s' % syncTimestamp)
+                        srcPkgAdvs[0].timestamp = srcPkgAdvs[1].timestamp = syncTimestamp
 
             # There should be no srcPkgs with more than two patchids.
             assert(len([ x for x, y in srcPkgPatchidMap.iteritems()
@@ -258,7 +284,8 @@ class AdvisoryManager(common.AdvisoryManager):
 
             issue_date = time.strftime('%Y-%m-%d %H:%M:%S',
                                        time.gmtime(int(patch.timestamp)))
-            log.info('creating advisory: %s' % advisory)
+            log.info('creating advisory: %s (%s)' % (advisory,
+                                                     patch.timestamp))
             adv = Advisory(advisory, patch.summary, issue_date,
                            advPkgMap[advisory])
             self._advisories.add(adv)
