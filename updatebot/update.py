@@ -420,6 +420,12 @@ class Updater(object):
                     x for x in self._pkgSource.binNameMap[binPkg.name]
                         if x.arch == binPkg.arch ])
 
+                # Maybe this is a src or nosrc.
+                if not pkgs:
+                    pkgs = sorted([
+                        x for x in self._pkgSource.srcNameMap[binPkg.name]
+                        if x.arch == binPkg.arch ])
+
                 # If running in latest mode we really want to compare to the
                 # latest version of this binary, but if we are running in
                 # ordered we really want the "next" version of this binary.
