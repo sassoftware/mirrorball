@@ -36,12 +36,12 @@ class Bot(OrderedBot):
 
         return sorted(nvfs)
 
-    def rebuildpackage(self, name, useLatest=None,
+    def rebuildpackages(self, names, useLatest=None,
         additionalResolveTroves=None):
         """
         Rebuild all versions of a given package in order.
-        @param name: name of the package to rebuild.
-        @type name: str
+        @param names: names of the packages to rebuild.
+        @type names: str
         @param useLatest: A list of package names to use the latest versions of.
                           For instance, you may want to use the latest version
                           of conary to get fixed dependencies.
@@ -51,17 +51,21 @@ class Bot(OrderedBot):
         @type additionalResolveTroves: list(str, ...)
         """
 
-        trvSpecs = [ (x[0].split(':')[0], x[1], None)
-                     for x in self._getAllVersions(name) ]
+        nvfs = set()
+        for name in names:
+            trvSpecs = [ (x[0].split(':')[0], x[1], None)
+                         for x in self._getAllVersions(name) ]
 
-        # Build only the latest versions of each sources.
-        latestMap = {}
-        for n, v, f in reversed(sorted(trvSpecs)):
-            upVer = v.trailingRevision().version
-            if upVer not in latestMap:
-                latestMap[upVer] = (n, v, f)
+            # Build only the latest versions of each sources.
+            latestMap = {}
+            for n, v, f in reversed(sorted(trvSpecs)):
+                upVer = v.trailingRevision().version
+                if upVer not in latestMap:
+                    latestMap[upVer] = (n, v, f)
 
-        trvMap = self._builder.rebuildmany(latestMap.values(),
+            nvfs.update(set(latestMap.values()))
+
+        trvMap = self._builder.rebuildmany(list(nvfs),
             useLatest=useLatest,
             additionalResolveTroves=additionalResolveTroves)
 
@@ -162,16 +166,18 @@ if __name__ == '__main__':
 
     bot = Bot(cfg, errata)
 
-    for pkgName in pkgNames:
+#    for pkgName in pkgNames:
 #        bot.removeSourceFiles(pkgName)
-        bot.rebuildpackage(pkgName,
-            useLatest=['conary', 'conary-build', 'conary-policy', 'rpm', ],
-            additionalResolveTroves=[
-                'libelf-lgpl=rhel.rpath.com@rpath:rhel-5-devel',
-                'conary=rhel.rpath.com@rpath:rhel-5-devel',
-                'conary-build=rhel.rpath.com@rpath:rhel-5-devel',
-                'conary-policy=rhel.rpath.com@rpath:rhel-5-devel',
-                'rpm=rhel.rpath.com@rpath:rhel-5-server-devel', 
-                'group-os=rhel.rpath.com@rpath:rhel-5-server-devel',])
+
+    bot.rebuildpackages(pkgNames,
+        useLatest=['conary', 'conary-build', 'conary-policy', 'rpm', ],
+        additionalResolveTroves=[
+            'libelf-lgpl=rhel.rpath.com@rpath:rhel-5-devel',
+            'conary=rhel.rpath.com@rpath:rhel-5-devel',
+            'conary-build=rhel.rpath.com@rpath:rhel-5-devel',
+            'conary-policy=rhel.rpath.com@rpath:rhel-5-devel',
+            'rpm=rhel.rpath.com@rpath:rhel-5-server-devel',
+            'group-os=rhel.rpath.com@rpath:rhel-5-server-devel',
+            'group-rpath-packages=rhel.rpath.com@rpath:rhel-5-devel', ])
 
     import epdb; epdb.st()
