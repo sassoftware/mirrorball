@@ -138,17 +138,12 @@ class Bot(OrderedBot):
 
                     latest = sorted(binSpecs)[-1]
 
-                    if v != latest[1]:
-                        #log.info('%s: found updated version of %s %s -> %s'
-                        #         % (version, n, v, latest[1]))
+                    #log.info('%s: found updated version of %s %s -> %s'
+                    #         % (version, n, v, latest[1]))
 
-                        toAdd = set([ x for x in binSpecs
-                                      if x[1] == latest[1] ])
-                        nvfs.update(toAdd)
-                    elif f is None:
-                        emptyFlavors.add((n, v, f))
-                    else:
-                        nvfs.add((n, v, f))
+                    toAdd = set([ x for x in binSpecs
+                                  if x[1] == latest[1] ])
+                    nvfs.update(toAdd)
 
             # Lookup anything that has an empty flavor.
             log.info('%s: looking up version information for empty flavors'
@@ -313,7 +308,7 @@ if __name__ == '__main__':
 
     extraPackages = [ 'xulrunner', 'firefox', 'gnome-vfs2', 'numactl', ]
 
-    bot.rebuildgroups(restart=True,
+    bot.rebuildgroups(restart=False,
         updatedPackages=rebuiltPackages + tags + extraPackages)
 
     import epdb; epdb.st()
