@@ -124,26 +124,31 @@ class Bot(OrderedBot):
             if checkUpdates:
                 log.info('%s: looking up version information for rebuild '
                          'packages' % version)
-            for n, v, f in checkUpdates:
-                upVer = '/'.join([v.branch().label().asString(),
-                                  v.trailingRevision().version])
-                binSpecs = self._updater._conaryhelper._repos.findTrove(
-                    v.branch().label(), (n, upVer, None), bestFlavor=False)
 
-                assert len(binSpecs) > 1
+                req = set()
+                for n, v, f in checkUpdates:
+                    upVer = '/'.join([v.branch().label().asString(),
+                                      v.trailingRevision().version])
+                    req.add((n, upVer, None))
 
-                latest = sorted(binSpecs)[-1]
+                binSpecMap = self._updater._conaryhelper.findTroves(req)
 
-                if v != latest[1]:
-                    #log.info('%s: found updated version of %s %s -> %s'
-                    #         % (version, n, v, latest[1]))
+                for binSpecs in binSpecMap.itervalues():
+                    assert len(binSpecs) > 1
 
-                    toAdd = set([ x for x in binSpecs if x[1] == latest[1] ])
-                    nvfs.update(toAdd)
-                elif f is None:
-                    emptyFlavors.add((n, v, f))
-                else:
-                    nvfs.add((n, v, f))
+                    latest = sorted(binSpecs)[-1]
+
+                    if v != latest[1]:
+                        #log.info('%s: found updated version of %s %s -> %s'
+                        #         % (version, n, v, latest[1]))
+
+                        toAdd = set([ x for x in binSpecs
+                                      if x[1] == latest[1] ])
+                        nvfs.update(toAdd)
+                    elif f is None:
+                        emptyFlavors.add((n, v, f))
+                    else:
+                        nvfs.add((n, v, f))
 
             # Lookup anything that has an empty flavor.
             log.info('%s: looking up version information for empty flavors'
@@ -212,7 +217,8 @@ class Bot(OrderedBot):
             # Wait for the first results to make sure the group will rebuild
             # properly.
             if not trvMap:
-                log.info('waiting for first build to complete before continuing')
+                log.info('waiting for first build to complete before '
+                         'continuing')
                 while not res.isDone:
                     time.sleep(1)
 
