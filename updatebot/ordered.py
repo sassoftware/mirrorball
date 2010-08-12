@@ -473,6 +473,21 @@ class Bot(BotSuperClass):
             exceptions = dict([ (x[0], x[1]) for x in itertools.chain(
                 *self._getOldVersionExceptions(updateId).itervalues()) ])
 
+
+            advisories = [ x['name'] for x in
+                           self._errata.getUpdateDetail(updateId) ]
+
+            for advisory in advisories:
+                # Handle attaching an update that was caused by changes that we
+                # made outside of the normal update stream to an existing
+                # advisory.
+                for nvf in self._cfg.extendAdvisory.get(advisory, ()):
+                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                        nvf, labels=self._cfg.platformSearchPath,
+                        latest=False, includeBuildLabel=True)
+                    assert len(srcMap) == 1
+                    srcPkgMap.update(srcMap)
+
             # These are the binary trove specs that we expect to be promoted.
             expected = self._filterBinPkgSet(
                 itertools.chain(*srcPkgMap.itervalues()), exceptions)
