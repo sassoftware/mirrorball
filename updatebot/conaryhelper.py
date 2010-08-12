@@ -1102,12 +1102,20 @@ class ConaryHelper(object):
         # in expected will not be promoted because not all packages are
         # included in the groups.
         trvDiff = newPkgs.difference(oldPkgs)
+        trvInv = oldPkgs.difference(newPkgs)
+
         grpTrvs = set([ (x[0], x[2]) for x in trvLst
                         if not x[0].endswith(':source') ])
+
         grpDiff = set([ x[0] for x in trvDiff.difference(grpTrvs) ])
+        grpInv = set([ x[0] for x in trvInv.difference(grpTrvs) ])
+
         extraTroves = set([ x[0] for x in extraPromoteTroves |
                                           extraExpectedPromoteTroves ])
-        if checkPackageList and grpDiff.difference(extraTroves):
+
+
+        if (checkPackageList and (grpDiff.difference(extraTroves) or
+                                  grpInv.difference(extraTroves))):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
         if not commit:
