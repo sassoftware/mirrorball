@@ -322,6 +322,7 @@ class MultiVersionDispatcher(Dispatcher):
 
         # Mapping of pkgname to ordered list of trove specs
         self._pkgs = {}
+        self._failedpkgs = {}
 
     def buildmany(self, troveSpecs):
         """
@@ -335,7 +336,14 @@ class MultiVersionDispatcher(Dispatcher):
 
         troveSpecs = sorted(troveSpecs)
 
-        return Dispatcher.buildmany(self, troveSpecs)
+        trvMap, failed = Dispatcher.buildmany(self, troveSpecs)
+
+        if self._failedpkgs:
+            log.info('The following jobs failed to commit')
+            for name, jobLst in self._failedpkgs.iteritems():
+                log.info('%s: %s' % (name, jobLst))
+
+        return trvMap, failed
 
     def _getCommitJobs(self):
         """
@@ -354,8 +362,13 @@ class MultiVersionDispatcher(Dispatcher):
             if status == buildjob.JOB_STATE_BUILT:
                 built.setdefault(trove[0], dict())[trove] = jobId
 
+            # Check if any packages have failed to commit.
+            elif (status == JobStatus.ERROR_COMMITTER_FAILURE and 
+                  trove[0] not in self._failedpkgs):
+                self._failedpkgs[trove[0]] = [jobId, ]
+
         for name, jobDict in built.iteritems():
-                # Wait for all versions of a package to build.
+            # Wait for all versions of a package to build.
             if ((self._waitForAllVersions and
                  len(jobDict) == len(self._pkgs[name])) or
                 # Wait for the first version to be built.
@@ -366,7 +379,25 @@ class MultiVersionDispatcher(Dispatcher):
                 spec = self._pkgs[name].pop(0)
 
                 jobId = jobDict[spec]
+
+                # If a build of one version of a package fails to commit, mark
+                # all subsiquent versions as failed.
+                if name in self._failedpkgs:
+                    self._failedpkgs[name].append(jobId)
+                    self._jobs[jobId][1] = JobStatus.ERROR_COMMITTER_FAILURE
+                    continue
+
                 toCommit.add(jobId)
+
+        for name, jobDict in built.iteritems():
+            order = []
+            for spec in self._pkgs[name]:
+                if spec not in jobDict:
+                    break
+                order.append(jobDict[spec])
+
+            if order:
+                log.info('ordered built jobs for %s: %s' % (name, order))
 
         return toCommit
 
