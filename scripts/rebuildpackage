@@ -15,6 +15,7 @@
 
 import os
 import sys
+import shutil
 import logging
 
 mirrorballDir = os.path.abspath('../')
@@ -71,7 +72,7 @@ class Bot(OrderedBot):
 
         return trvMap
 
-    def removeSourceFiles(self, name, keepFiles=None):
+    def removeSourceFiles(self, name, keepFiles=None, replaceFiles=None):
         """
         Remove all of the files from all source versions of a package that are
         not listed in keepFiles.
@@ -84,6 +85,12 @@ class Bot(OrderedBot):
 
         if not keepFiles:
             keepFiles = set()
+
+        if not replaceFiles:
+            replaceFiles = set()
+
+        replaceMap = dict([ (os.path.basename(x), x) for x in replaceFiles ])
+        keepFiles.update(set(replaceMap.keys()))
 
         # Always avoid removing the CONARY file and the manifest.
         keepFiles.add('CONARY')
@@ -107,6 +114,7 @@ class Bot(OrderedBot):
                 n, v, f = newPkgs[0]
 
                 # Commit the changeset now that it has been validated.
+                log.info('commiting clone changeset')
                 helper._repos.commitChangeSet(cs)
             else:
                 n, v, f = spec
@@ -114,12 +122,19 @@ class Bot(OrderedBot):
             # Edit the source to remove files.
             checkoutDir = helper._edit(n, version=v)
             files = set(os.listdir(checkoutDir))
+
             removeFiles = files - keepFiles
             for fn in removeFiles:
                 helper._removeFile(checkoutDir, fn)
 
+            replace = files & set(replaceMap.keys())
+            for fn in replace:
+                dest = os.path.join(checkoutDir, fn)
+                log.info('replacing %s -> %s' % (replaceMap[fn], dest))
+                shutil.copyfile(replaceMap[fn], dest)
+
             # Commit changes if anything changed.
-            if removeFiles:
+            if removeFiles or replace:
                 helper.commit(n, version=v,
                               commitMessage='automated file removal')
 
@@ -163,11 +178,13 @@ if __name__ == '__main__':
     errata.fetch()
 
     pkgNames = sys.argv[2:]
+    #replaceFiles = sys.argv[3:]
+    replaceFiles = None
 
     bot = Bot(cfg, errata)
 
-#    for pkgName in pkgNames:
-#        bot.removeSourceFiles(pkgName)
+    #for pkgName in pkgNames:
+    #    bot.removeSourceFiles(pkgName, replaceFiles=replaceFiles)
 
     bot.rebuildpackages(pkgNames,
         useLatest=['conary', 'conary-build', 'conary-policy', 'rpm', ],
