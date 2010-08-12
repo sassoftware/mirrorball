@@ -215,3 +215,80 @@ def setproctitle(title):
         osutil.setproctitle('mirrorball %s' % (title,))
     except:
         pass
+
+class BoundedCounter(object):
+    """
+    Basic counter that can be incremented and decremented while enforcing
+    bounds.
+    """
+
+    def __init__(self, low, high, cur, boundsErrors=True):
+        self._low = low
+        self._high = high
+        self._cur = cur
+        self._boundsErrors = boundsErrors
+
+    def __str__(self):
+        return str(self._cur)
+
+    def __repr__(self):
+        return '<Counter(%s, %s, %s)>' % (self._low, self._high, self._cur)
+
+    def __bool__(self):
+        if self._cur == self._low:
+            return False
+        else:
+            return True
+
+    def __len__(self):
+        return self._cur - self._low
+
+    def __add__(self, other):
+        if isinstance(other, int):
+            while other:
+                self.increment()
+                other -= 1
+        else:
+            raise RuntimeError, 'Counters only support adding integers'
+
+        return self
+
+    def __sub__(self, other):
+        if isinstance(other, int):
+            while other:
+                self.decrement()
+                other -= 1
+        else:
+            raise RuntimeError, 'Counters only support subtracting integers'
+
+        return self
+
+    def __cmp__(self, other):
+        if isinstance(other, int):
+            return cmp(self._cur, other)
+        elif isinstance(other, self.__class__):
+            return cmp(self._cur, other._cur)
+        else:
+            raise (RuntimeError, 'Counters only support comparision operations '
+                   'against integers and other Counter instances')
+
+    @property
+    def upperlimit(self):
+        return self._high
+
+    @property
+    def lowerlimit(self):
+        return self._low
+
+    def increment(self):
+        if self._cur + 1 <= self._high:
+            self._cur += 1
+        elif self._boundsErrors:
+            raise RuntimeError, 'Counter has been incremented past upper bounds'
+
+    def decrement(self):
+        if self._cur - 1 >= self._low:
+            self._cur -= 1
+        elif self._boundsErrors:
+            raise RuntimeError, 'Counter has been decremented past lower bounds'
+

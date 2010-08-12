@@ -44,8 +44,7 @@ class AbstractDispatcher(object):
 
     def __init__(self, builder, maxSlots):
         self._builder = builder
-        self._maxSlots = maxSlots
-        self._slots = self._maxSlots
+        self._slots = util.BoundedCounter(0, maxSlots, maxSlots)
 
         # jobId: (trv, status, commitData)
         self._jobs = {}
@@ -98,11 +97,8 @@ class Dispatcher(AbstractDispatcher):
     def __init__(self, builder, maxSlots):
         AbstractDispatcher.__init__(self, builder, maxSlots)
 
-        self._maxStartSlots = 10
-        self._startSlots = self._maxStartSlots
-
-        self._maxCommitSlots = 2
-        self._commitSlots = self._maxCommitSlots
+        self._startSlots = util.BoundedCounter(0, 10, 10)
+        self._commitSlots = util.BoundedCounter(0, 2, 2)
 
         self._starter = self._starterClass(self._builder)
         self._monitor = self._monitorClass(self._builder._helper.client)
@@ -123,7 +119,7 @@ class Dispatcher(AbstractDispatcher):
 
         while troves or not self._jobDone():
             # Only create more jobs once the last batch has been started.
-            if self._startSlots == self._maxStartSlots:
+            if self._startSlots == self._startSlots.upperlimit:
                 # fill slots with available troves
                 while (troves and self._slots and self._startSlots and
                        self._availableFDs()):
@@ -154,7 +150,7 @@ class Dispatcher(AbstractDispatcher):
                 if status in self._slotdone:
                     self._slots += 1
 
-                    if self._slots > self._maxSlots:
+                    if self._slots > self._slots.upperlimit:
                         log.critical('slots is greater than maxSlots')
 
             # submit any jobs that are ready to commit as long as there are
@@ -178,24 +174,25 @@ class Dispatcher(AbstractDispatcher):
 
             # check for commit status
             for jobId, result in self._committer.getStatus():
+                self._commitSlots += 1
                 # unbatch commit jobs
                 if not isinstance(jobId, tuple):
                     jobId = (jobId, )
                 for jobId in jobId:
                     self._jobs[jobId][2] = result
-                    self._commitSlots += 1
 
             # process committer errors
             for jobId, error in self._committer.getErrors():
+                self._commitSlots += 1
                 # unbatch commit jobs
                 if not isinstance(jobId, tuple):
                     jobId = (jobId, )
                 for jobId in jobId:
                     self._jobs[jobId][1] = JobStatus.ERROR_COMMITTER_FAILURE
                     self._failures.append((jobId, error))
-                    self._commitSlots += 1
 
-                    # Flag job as failed so that monitor worker will exit properly.
+                    # Flag job as failed so that monitor worker will exit
+                    # properly.
                     self._builder.setCommitFailed(jobId, reason=str(error))
 
             # Wait for a bit before polling again.
@@ -257,8 +254,7 @@ class NonCommittalDispatcher(Dispatcher):
         Dispatcher.__init__(self, builder, maxSlots)
 
         # Disable commits by removing all commit slots.
-        self._maxCommitSlots = 0
-        self._commitSlots = 0
+        self._commitSlots = util.BoundedCounter(0, 0, 0)
 
     def buildmany(self, troveSpecs):
         """
@@ -322,11 +318,11 @@ class MultiVersionDispatcher(Dispatcher):
 
         self._waitForAllVersions = waitForAllVersions
 
-        self._maxCommitSlots = 1
-        self._commitSlots = self._maxCommitSlots
+        self._commitSlots = util.BoundedCounter(0, 1, 1)
 
         # Mapping of pkgname to ordered list of trove specs
         self._pkgs = {}
+        self._failedpkgs = {}
 
     def buildmany(self, troveSpecs):
         """
@@ -340,7 +336,14 @@ class MultiVersionDispatcher(Dispatcher):
 
         troveSpecs = sorted(troveSpecs)
 
-        return Dispatcher.buildmany(self, troveSpecs)
+        trvMap, failed = Dispatcher.buildmany(self, troveSpecs)
+
+        if self._failedpkgs:
+            log.info('The following jobs failed to commit')
+            for name, jobLst in self._failedpkgs.iteritems():
+                log.info('%s: %s' % (name, jobLst))
+
+        return trvMap, failed
 
     def _getCommitJobs(self):
         """
@@ -359,8 +362,13 @@ class MultiVersionDispatcher(Dispatcher):
             if status == buildjob.JOB_STATE_BUILT:
                 built.setdefault(trove[0], dict())[trove] = jobId
 
+            # Check if any packages have failed to commit.
+            elif (status == JobStatus.ERROR_COMMITTER_FAILURE and 
+                  trove[0] not in self._failedpkgs):
+                self._failedpkgs[trove[0]] = [jobId, ]
+
         for name, jobDict in built.iteritems():
-                # Wait for all versions of a package to build.
+            # Wait for all versions of a package to build.
             if ((self._waitForAllVersions and
                  len(jobDict) == len(self._pkgs[name])) or
                 # Wait for the first version to be built.
@@ -371,7 +379,25 @@ class MultiVersionDispatcher(Dispatcher):
                 spec = self._pkgs[name].pop(0)
 
                 jobId = jobDict[spec]
+
+                # If a build of one version of a package fails to commit, mark
+                # all subsiquent versions as failed.
+                if name in self._failedpkgs:
+                    self._failedpkgs[name].append(jobId)
+                    self._jobs[jobId][1] = JobStatus.ERROR_COMMITTER_FAILURE
+                    continue
+
                 toCommit.add(jobId)
+
+        for name, jobDict in built.iteritems():
+            order = []
+            for spec in self._pkgs[name]:
+                if spec not in jobDict:
+                    break
+                order.append(jobDict[spec])
+
+            if order:
+                log.info('ordered built jobs for %s: %s' % (name, order))
 
         return toCommit
 

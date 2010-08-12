@@ -86,9 +86,6 @@ class Bot(OrderedBot):
 
         # Iterate over all upstream group versions that should exist.
         for updateId, updates in self._errata.iterByIssueDate(current=-1):
-#            if updateId == 1192521600:
-#                # Stop here so we can restore path-conflict checking.
-#                import epdb ; epdb.st()
             if updateId == 0:
                 prodMap = versionMap[self._cfg.platformName]
                 version = prodMap[self._cfg.upstreamProductVersion]
@@ -105,20 +102,13 @@ class Bot(OrderedBot):
             log.info('%s: retrieving group model information' % version)
             group = self._groupmgr.getGroup(version=version)
 
-            if version == '0':
-                group.version = '5.0'
-
             # Get all of the nvfs from the group model.
             nvfs = set()
             checkUpdates = set()
             emptyFlavors = set()
-            vmap = dict([ (x.name, x.version) for x in group.iterpackages()
-                          if x.version is not None ])
             for pkg in group.iterpackages():
                 n = str(pkg.name)
-                if pkg.version is None:
-                    pkg.version = vmap[pkg.name]
-	        v = versions.ThawVersion(str(pkg.version))
+                v = versions.ThawVersion(str(pkg.version))
 
                 f = deps.ThawFlavor(str(pkg.flavor))
                 if str(f) == '':
@@ -135,27 +125,25 @@ class Bot(OrderedBot):
             if checkUpdates:
                 log.info('%s: looking up version information for rebuild '
                          'packages' % version)
-            for n, v, f in checkUpdates:
-                upVer = '/'.join([v.branch().label().asString(),
-                                  v.trailingRevision().version])
-                binSpecs = self._updater._conaryhelper._repos.findTrove(
-                    v.branch().label(), (n, upVer, None), bestFlavor=False)
 
-                assert len(binSpecs) > 1
+                req = set()
+                for n, v, f in checkUpdates:
+                    upVer = '/'.join([v.branch().label().asString(),
+                                      v.trailingRevision().version])
+                    req.add((n, upVer, None))
 
-                latest = sorted(binSpecs)[-1]
+                binSpecMap = self._updater._conaryhelper.findTroves(req)
 
-                if v != latest[1]:
+                for binSpecs in binSpecMap.itervalues():
+                    assert len(binSpecs) > 1
+
+                    latest = sorted(binSpecs)[-1]
+
                     #log.info('%s: found updated version of %s %s -> %s'
                     #         % (version, n, v, latest[1]))
 
                     toAdd = set([ x for x in binSpecs if x[1] == latest[1] ])
                     nvfs.update(toAdd)
-                elif f is None:
-                    emptyFlavors.add((n, v, f))
-                else:
-                    nvfs.add((n, v, f))
-
             # Lookup anything that has an empty flavor.
             log.info('%s: looking up version information for empty flavors'
                      % version)
@@ -290,7 +278,50 @@ if __name__ == '__main__':
         errata = Errata(bot._pkgSource)
         bot._errata._errata = errata
 
-    bot.rebuildgroups(restart=True, resolveTargetVersions=False, readdPackages=True,
-        updatedPackages=['anaconda', 'yum-cron', ])
+    rebuiltPackages = ['kernel', 'xenpv', 'lpfc-kmod', 'be2net-kmod',
+        'alacarte', 'alchemist', 'audit', 'authconfig', 'avahi', 'beecrypt',
+        'cracklib', 'dbus-python', 'dogtail', 'eruby', 'gamin', 'gnome-applets',
+        'gnome-bluetooth', 'gnome-menus', 'gnome-python2',
+        'gnome-python2-desktop', 'gnome-python2-extras', 'gtk-vnc', 'hplip',
+        'iscsi-initiator-utils', 'java-1.4.2-gcj-compat', 'kdebindings',
+        'kudzu', 'lcms', 'libbtctl', 'libieee1284', 'libselinux', 'libsemanage',
+        'libuser', 'libxml2', 'libxslt', 'm2crypto', 'mkinitrd', 'mod_python',
+        'mx', 'MySQL-python', 'newt', 'notify-python', 'oddjob', 'OpenIPMI',
+        'orca', 'pexpect', 'pirut', 'policycoreutils', 'postgresql',
+        'postgresql84', 'pycairo', 'pygobject2', 'pygtk2', 'pykickstart',
+        'pyOpenSSL', 'pyorbit', 'pyparted', 'PyQt', 'Pyrex', 'pyspi', 'python',
+        'python-dmidecode', 'python-elementtree', 'python-imaging',
+        'python-iniparse', 'python-ldap', 'python-numeric', 'python-pyblock',
+        'python-setuptools', 'python-sqlite', 'python-urlgrabber',
+        'pyxf86config', 'PyXML', 'rhel-instnum', 'rhnlib', 'rhpl', 'rhpxl',
+        'rpm', 'ruby', 'sabayon', 'setroubleshoot', 'sip', 'sos', 'subversion',
+        'system-config-printer', 'vte', 'wireshark', 'yum',
+        'yum-metadata-parser', 'mvapich2', 'gnome-doc-utils',
+        'system-config-lvm', 'booty', 'smartmontools', 'devhelp',
+        'system-switch-mail', 'gedit', 'system-config-nfs', 'ant',
+        'kexec-tools', 'inn', 'tetex', 'docbook-style-xsl', 'firstboot',
+        'system-config-kickstart', 'kdesdk', 'system-config-display',
+        'switchdesk', 'gimp', 'system-config-samba', 'kdevelop', 'hal', 'frysk',
+        'redhat-release', 'gettext', 'libglade2', 'system-config-bind',
+        'system-config-httpd', 'system-config-keyboard',
+        'system-config-language', 'system-config-kdump', 'libhugetlbfs',
+        'comps-extras', 'system-config-soundcard', 'systemtap', 'vnc',
+        'conary-policy', 'system-config-services', 'createrepo', 'blktrace',
+        'yum-utils', 'system-config-netboot', 'sblim', 'setroubleshoot-plugins',
+        'xinetd', 'rhn-client-tools', 'libevent', 'mailman',
+        'system-config-securitylevel', 'selinux-policy', 'hwbrowser',
+        'bluez-utils', 'system-config-users', 'cman', 'yum-rhn-plugin',
+        'system-config-boot', 'system-config-network', 'system-config-date',
+        'ecryptfs-utils', 'tix', 'anaconda', 'system-config-rootpassword',
+        'dstat']
+
+    tags = [ 'chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango',
+        'setup', 'shadow-utils', 'shared-mime-info', 'texinfo',
+        'xorg-x11-font-utils' ]
+
+    extraPackages = [ 'xulrunner', 'firefox', 'gnome-vfs2', 'numactl', ]
+
+    bot.rebuildgroups(restart=False, resolveTargetVersions=False, readdPackages=True,
+        updatedPackages=rebuiltPackages + tags + extraPackages)
 
     import epdb; epdb.st()

@@ -186,10 +186,14 @@ class GroupSanityChecker(object):
         # Get all old versions so that we can make sure any version conflicts
         # were introduced by old version handling.
         oldVersions = set()
+        if self._cfg.platformSearchPath:
+            qlabels = set(self._cfg.platformSearchPath) | labels
+        else:
+            qlabels = labels
         for nvfLst in self._cfg.useOldVersion.itervalues():
             for nvf in nvfLst:
                 srcMap = self._helper.getSourceVersionMapFromBinaryVersion(nvf,
-                        labels=self._cfg.platformSearchPath, latest=False)
+                        labels=qlabels, latest=False)
                 oldVersions |= set(itertools.chain(*srcMap.itervalues()))
 
         errors = {}
