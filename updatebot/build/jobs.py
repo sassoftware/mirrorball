@@ -24,6 +24,7 @@ from threading import Thread
 
 from rmake.build import buildjob
 
+from updatebot.lib import util
 from updatebot.build.constants import JobStatus
 from updatebot.build.dispatcher import AbstractDispatcher
 
@@ -121,8 +122,7 @@ class LocalDispatcher(AbstractDispatcher, Thread):
         AbstractDispatcher.__init__(self, builder, maxSlots)
         Thread.__init__(self)
 
-        self._maxCommitSlots = 1
-        self._commitSlots = self._maxCommitSlots
+        self._commitSlots = util.BoundedCounter(0, 1, 1)
 
         self._cooker = LocalGroupCooker(self._builder)
         self._committer = LocalChangeSetCommitter(self._builder)
@@ -299,11 +299,8 @@ class JobBasedDispatcher(AbstractDispatcher, Thread):
         AbstractDispatcher.__init__(self, builder, maxSlots)
         Thread.__init__(self)
 
-        self._maxStartSlots = 10
-        self._startSlots = self._maxStartSlots
-
-        self._maxCommitSlots = 2
-        self._commitSlots = self._maxCommitSlots
+        self._startSlots = util.BoundedCounter(0, 10, 10)
+        self._commitSlots = util.BoundedCounter(0, 2, 2)
 
         self._starter = self._starterClass(self._builder)
         self._monitor = self._monitorClass(self._builder._helper.client)
@@ -330,7 +327,7 @@ class JobBasedDispatcher(AbstractDispatcher, Thread):
 
         while not self._done:
             # Only create more jobs once the last batch has been started.
-            if self._startSlots == self._maxStartSlots:
+            if self._startSlots == self._startSlots.upperlimit:
                 # fill slots with available troves
                 notStarted = self._getNotStarted()
                 while notStarted and self._slots and self._startSlots:
@@ -369,7 +366,7 @@ class JobBasedDispatcher(AbstractDispatcher, Thread):
                 if status in self._slotdone:
                     self._slots += 1
 
-                    if self._slots > self._maxSlots:
+                    if self._slots > self._slots.upperlimit:
                         log.critical('slots is greater than maxSlots')
 
                     res = self._jobs[jobId][2]
@@ -403,16 +400,17 @@ class JobBasedDispatcher(AbstractDispatcher, Thread):
 
             # check for commit status
             for jobId, result in self._committer.getStatus():
+                self._commitSlots += 1
                 # unbatch commit jobs
                 if not isinstance(jobId, tuple):
                     jobId = (jobId, )
                 for jobId in jobId:
                     self._jobs[jobId][2].setResults(result)
                     self._jobs[jobId][2].setStatus('committed')
-                    self._commitSlots += 1
 
             # process committer errors
             for jobId, error in self._committer.getErrors():
+                self._commitSlots += 1
                 # unbatch commit jobs
                 if not isinstance(jobId, tuple):
                     jobId = (jobId, )
@@ -421,7 +419,6 @@ class JobBasedDispatcher(AbstractDispatcher, Thread):
                     self._jobs[jobId][2].setError(error)
                     self._jobs[jobId][2].setStatus('commit failed')
                     self._failures.append((jobId, error))
-                    self._commitSlots += 1
 
                     # Flag job as failed so that monitor worker will exit properly.
                     self._builder.setCommitFailed(jobId, reason=str(error))
