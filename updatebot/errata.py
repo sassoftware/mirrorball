@@ -274,6 +274,10 @@ class ErrataFilter(object):
             expectedKeepRemovals = self._cfg.keepRemoved.get(updateId, [])
             explicitSourceRemovals = self._cfg.removeSource.get(updateId, set())
             explicitBinaryRemovals = self._cfg.removeObsoleted.get(updateId, set())
+            explicitIgnoreSources = self._cfg.ignoreSourceUpdate.get(updateId, set())
+            if explicitIgnoreSources:
+                log.info('explicitly ignoring %s in update %s' %
+                         (explicitIgnoreSources, updateId))
             explicitPackageDowngrades = downgraded.get(updateId, None)
 
             assert len(self._order[updateId])
@@ -303,14 +307,19 @@ class ErrataFilter(object):
                 if srpm.getNevra() in explicitSourceRemovals:
                     log.error('Removing %s in %s would cause it never to be promoted' %
                               (str(' '.join(srpm.getNevra())), updateId))
-                current[srpm.name] = srpm
-                version = updater.update(nvf, srpm)
-                assert (not version or
-                        not updater.isPlatformTrove(version))
-                if version:
-                    parentPackages.append(((nvf, srpm), version))
+
+                if srpm.getNevra() in explicitIgnoreSources:
+                    log.warn('Ignoring %s in %s will cause it never to be promoted' %
+                             (str(' '.join(srpm.getNevra())), updateId))
                 else:
-                    childPackages.append(((nvf, srpm), None))
+                    current[srpm.name] = srpm
+                    version = updater.update(nvf, srpm)
+                    assert (not version or
+                            not updater.isPlatformTrove(version))
+                    if version:
+                        parentPackages.append(((nvf, srpm), version))
+                    else:
+                        childPackages.append(((nvf, srpm), None))
 
             # all package names obsoleted by packages in the current set
             obsoleteNames = set()
@@ -324,6 +333,9 @@ class ErrataFilter(object):
             for srpm in sorted(current.itervalues()):
                 if srpm.getNevra() in explicitSourceRemovals:
                     current.pop(srpm.name, None)
+                    continue
+                if srpm.getNevra() in explicitIgnoreSources:
+                    log.info('explicitly ignoring source package update %s' % [ignoreSource])
                     continue
                 for pkg in sorted(self._pkgSource.srcPkgMap[srpm]):
                     if pkg.arch == 'src':

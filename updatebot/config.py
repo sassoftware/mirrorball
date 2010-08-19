@@ -459,6 +459,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # from the package model
     removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
+    # updateId sourceNevra
+    # At updateId, ignore the source package update specified by
+    # sourceNevra and continue to use whatever previous version was in
+    # the model.
+    ignoreSourceUpdate = (CfgIntDict(CfgList(CfgNevra)), {})
+
     # updateId binaryNevra
     # As of updateId, I expect the code to think this nevra should be removed,
     # but I want to keep it.
