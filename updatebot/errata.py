@@ -669,6 +669,13 @@ class ErrataFilter(object):
         for source, dest, nevra in self._cfg.reorderSource:
             self._reorderSource(source, dest, nevra)
 
+        ignoredCount = 0
+        # remove any source packages we're deliberately ignoring:
+        for source, nevras in self._cfg.ignoreSourceUpdate.iteritems():
+            for nevra in nevras:
+                self._reorderSource(source, None, nevra)
+                ignoredCount += 1
+
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
         nevras = dict([ (x.getNevra(), x)
@@ -685,7 +692,7 @@ class ErrataFilter(object):
         for pkgSet in self._order.itervalues():
             pkgs.update(pkgSet)
         assert len(pkgs) == totalPkgs2 - diffCount
-        assert totalPkgs2 == totalPkgs + diffCount 
+        assert totalPkgs2 == totalPkgs + diffCount - ignoredCount
 
     def _mergeUpdates(self, mergeList):
         """
@@ -792,9 +799,13 @@ class ErrataFilter(object):
     def _reorderSource(self, source, dest, nevra):
         """
         Reschedule an individual srpm to another bucket.
+        If destination bucket is None, simply remove srpm from source bucket.
         """
 
-        log.info('rescheduling %s %s -> %s' % (nevra, source, dest))
+        if dest:
+            log.info('rescheduling %s %s -> %s' % (nevra, source, dest))
+        else:
+            log.info('removing %s from %s' % (nevra, source))
 
         # Remove specified source nevra from the source bucket
         bucketNevras = dict([ (x.getNevra(), x)
@@ -812,8 +823,9 @@ class ErrataFilter(object):
             if not len(self._advPkgMap[advisory]):
                 del self._advPkgMap[advisory]
 
-        # Move srpm to destination bucket
-        self._order.setdefault(dest, set()).add(srpm)
+        if dest:
+            # Move srpm to destination bucket if not a removal.
+            self._order.setdefault(dest, set()).add(srpm)
 
     def _getNevra(self, pkg):
         """
