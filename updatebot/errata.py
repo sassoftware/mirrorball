@@ -805,7 +805,7 @@ class ErrataFilter(object):
         if dest:
             log.info('rescheduling %s %s -> %s' % (nevra, source, dest))
         else:
-            log.info('removing %s from %s' % (nevra, source))
+            log.info('removing ignored %s from %s' % (nevra, source))
 
         # Remove specified source nevra from the source bucket
         bucketNevras = dict([ (x.getNevra(), x)
