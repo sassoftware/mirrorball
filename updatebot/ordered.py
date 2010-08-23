@@ -452,6 +452,10 @@ class Bot(BotSuperClass):
         for updateId, bucket in self._errata.iterByIssueDate(current=1):
             upver = self._errata.getBucketVersion(updateId)
 
+            if updateId <= self._cfg.errataPromoteAfter:
+                log.info('version %s (%s) at or below promotion timestamp threshold (%s), skipping' % (upver, updateId, self._cfg.errataPromoteAfter))
+                continue
+                
             # Don't try to promote buckets that have already been promoted.
             if upver in targetLatest:
                 log.info('%s found on target label, skipping' % upver)

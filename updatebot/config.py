@@ -416,6 +416,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # manual specification.
     firstErrata = CfgInt
 
+    # Timestamp after which errata promotions begin.  This is useful in
+    # cases where the baseline distribution must be split across
+    # multiple updateId's in order to de-dupe the package list.
+    errataPromoteAfter = (CfgInt, 0)
+
     # Errata timestamp pairs for rescheduling when updates are applied. The
     # first element is the current timestamp of the update. The second element
     # is the new timestamp. You may need to use this option if it appears that
