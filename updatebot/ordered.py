@@ -421,7 +421,7 @@ class Bot(BotSuperClass):
 
         return updateSet
 
-    def promote(self):
+    def promote(self, enforceAllExpected=True):
         """
         Promote binary groups from the devel label to the production lable in
         the order that they were built.
@@ -442,6 +442,17 @@ class Bot(BotSuperClass):
         targetLatest = self._updater.getUpstreamVersionMap(
             (self._cfg.topGroup[0], self._cfg.targetLabel, None))
 
+        log.info('querying target label for cloned from information')
+        # The targetSpec list tells us if the latest version of each group has
+        # been promoted to the target label.
+        sourceSpecs = [ x for x in itertools.chain(*sourceLatest.itervalues()) ]
+        targetSpecs, failed = self._updater.getTargetVersions(sourceSpecs,
+            logErrors=False)
+        targetSpecMap = {}
+        for spec in targetSpecs:
+            ver = spec[1].trailingRevision().getVersion()
+            targetSpecMap.setdefault(ver, set()).add(spec)
+
         log.info('starting promote')
 
         count = 0
@@ -449,13 +460,16 @@ class Bot(BotSuperClass):
 
         # Get all updates after the first bucket.
         missing = False
-        for updateId, bucket in self._errata.iterByIssueDate(current=1):
+        for updateId, bucket in self._errata.iterByIssueDate(current=-1):
             upver = self._errata.getBucketVersion(updateId)
 
             # Don't try to promote buckets that have already been promoted.
-            if upver in targetLatest:
+            if upver in targetLatest and upver in targetSpecMap:
                 log.info('%s found on target label, skipping' % upver)
                 continue
+            elif upver not in targetSpecMap:
+                log.info('%s found on target label, but newer version '
+                         'available on source, will repromote' % upver)
 
             # Make sure version has been imported.
             if upver not in sourceLatest:
@@ -511,7 +525,8 @@ class Bot(BotSuperClass):
             def promote():
                 # Create and validate promote changeset
                 packageList = self._updater.publish(toPromote, expected,
-                    self._cfg.targetLabel, extraExpectedPromoteTroves=extra)
+                    self._cfg.targetLabel, extraExpectedPromoteTroves=extra,
+                    enforceAllExpected=enforceAllExpected)
                 return 0
 
             rc = watchdog.waitOnce(promote)

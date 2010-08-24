@@ -1012,7 +1012,8 @@ class ConaryHelper(object):
 
     def promote(self, trvLst, expected, sourceLabels, targetLabel,
                 checkPackageList=True, extraPromoteTroves=None,
-                extraExpectedPromoteTroves=None, commit=True):
+                extraExpectedPromoteTroves=None, commit=True,
+                enforceAllExpected=True):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -1117,9 +1118,13 @@ class ConaryHelper(object):
         extraTroves = set([ x[0] for x in extraPromoteTroves |
                                           extraExpectedPromoteTroves ])
 
-
+        # grpDiff.difference is checking that no packages outside of the
+        # expected set are promoted.
+        #
+        # grpInv.difference is checking that all packages that we expect to be
+        # promoted are promoted.
         if (checkPackageList and (grpDiff.difference(extraTroves) or
-                                  grpInv.difference(extraTroves))):
+                (enforceAllExpected and grpInv.difference(extraTroves)))):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
         if not commit:

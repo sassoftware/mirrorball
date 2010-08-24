@@ -65,6 +65,6 @@ else:
     errata = Errata(bot._pkgSource)
     bot._errata._errata = errata
 
-bot.promote()
+bot.promote(enforceAllExpected=True)
 
 import epdb; epdb.st()
