@@ -138,7 +138,10 @@ class ErrataFilter(object):
         @type bucketId: integer (unix time)
         """
 
-        version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(bucketId))
+        version = self._cfg.upstreamVersionMap.get(bucketId, None)
+        if not version:
+            version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(bucketId))
+
         return version
 
     @loadErrata
