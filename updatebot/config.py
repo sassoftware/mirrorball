@@ -420,6 +420,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # manual specification.
     firstErrata = CfgInt
 
+    # Timestamp after which errata promotions begin.  This is useful in
+    # cases where the baseline distribution must be split across
+    # multiple updateId's in order to de-dupe the package list.
+    errataPromoteAfter = (CfgInt, 0)
+
     # Errata timestamp pairs for rescheduling when updates are applied. The
     # first element is the current timestamp of the update. The second element
     # is the new timestamp. You may need to use this option if it appears that
@@ -462,6 +467,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # As of updateId, remove source package specified by sourceNevra
     # from the package model
     removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
+
+    # updateId sourceNevra
+    # At updateId, ignore the source package update specified by
+    # sourceNevra and continue to use whatever previous version was in
+    # the model.
+    ignoreSourceUpdate = (CfgIntDict(CfgList(CfgNevra)), {})
 
     # updateId binaryNevra
     # As of updateId, I expect the code to think this nevra should be removed,
