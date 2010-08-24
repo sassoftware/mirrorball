@@ -102,6 +102,10 @@ class Bot(OrderedBot):
             log.info('%s: retrieving group model information' % version)
             group = self._groupmgr.getGroup(version=version)
 
+            # Stop when we get to a version that isn't in the repository.
+            if group is None:
+                break
+
             # Get all of the nvfs from the group model.
             nvfs = set()
             checkUpdates = set()
