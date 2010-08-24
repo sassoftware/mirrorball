@@ -47,6 +47,7 @@ from updatebot.errors import PromoteMismatchError
 from updatebot.errors import MirrorFailedError
 from updatebot.errors import BinariesNotFoundForSourceVersion
 
+from updatebot.lib.findtroves import FindTrovesCache
 from updatebot.lib.conarycallbacks import UpdateBotCloneCallback
 
 log = logging.getLogger('updatebot.conaryhelper')
@@ -132,6 +133,8 @@ class ConaryHelper(object):
             dir=self._cache.sharedTmpDir,
             prefix='conaryhelper-%s-' % cfg.platformName)
 
+        self._findTrovesCache = FindTrovesCache(self._repos)
+
     def clearCache(self):
         """
         Clear the trove query cache.
@@ -169,7 +172,8 @@ class ConaryHelper(object):
             labels = self._ccfg.buildLabel
 
         try:
-            return self._repos.findTroves(labels, troveList, *args, **kwargs)
+            return self._findTrovesCache.findTroves(labels, troveList,
+                *args, **kwargs)
         except conaryerrors.TroveNotFound, e:
             return {}
 
