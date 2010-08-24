@@ -84,7 +84,7 @@ class ConaryHelper(object):
 
     _cache = ConaryHelperSharedCache()
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, mirrorCfgFn=None):
         self._groupFlavorCount = len(cfg.groupFlavors)
 
         if not self._cache.sharedTmpDir:
@@ -114,8 +114,11 @@ class ConaryHelper(object):
 
             self._cache.conaryConfigCache[conaryCfgFile] = self._ccfg
 
+        if not mirrorCfgFn:
+            mirrorCfgFn = 'mirror.conf'
+
         self._mcfg = None
-        mcfgfn = util.join(cfg.configPath, 'mirror.conf')
+        mcfgfn = util.join(cfg.configPath, mirrorCfgFn)
         if mcfgfn in self._cache.conaryConfigCache:
             self._mcfg = self._cache.conaryConfigCache[mcfgfn]
         elif os.path.exists(mcfgfn):
