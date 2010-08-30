@@ -960,7 +960,7 @@ class Updater(object):
         return self._conaryhelper.getBuildRequires(pkgName)
 
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True,
-        extraExpectedPromoteTroves=None):
+        extraExpectedPromoteTroves=None, enforceAllExpected=True):
         """
         Publish a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -987,6 +987,7 @@ class Updater(object):
             checkPackageList=checkPackageList,
             extraPromoteTroves=self._cfg.extraPromoteTroves,
             extraExpectedPromoteTroves=extraExpectedPromoteTroves,
+            enforceAllExpected=enforceAllExpected,
         )
 
     def mirror(self, fullTroveSync=False):

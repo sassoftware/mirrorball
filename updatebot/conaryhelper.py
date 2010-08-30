@@ -47,6 +47,7 @@ from updatebot.errors import PromoteMismatchError
 from updatebot.errors import MirrorFailedError
 from updatebot.errors import BinariesNotFoundForSourceVersion
 
+from updatebot.lib.findtroves import FindTrovesCache
 from updatebot.lib.conarycallbacks import UpdateBotCloneCallback
 
 log = logging.getLogger('updatebot.conaryhelper')
@@ -83,7 +84,7 @@ class ConaryHelper(object):
 
     _cache = ConaryHelperSharedCache()
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, mirrorCfgFn=None):
         self._groupFlavorCount = len(cfg.groupFlavors)
 
         if not self._cache.sharedTmpDir:
@@ -113,8 +114,11 @@ class ConaryHelper(object):
 
             self._cache.conaryConfigCache[conaryCfgFile] = self._ccfg
 
+        if not mirrorCfgFn:
+            mirrorCfgFn = 'mirror.conf'
+
         self._mcfg = None
-        mcfgfn = util.join(cfg.configPath, 'mirror.conf')
+        mcfgfn = util.join(cfg.configPath, mirrorCfgFn)
         if mcfgfn in self._cache.conaryConfigCache:
             self._mcfg = self._cache.conaryConfigCache[mcfgfn]
         elif os.path.exists(mcfgfn):
@@ -131,6 +135,8 @@ class ConaryHelper(object):
         self._cacheDir = tempfile.mkdtemp(
             dir=self._cache.sharedTmpDir,
             prefix='conaryhelper-%s-' % cfg.platformName)
+
+        self._findTrovesCache = FindTrovesCache(self._repos)
 
     def clearCache(self):
         """
@@ -169,7 +175,8 @@ class ConaryHelper(object):
             labels = self._ccfg.buildLabel
 
         try:
-            return self._repos.findTroves(labels, troveList, *args, **kwargs)
+            return self._findTrovesCache.findTroves(labels, troveList,
+                *args, **kwargs)
         except conaryerrors.TroveNotFound, e:
             return {}
 
@@ -1008,7 +1015,8 @@ class ConaryHelper(object):
 
     def promote(self, trvLst, expected, sourceLabels, targetLabel,
                 checkPackageList=True, extraPromoteTroves=None,
-                extraExpectedPromoteTroves=None, commit=True):
+                extraExpectedPromoteTroves=None, commit=True,
+                enforceAllExpected=True):
         """
         Promote a group and its contents to a target label.
         @param trvLst: list of troves to publish
@@ -1113,9 +1121,13 @@ class ConaryHelper(object):
         extraTroves = set([ x[0] for x in extraPromoteTroves |
                                           extraExpectedPromoteTroves ])
 
-
+        # grpDiff.difference is checking that no packages outside of the
+        # expected set are promoted.
+        #
+        # grpInv.difference is checking that all packages that we expect to be
+        # promoted are promoted.
         if (checkPackageList and (grpDiff.difference(extraTroves) or
-                                  grpInv.difference(extraTroves))):
+                (enforceAllExpected and grpInv.difference(extraTroves)))):
             raise PromoteMismatchError(expected=oldPkgs, actual=newPkgs)
 
         if not commit:

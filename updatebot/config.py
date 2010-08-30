@@ -402,6 +402,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # a magic number, but at least it is configurable?
     maxBuildSize = (CfgInt, 10)
 
+    # Map of updateIds to upstream versions to use if you don't want to use the
+    # normal versioning scheme.
+    upstreamVersionMap = (CfgIntDict(CfgString), {})
+
     # List of errata timestamps to merge together. This is used when one errata
     # leaves the platform in a non dependency closed state and a later update
     # should solve the dependency problem. All updates are folded into the first
