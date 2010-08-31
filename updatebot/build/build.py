@@ -518,7 +518,7 @@ class Builder(object):
             # the deps modules in conary.
             name = name.encode()
 
-            # Build groups in all of the defined falvors. We don't need a
+            # Build groups in all of the defined flavors. We don't need a
             # context here since groups are all built in a single job.
             if name.startswith('group-'):
                 for flv in self._cfg.groupFlavors:
@@ -555,6 +555,13 @@ class Builder(object):
                     if (not fltr or (fltr and
                             [ x for x in binaryNames if fltr[1].match(x) ])):
                         troves.append((name, version, flavor, context))
+
+            # Handle any special-case omissions
+            # (e.g. due to missing packages)
+            if name in self._cfg.packageFlavorsMissing:
+                for context, flavor, fltr in self._cfg.packageFlavorsMissing[name]:
+                    if not [ x for x in binaryNames if fltr[1].match(x) ]:
+                        troves.remove((name, version, flavor, context))
 
         return sorted(set(troves))
 

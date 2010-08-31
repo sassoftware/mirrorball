@@ -58,6 +58,7 @@ class Bot(OrderedBot):
             'rhel': {'4': '4.0',
                      '5': '5.0', },
             'centos': {'5': '0', },
+            'sles': {'10': 'sp3', },
         }
 
         # Make sure to include any packages that were built from the same
