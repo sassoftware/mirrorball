@@ -89,6 +89,41 @@ class CfgStringFlavorUse(CfgStringFlavor):
         context, flavor = CfgStringFlavor.parseString(self, val)
         return context, flavor, use
 
+class CfgFlavorFilter(CfgRegExp, CfgFlavor):
+    """
+    Class for parsing (context, flavor, regex) tuples, where flavor and
+    regex are optional (during parsing, though not necessarily in
+    implementation).
+    """
+
+    def parseString(self, val):
+        """
+        Parse config input.
+        """
+
+        try:
+            splt = val.split(None, 2)
+            if len(splt) == 1:
+                context = val
+                flavor = None
+                fltr = None
+            elif len(splt) == 2:
+                context = splt[0]
+                # Note: this split can't handle flavors containing spaces...
+                flavorStr = splt[1]
+                flavor = CfgFlavor.parseString(self, flavorStr)
+                fltr = None
+            else:
+                context = splt[0]
+                flavorStr = splt[1]
+                flavor = CfgFlavor.parseString(self, flavorStr)
+                # ...but it *can* handle regexes containing spaces:
+                fltrStr = ' '.join(splt[2:])
+                fltr = CfgRegExp.parseString(self, fltrStr) 
+            return context, flavor, fltr
+        except versions.ParseError, e:
+            raise ParseError, e
+
 
 class CfgStringFilter(CfgRegExp):
     """
@@ -351,6 +386,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # flavors to build packages in for packages that need specific flavoring.
     packageFlavors      = (CfgDict(CfgList(CfgStringFlavor)), {})
+
+    # 3-tuple of (context, flavor, regex) of arch-specific package
+    # flavors to omit unless the regex matches a binary package in the
+    # manifest.  Useful for omitting built of otherwise-expected flavors
+    # when a package is missing from the repository.
+    packageFlavorsMissing = (CfgDict(CfgList(CfgFlavorFilter)), {})
 
     # After committing a rMake job to the repository pull the changeset back out
     # to make sure all of the contents made it into the repository.
