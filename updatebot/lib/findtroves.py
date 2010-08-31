@@ -30,10 +30,13 @@ class FindTrovesCache(dict):
 
         self._repos = repos
 
-    def findTroves(self, labelPath, troves, getLeaves=True):
+    def findTroves(self, labelPath, troves, getLeaves=True, cache=True):
         """
         Emulate the behavior of repos.findTroves while caching results.
         """
+
+        if not cache:
+            return self._repos.findTroves(labelPath, troves, getLeaves=getLeaves)
 
         found = set()
         needed = {}

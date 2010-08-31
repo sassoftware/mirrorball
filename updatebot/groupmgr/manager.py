@@ -147,7 +147,8 @@ class GroupManager(object):
         # retreiving from the repository is the latest.
         trvs = self._helper.findTrove((self._sourceName, version, None),
                                       labels=self._searchLabels,
-                                      getLeaves=not allVersions)
+                                      getLeaves=not allVersions,
+                                      cache=False)
 
         if allVersions:
             return [ x[1] for x in trvs ]
