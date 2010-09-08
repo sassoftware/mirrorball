@@ -181,7 +181,7 @@ class _Package(SlotNode, PackageCompare):
 
     def getNevra(self):
         """
-        Return the name, epoch, version, release, and arch the package.
+        Return the name, epoch, version, release, and arch of the package.
         """
 
         return (self.name, self.epoch, self.version, self.release, self.arch)

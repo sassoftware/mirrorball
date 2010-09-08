@@ -33,7 +33,7 @@ class _RepoMd(SlotNode):
     Python representation of repomd.xml from the repository metadata.
     """
 
-    __slots__ = ('revision', )
+    __slots__ = ('revision', 'tags')
 
     def addChild(self, child):
         """
@@ -46,6 +46,9 @@ class _RepoMd(SlotNode):
         name = child.getName()
         if name == 'revision':
             self.revision = child.finalize()
+        elif name == 'tags':
+            # FIXME: Is this complete? -jau
+            self.tags = child.finalize()
         elif name == 'data':
             child.type = child.getAttribute('type')
             if child.type == 'patches':

@@ -17,6 +17,10 @@ Module for parsing SuSE update info metadata. This was introduced in SLES 11.
 Refer to patchxml.py for previous versions.
 """
 
+import logging
+
+log = logging.getLogger('repomd')
+
 __all__ = ('UpdateInfoXml', )
 
 from rpath_xmllib import api1 as xmllib
@@ -43,6 +47,7 @@ class _Updates(SlotNode):
         child.status = None
         child.emailfrom = None
         child.type = None
+        child.version = None
 
         for attr, value in child.iterAttributes():
             if attr == 'status':
@@ -52,7 +57,7 @@ class _Updates(SlotNode):
             elif attr == 'type':
                 child.type = value
             elif attr == 'version':
-                pass
+                child.version = value
             else:
                 raise UnknownAttributeError(child, attr)
 
@@ -73,7 +78,7 @@ class _Update(SlotNode):
 
     __slots__ = ('status', 'emailfrom', 'type', 'id', 'title', 'release',
         'issued', 'references', 'description', 'pkglist', 'packages',
-        'summary', 'packages')
+        'summary', 'packages', 'version')
 
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
@@ -85,9 +90,12 @@ class _Update(SlotNode):
         Parse the children of update.
         """
 
+        #import epdb ; epdb.st()
+        
         n = child.getName()
         if n == 'id':
-            self.id = child.finalize()
+            # Make this behave like SLES10 patchid
+            self.id = child.finalize() + '-' + self.getAttribute('version')
         elif n == 'title':
             self.title = child.finalize()
         elif n == 'release':
@@ -105,6 +113,40 @@ class _Update(SlotNode):
         else:
             raise UnknownElementError(child)
 
+    def __cmp__(self, other):
+        vercmp = cmp(self.version, other.version)
+        if vercmp != 0:
+            return vercmp
+
+        relcmp = cmp(self.release, other.release)
+        if relcmp != 0:
+            return relcmp
+
+        # Is there even a summary in the schema?!?
+        sumcmp = cmp(self.summary, other.summary)
+        if sumcmp != 0:
+            return sumcmp
+
+        desccmp = cmp(self.description, other.description)
+        if desccmp != 0:
+            return desccmp
+
+        if self.issued != other.issued:
+            maxtime = max(self.issued, other.issued)
+            log.info('syncing timestamps (%s %s) ' % (self.issued,
+                                                      other.issued) +
+                     'for %s to %s' % (self.id, maxtime))
+            self.issued = other.issued = maxtime
+            # Don't return here--they're now equal.
+
+        for pkg in other.pkglist:
+            if pkg not in self.pkglist:
+                self.pkglist.append(pkg)
+
+        return 0
+
+    def __hash__(self):
+        return hash((self.id, self.release, self.summary, self.description))
 
 class _References(SlotNode):
     """
@@ -164,6 +206,9 @@ class _Collection(SlotNode):
         child.arch = None
         child.version = None
         child.release = None
+        # SLES11 updateinfo.xml doesn't provide checksums or archive sizes.
+        child.checksum = None
+        child.archiveSize = None
 
         child.location = ''
 
@@ -184,7 +229,7 @@ class _Collection(SlotNode):
 
 class _UpdateInfoPackage(SlotNode, PackageCompare):
     """
-    Represnts a package entry in a pkglist of an update in updateinfo.xml.
+    Represents a package entry in a pkglist of an update in updateinfo.xml.
     """
 
     __slots__ = ('filename', 'name', 'arch', 'version', 'release',
@@ -212,6 +257,13 @@ class _UpdateInfoPackage(SlotNode, PackageCompare):
             self.relogin_suggested = child.finalize()
         else:
             raise UnknownElementError(child)
+
+    def getNevra(self):
+        """
+        Return the name, epoch, version, release, and arch of the package.
+        """
+
+        return (self.name, self.epoch, self.version, self.release, self.arch)
 
 
 class UpdateInfoXml(XmlFileParser):
