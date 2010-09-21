@@ -74,6 +74,9 @@ else:
     elif cfg.platformName == 'centos':
         from errata.centos import AdvisoryManager as Errata
 
+    elif cfg.platformName == 'sles11':
+        from errata.sles11 import AdvisoryManager11 as Errata
+
     else:
         raise RuntimeError, 'no errata source found for %s' % cfg.platformName
 
