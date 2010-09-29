@@ -49,7 +49,9 @@ class Bot(OrderedBot):
         # load package source
         self._pkgSource.load()
 
-        mgr = groupmgr.GroupManager(self._cfg, useMap=self._pkgSource.useMap)
+        ui = UserInterface()
+
+        mgr = groupmgr.GroupManager(self._cfg, ui, useMap=self._pkgSource.useMap)
         mgr.setReadOnly()
 
         lastAvailableUpdate = mgr.latest.errataState

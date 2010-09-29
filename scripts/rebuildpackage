@@ -187,7 +187,7 @@ if __name__ == '__main__':
     #    bot.removeSourceFiles(pkgName, replaceFiles=replaceFiles)
 
     bot.rebuildpackages(pkgNames,
-        useLatest=['conary', 'conary-build', 'conary-policy', 'rpm', ],
+        useLatest=['conary', 'conary-build', 'conary-policy', 'rpm', 'capsule-kmod-import'],
         additionalResolveTroves=[
             'libelf-lgpl=rhel.rpath.com@rpath:rhel-5-devel',
             'conary=rhel.rpath.com@rpath:rhel-5-devel',

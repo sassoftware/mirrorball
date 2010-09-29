@@ -286,6 +286,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Paths based off of the repositoryUrl to get to individual repositories.
     repositoryPaths     = (CfgList(CfgString), ['/'])
 
+    # Treat any path matching this spec as "base" (ISO) content.
+    # In other words, these packages are the golden bits, not errata.
+    repositoryBasePaths = (CfgList(CfgRegExp), [])
+
     # Arch strings for each repository to signify what base architecture each
     # repository is meant for.
     # repositoryName archString

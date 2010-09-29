@@ -68,7 +68,12 @@ class Bot(OrderedBot):
 
             log.info('looking up siblings')
             req = [ (x, None, None) for x in updatedPackages ]
-            nvfMap = self._updater._conaryhelper.findTroves(req, getLeaves=False)
+
+            labels = [ self._updater._conaryhelper.getConaryConfig().buildLabel, ]
+            if self._cfg.platformSearchPath:
+                labels += self._cfg.platformSearchPath
+
+            nvfMap = self._updater._conaryhelper.findTroves(req, labels=labels, getLeaves=False)
             nvfs = [ x for x in itertools.chain(*nvfMap.itervalues()) ]
 
             siblingMap = self._updater._conaryhelper.getSiblingPackages(nvfs,
@@ -113,6 +118,9 @@ class Bot(OrderedBot):
             emptyFlavors = set()
             for pkg in group.iterpackages():
                 n = str(pkg.name)
+                # if n.find('spice-usb') != -1:
+                #     v = versions.ThawVersion(str(pkg.version).replace('workstation', 'workstation-devel'))
+                # else:
                 v = versions.ThawVersion(str(pkg.version))
 
                 f = deps.ThawFlavor(str(pkg.flavor))
@@ -318,7 +326,8 @@ if __name__ == '__main__':
         'bluez-utils', 'system-config-users', 'cman', 'yum-rhn-plugin',
         'system-config-boot', 'system-config-network', 'system-config-date',
         'ecryptfs-utils', 'tix', 'anaconda', 'system-config-rootpassword',
-        'dstat']
+        'dstat', 'gaim', 'gnome-games', 'kdeaddons', 'pidgin', 'planner', 
+        'redhat-release', 'rhythmbox', 'openoffice.org', 'spice-usb-redirector']
 
     tags = [ 'chkconfig', 'desktop-file-utils', 'fontconfig', 'gtk+', 'pango',
         'setup', 'shadow-utils', 'shared-mime-info', 'texinfo',

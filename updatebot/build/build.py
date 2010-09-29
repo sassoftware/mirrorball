@@ -332,6 +332,9 @@ class Builder(object):
                     name = req.name()
                     version = req.version()
                     if useLatest and name.split(':')[0] in useLatest:
+                        # XXX - this broke for me at some point, so I
+                        # switched to using "continue" here; I've now
+                        # forgotten the reason, and so changed it back. - AG
                         version = version.branch()
                     reqs.add((name, version))
 
