@@ -37,6 +37,11 @@ from updatebot.errors import RepositoryPackageSourceInconsistencyError
 
 log = logging.getLogger('updatebot.update')
 
+# added to deal with parent platform's lack of ?arch=
+# in some manifests -- probably only needed related to bi-arch rebuilds?
+# import re
+# dropArchRE = re.compile('\?.*')
+
 class Updater(object):
     """
     Class for finding and updating packages.
@@ -841,6 +846,9 @@ class Updater(object):
 
         # Take the basename of all paths in the manifest since the same rpm will
         # be in different repositories for each platform.
+        # baseManifest = sorted([ dropArchRE.sub('', os.path.basename(x)) for x in manifest ])
+        # parentBaseManifest = sorted([ dropArchRE.sub('', os.path.basename(x))
+        #                               for x in parentManifest ])
         baseManifest = sorted([ os.path.basename(x) for x in manifest ])
         parentBaseManifest = sorted([ os.path.basename(x)
                                       for x in parentManifest ])
