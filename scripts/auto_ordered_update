@@ -15,22 +15,34 @@
 
 import os
 
-import rhnmirror
-
 from updatebot import OrderedBot
 from updatebot.cmdline import display
 from updatebot.cmdline.simple import main
 
 def update(cfg):
-    mcfg = rhnmirror.MirrorConfig()
-    mcfg.read(os.path.join(cfg.configPath, 'erratarc'))
+    if cfg.platformName == 'rhel':
+        import rhnmirror
 
-    errata = rhnmirror.Errata(mcfg)
-    errata.fetch()
+        mcfg = rhnmirror.MirrorConfig()
+        mcfg.read(os.path.join(cfg.configPath, 'erratarc'))
 
-    bot = OrderedBot(cfg, errata)
+        errata = rhnmirror.Errata(mcfg)
+        errata.fetch()
+
+        bot = ordered.Bot(cfg, errata)
+    else:
+        bot = ordered.Bot(cfg, None)
+
+        if cfg.platformName == 'sles':
+            from errata.sles import AdvisoryManager as Errata
+
+        elif cfg.platformName == 'centos':
+            from errata.centos import AdvisoryManager as Errata
+
+        else:
+            raise RuntimeError, 'no errata source found for %s' % cfg.platformName
+
     trvMap = bot.update()
-
     if trvMap:
         print 'Updated the following troves:'
         print display.displayTroveMap(trvMap)
