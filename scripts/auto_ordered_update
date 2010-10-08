@@ -15,9 +15,9 @@
 
 import os
 
-from updatebot import OrderedBot
 from updatebot.cmdline import display
 from updatebot.cmdline.simple import main
+from updatebot import ordered
 
 def update(cfg):
     if cfg.platformName == 'rhel':
