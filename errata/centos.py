@@ -113,7 +113,8 @@ class AdvisoryManager(common.AdvisoryManager):
         # Sort packages by build timestamp.
         slices = {}
         for srcPkg in self._pkgSource.srcPkgMap:
-            updateId = slice(int(srcPkg.fileTimestamp or srcPkg.buildTimestamp))
+            # updateId = slice(int(srcPkg.fileTimestamp or srcPkg.buildTimestamp))
+            updateId = slice(int(srcPkg.buildTimestamp))
             # If package comes from a base path, override updateId
             for basePath in self._pkgSource._cfg.repositoryBasePaths:
                 if basePath[1].match(srcPkg.location) is not None:
