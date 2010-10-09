@@ -42,6 +42,9 @@ def update(cfg):
         else:
             raise RuntimeError, 'no errata source found for %s' % cfg.platformName
 
+        errata = Errata(bot._pkgSource)
+        bot._errata._errata = errata
+
     trvMap = bot.update()
     if trvMap:
         print 'Updated the following troves:'
