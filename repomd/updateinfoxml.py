@@ -17,6 +17,8 @@ Module for parsing SuSE update info metadata. This was introduced in SLES 11.
 Refer to patchxml.py for previous versions.
 """
 
+import os
+
 import logging
 
 log = logging.getLogger('repomd')
@@ -123,9 +125,10 @@ class _Update(SlotNode):
             return relcmp
 
         # Is there even a summary in the schema?!?
-        sumcmp = cmp(self.summary, other.summary)
-        if sumcmp != 0:
-            return sumcmp
+        # There's a slot in mirrorball, but it's empty, and nothing in xml.
+        #sumcmp = cmp(self.summary, other.summary)
+        #if sumcmp != 0:
+        #    return sumcmp
 
         desccmp = cmp(self.description, other.description)
         if desccmp != 0:
@@ -258,6 +261,17 @@ class _UpdateInfoPackage(SlotNode, PackageCompare):
         else:
             raise UnknownElementError(child)
 
+    def getDegenerateNevra(self):
+        """
+        Return the name, epoch, version, release, and arch of the package.
+        Return 0 for the epoch if otherwise undefined.
+        """
+
+        # SLES11 appears to leave epoch info out of metadata.
+        if not self.epoch:
+            return (self.name, u'0', self.version, self.release, self.arch)
+        return (self.name, self.epoch, self.version, self.release, self.arch)
+        
     def getNevra(self):
         """
         Return the name, epoch, version, release, and arch of the package.
@@ -265,7 +279,38 @@ class _UpdateInfoPackage(SlotNode, PackageCompare):
 
         return (self.name, self.epoch, self.version, self.release, self.arch)
 
+    def __repr__(self):
+        return os.path.basename(self.location)
 
+    def __cmp__(self, other):
+        pkgcmp = PackageCompare.__cmp__(self, other)
+        if pkgcmp != 0:
+            return pkgcmp
+
+        # Compare arch before checksum to catch cases of multiple
+        # arch-specific packages that happen to have same content
+        # (e.g. SLES xorg-x11-fonts packages).
+        archcmp = cmp(self.arch, other.arch)
+        if archcmp != 0:
+            return archcmp
+        
+        # Compare checksum only for equality, otherwise sorting will result in
+        # checksum ordering.
+        if (self.checksum and other.checksum and
+            self.checksumType == other.checksumType and
+            self.checksum == other.checksum):
+            return 0
+        
+        # Compare on archiveSize for equality only. This is needed for rpms
+        # that have identical contents, but may have been rebuilt. Idealy we
+        # would use file checksums for this, but we don't have the payload
+        # contents available at this time.
+        if (self.archiveSize and other.archiveSize and
+            self.archiveSize == other.archiveSize):
+            return 0
+        
+        return cmp(self.location, other.location)
+        
 class UpdateInfoXml(XmlFileParser):
     """
     Bind all types for parsing updateinfo.xml.

@@ -110,6 +110,9 @@ class Advisory(object):
 
     __slots__ = ('advisory', 'synopsis', 'issue_date', 'nevraChannels', )
 
+    def __repr__(self):
+        return self.advisory
+
     def __init__(self, advisory, synopsis, issue_date, packages):
         self.advisory = advisory
         self.synopsis = synopsis

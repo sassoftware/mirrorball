@@ -23,6 +23,7 @@ import logging
 from errata.common import Nevra
 from errata.common import Package
 from errata.common import Channel
+from errata.common import Advisory
 from errata.sles import AdvisoryManager
 
 log = logging.getLogger('errata')
@@ -89,10 +90,11 @@ class AdvisoryManager11(AdvisoryManager):
                     return channel
             raise RuntimeError , 'unable to find channel for %s' % pkg.location
 
-        def getSrcPkg(binPkg):
-            for srcPkg, binPkgs in self._pkgSource.srcPkgMap.iteritems():
-                if binPkg in binPkgs:
-                    return srcPkg
+        def getSrcPkg(binPkg, binMap):
+            srcPkg = binMap[binPkg.getDegenerateNevra()]
+            
+            if srcPkg:
+                return srcPkg
             raise RuntimeError , 'unable to find source package for %s' % binPkg.location
 
         def getPatchById(patches, patchid):
@@ -112,7 +114,6 @@ class AdvisoryManager11(AdvisoryManager):
 
         for path, client in self._pkgSource.getClients().iteritems():
             log.info('loading patches for path %s' % path)
-            #import epdb ; epdb.st()
             #for patch in client.getPatchDetail():
             for patch in client.getUpdateInfo():
                 for pkg in patch.pkglist:
@@ -139,9 +140,9 @@ class AdvisoryManager11(AdvisoryManager):
 
         # This maps patchid (without regard to repos) to timeslices.
         patchidMap = map_patchids(slices)
-
+        
         # This requires no more than two timestamps per patchid;
-        # one each for slesp3 and sdkp3 (bails out otherwise):
+        # one each for slessp1 and sdksp1 (bails out otherwise):
         #
         # Pondering how this can be consolidated with above code to
         # reduce iterating...
@@ -150,7 +151,6 @@ class AdvisoryManager11(AdvisoryManager):
         #
         for patchid, timestamps in patchidMap.iteritems():
             if len(timestamps) > 1:
-                import epdb ; epdb.st()
                 # Untested beyond 2.
                 assert(len(timestamps) == 2)
                 # FIXME: refactor this monster.
@@ -174,9 +174,11 @@ class AdvisoryManager11(AdvisoryManager):
                         splitpatch[0][0], splitpatch[1][0]) +
                              'to superset timestamp %s' % splitpatch[0][2].issued)
                     splitpatch[1][2].issued = splitpatch[0][2].issued
-                # So far this has only been tested in pure-subset cases.
                 else:
-                    raise RuntimeError , 'neither %s nor %s is a subset of the other' % (splitpatch[0][0], splitpatch[1][0])
+                    maxtime = max(splitpatch[1][2].issued,
+                                  splitpatch[0][2].issued)
+                    log.info('neither %s nor %s is a subset of the other, syncing timestamps (%s & %s) to later timestamp: %s' % (splitpatch[0][0], splitpatch[1][0], splitpatch[1][2].issued, splitpatch[0][2].issued, maxtime))
+                    splitpatch[1][2].issued = splitpatch[0][2].issued = maxtime
 
         advPkgMap = {}
         nevras = {}
@@ -184,9 +186,12 @@ class AdvisoryManager11(AdvisoryManager):
         srcPkgAdvMap = {}
         srcPkgPatchidMap = {}
 
+        binMap = dict([ (x.getNevra(), y) for x,y in
+                        self._pkgSource.binPkgMap.iteritems() ])
+
         for patch in patches:
             advisory = patch.id
-            patchid = patchidNoRepo(advisory)
+            patchid = patch.id
 
             for binPkg in patch.pkglist:
                 nevra = binPkg.getNevra()
@@ -195,7 +200,7 @@ class AdvisoryManager11(AdvisoryManager):
                 package = Package(channelObj, nevraObj)
                 packageObj = packages.setdefault(package, package)
                 advPkgMap.setdefault(advisory, set()).add(packageObj)
-                srcPkgObj = getSrcPkg(binPkg)
+                srcPkgObj = getSrcPkg(binPkg, binMap)
                 srcPkgAdvMap.setdefault(srcPkgObj, set()).add(advisory)
                 srcPkgPatchidMap.setdefault(srcPkgObj, set()).add(patchid)
 
@@ -239,4 +244,4 @@ class AdvisoryManager11(AdvisoryManager):
 
 
         #AdvisoryManager._order(self)
-        #import epdb ; epdb.st()
+        import epdb ; epdb.st()

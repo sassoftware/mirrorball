@@ -338,7 +338,7 @@ class ErrataFilter(object):
                     current.pop(srpm.name, None)
                     continue
                 if srpm.getNevra() in explicitIgnoreSources:
-                    log.info('explicitly ignoring source package update %s' % [ignoreSource])
+                    log.info('explicitly ignoring source package update %s' % [explicitIgnoreSources])
                     continue
                 for pkg in sorted(self._pkgSource.srcPkgMap[srpm]):
                     if pkg.arch == 'src':
@@ -654,6 +654,12 @@ class ErrataFilter(object):
         # one bucket. This can happen when a partial set of packages was
         # released and the code tried to fill in the other packages by build
         # time.
+        #
+        # This has to be commented out for SLES11e due to a reissuing
+        # of python-base as an update (when it was already provided in
+        # the base).
+        # Need to work around this programmatically.
+        #
         assert len(pkgs) == totalPkgs
 
         # fold together updates to preserve dep closure.
@@ -869,11 +875,13 @@ class ErrataFilter(object):
         indexedChannels = set(self._errata.getChannels())
         # FIXME: This should not be a hard coded set of arches.
         arches = ('i386', 'i486', 'i586', 'i686', 'x86_64', 'noarch')
+        log.info('processing %s errata' %
+                 len([x for x in self._errata.iterByIssueDate()]))
         for e in self._errata.iterByIssueDate():
             bucket = []
             allocated = []
             bucketId = None
-            #log.info('processing %s' % e.advisory)
+            log.info('processing %s' % e.advisory)
 
             # Get unique list of nevras for which we have packages indexed and
             # are of a supported arch.
@@ -891,6 +899,7 @@ class ErrataFilter(object):
                 # move nevra to errata buckets
                 if nevra in nevras:
                     binPkg = nevras.pop(nevra)
+                    log.info ('dropping %s into bucket' % binPkg)
                     bucket.append(binPkg)
                     allocated.append(nevra)
 
