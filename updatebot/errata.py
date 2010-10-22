@@ -644,6 +644,15 @@ class ErrataFilter(object):
         # Start order munging here
         ##
 
+        # Remove any source packages we're deliberately ignoring:
+        # Note that we do this before we check for drops, as some drops
+        # are deliberate.
+        ignoredCount = 0
+        for source, nevras in self._cfg.ignoreSourceUpdate.iteritems():
+            for nevra in nevras:
+                self._reorderSource(source, None, nevra)
+                ignoredCount += 1
+
         # Make sure we don't drop any updates
         totalPkgs = sum([ len(x) for x in self._order.itervalues() ])
         pkgs = set()
@@ -678,13 +687,6 @@ class ErrataFilter(object):
         for source, dest, nevra in self._cfg.reorderSource:
             self._reorderSource(source, dest, nevra)
 
-        ignoredCount = 0
-        # remove any source packages we're deliberately ignoring:
-        for source, nevras in self._cfg.ignoreSourceUpdate.iteritems():
-            for nevra in nevras:
-                self._reorderSource(source, None, nevra)
-                ignoredCount += 1
-
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
         nevras = dict([ (x.getNevra(), x)
@@ -701,7 +703,7 @@ class ErrataFilter(object):
         for pkgSet in self._order.itervalues():
             pkgs.update(pkgSet)
         assert len(pkgs) == totalPkgs2 - diffCount
-        assert totalPkgs2 == totalPkgs + diffCount - ignoredCount
+        assert totalPkgs2 == totalPkgs + diffCount
 
     def _mergeUpdates(self, mergeList):
         """
