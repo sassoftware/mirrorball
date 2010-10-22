@@ -74,6 +74,9 @@ else:
     if cfg.platformName == 'sles':
         from errata.sles import AdvisoryManager as Errata
 
+    if cfg.platformName == 'sles11':
+        from errata.sles11 import AdvisoryManager11 as Errata
+
     elif cfg.platformName == 'centos':
         from errata.centos import AdvisoryManager as Errata
 
