@@ -51,7 +51,7 @@ class GroupSanityChecker(object):
 
         errors = []
         for name, group in groups.iteritems():
-            log.info('checking consistentcy of %s' % name)
+            log.info('checking consistency of %s' % name)
             try:
                 log.info('checking name version conflict')
                 self._checkNameVersionConflict(group)
