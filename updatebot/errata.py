@@ -821,6 +821,10 @@ class ErrataFilter(object):
         # Remove specified source nevra from the source bucket
         bucketNevras = dict([ (x.getNevra(), x)
                               for x in self._order[source] ])
+        # FIXME: the above line will fail with a KeyError exception in
+        # cases where a removal directive refers to a bucket that
+        # doesn't exist.  Add an option to prevent that and silently
+        # ignore?  (PFM-806)
         if nevra not in bucketNevras:
             raise PackageNotFoundInBucketError(nevra=nevra, bucketId=source)
         srpm = bucketNevras[nevra]
