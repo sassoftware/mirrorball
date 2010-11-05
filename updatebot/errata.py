@@ -881,8 +881,8 @@ class ErrataFilter(object):
         indexedChannels = set(self._errata.getChannels())
         # FIXME: This should not be a hard coded set of arches.
         arches = ('i386', 'i486', 'i586', 'i686', 'x86_64', 'noarch')
-        log.info('processing %s errata' %
-                 len([x for x in self._errata.iterByIssueDate()]))
+        #log.info('processing %s errata' %
+        #         len([x for x in self._errata.iterByIssueDate()]))
         for e in self._errata.iterByIssueDate():
             bucket = []
             allocated = []
@@ -905,13 +905,14 @@ class ErrataFilter(object):
                 # move nevra to errata buckets
                 if nevra in nevras:
                     binPkg = nevras.pop(nevra)
-                    log.info ('dropping %s into bucket' % binPkg)
+                    log.info('dropping %s into bucket' % binPkg)
                     bucket.append(binPkg)
                     allocated.append(nevra)
 
                 # nevra is already part of another bucket
                 elif nevra in nevraMap:
                     bucketId = nevraMap[nevra]
+                    log.info('...reusing bucket %s' % bucketId)
 
                 # raise error if we can't find the required package
                 else:
@@ -931,6 +932,8 @@ class ErrataFilter(object):
             if bucketId is None:
                 bucketId = int(time.mktime(time.strptime(e.issue_date,
                                                          '%Y-%m-%d %H:%M:%S')))
+                log.info('...creating bucket %s for (%s)' % (bucketId,
+                                                             time.strptime(e.issue_date, '%Y-%m-%d %H:%M:%S')))
 
             if bucketId not in buckets:
                 buckets[bucketId] = set()

@@ -290,3 +290,5 @@ class AdvisoryManager(common.AdvisoryManager):
                            advPkgMap[advisory])
             self._advisories.add(adv)
             self._advOrder.setdefault(int(patch.timestamp), set()).add(adv)
+
+        import epdb ; epdb.st()
