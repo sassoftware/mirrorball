@@ -48,6 +48,9 @@ class _Patch(SlotNode):
         # patch's timestamp across architectures.
         self.timestamp = self.getAttribute('timestamp')
 
+    def __repr__(self):
+        return self.name + '-' + self.version
+    
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__

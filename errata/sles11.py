@@ -205,6 +205,9 @@ class AdvisoryManager11(AdvisoryManager):
                 srcPkgPatchidMap.setdefault(srcPkgObj, set()).add(patchid)
 
                 # FIXME: I hate this code too.
+                #
+                # FIXME HARDER: This is broken and only works because
+                # it's lucky. See sles.py for pending fix.
                 if srcPkgPatchidMap[srcPkgObj] != set([patchid]):
                     # Untested beyond two, and expected case is two
                     # different advisories issued for the same source
