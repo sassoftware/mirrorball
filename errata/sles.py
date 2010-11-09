@@ -263,7 +263,6 @@ class AdvisoryManager(common.AdvisoryManager):
                     srcPkgAdvs = [ getPatchById(patches, srcPkgAdv)
                                    for srcPkgAdv in srcPkgAdvMap[srcPkgObj] ]
                     syncTimestamp = min([ x.timestamp for x in srcPkgAdvs ])
-
                     for srcPkgAdv in srcPkgAdvs:
                         if srcPkgAdv.timestamp != syncTimestamp:
                             log.info('syncing timestamp (%s) of %s to %s ' % (

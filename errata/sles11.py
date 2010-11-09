@@ -205,9 +205,9 @@ class AdvisoryManager11(AdvisoryManager):
                 srcPkgPatchidMap.setdefault(srcPkgObj, set()).add(patchid)
 
                 # FIXME: I hate this code too.
-                #
-                # FIXME HARDER: This is broken and only works because
-                # it's lucky. See sles.py for pending fix.
+                # Note that to date this has not been tested in anger
+                # on SLES11, as no advisory releases have spanned
+                # multiple buckets.
                 if srcPkgPatchidMap[srcPkgObj] != set([patchid]):
                     # Untested beyond two, and expected case is two
                     # different advisories issued for the same source
@@ -216,26 +216,24 @@ class AdvisoryManager11(AdvisoryManager):
                     assert(len(srcPkgPatchidMap[srcPkgObj]) == 2)
                     srcPkgAdvs = [ getPatchById(patches, srcPkgAdv)
                                    for srcPkgAdv in srcPkgAdvMap[srcPkgObj] ]
-                    # Only sync the same source package once.  (It may
-                    # appear for multiple binary packages.)
-                    if srcPkgAdvs[0].issued != srcPkgAdvs[1].issued:
-                        # Using the min here in case the first advisory
-                        # for this source package has already been
-                        # published.
-                        syncTimestamp = min(srcPkgAdvs[0].issued,
-                                           srcPkgAdvs[1].issued)
-                        log.info('syncing timestamps (%s %s) ' % (
-                            srcPkgAdvs[0].issued, srcPkgAdvs[1].issued) +
-                                 'across same-SRPM advisories for %s & %s ' % (
-                            srcPkgAdvs[0].id,
-                            srcPkgAdvs[1].id) +
-                                 'to earlier timestamp %s' % syncTimestamp)
-                        srcPkgAdvs[0].issued = srcPkgAdvs[1].issued = syncTimestamp
+                    syncTimestamp = min([ x.issued for x in srcPkgAdvs ])
+                    for srcPkgAdv in srcPkgAdvs:
+                        if srcPkgAdv.issued != syncTimestamp:
+                            log.info('syncing timestamp (%s) of %s to %s ' % (
+                                srcPkgAdv.issued, srcPkgAdv.id, syncTimestamp) +
+                                     'across same-SRPM advisories for %s' % (
+                                srcPkgAdvs))
+                            srcPkgAdv.issued = syncTimestamp
 
             # There should be no srcPkgs with more than two patchids.
             assert(len([ x for x, y in srcPkgPatchidMap.iteritems()
                          if len(y) > 2 ]) == 0)
 
+        # Now that all timestamps have been munged, make second pass to
+        # establish order & create advisories. 
+        for patch in patches:
+            advisory = patch.id
+            
             issue_date = time.strftime('%Y-%m-%d %H:%M:%S',
                                        time.gmtime(int(patch.issued)))
             log.info('creating advisory: %s (%s)' % (advisory,
@@ -245,6 +243,4 @@ class AdvisoryManager11(AdvisoryManager):
             self._advisories.add(adv)
             self._advOrder.setdefault(int(patch.issued), set()).add(adv)
 
-
-        #AdvisoryManager._order(self)
         import epdb ; epdb.st()

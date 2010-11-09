@@ -92,8 +92,6 @@ class _Update(SlotNode):
         Parse the children of update.
         """
 
-        #import epdb ; epdb.st()
-        
         n = child.getName()
         if n == 'id':
             # Make this behave like SLES10 patchid
@@ -150,6 +148,9 @@ class _Update(SlotNode):
 
     def __hash__(self):
         return hash((self.id, self.release, self.summary, self.description))
+
+    def __repr__(self):
+        return self.id
 
 class _References(SlotNode):
     """
