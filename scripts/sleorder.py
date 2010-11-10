@@ -18,12 +18,18 @@ from updatebot import log
 from updatebot.ordered import Bot
 from updatebot import UpdateBotConfig
 
-from errata.sles import AdvisoryManager as Errata
 
 slog = log.addRootLogger()
 
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
+
+if cfg.platformName == 'sles':
+    from errata.sles import AdvisoryManager as Errata
+elif cfg.platformName == 'sles11':
+    from errata.sles11 import AdvisoryManager11 as Errata
+else:
+    raise RuntimeError, 'unsupported platformName'
 
 bot = Bot(cfg, None)
 errata = Errata(bot._pkgSource)
