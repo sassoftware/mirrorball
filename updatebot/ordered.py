@@ -235,7 +235,6 @@ class Bot(BotSuperClass):
 
         # Get current group
         group = self._groupmgr.getGroup()
-        #import epdb ; epdb.st()
 
         # Get current timestamp
         current = group.errataState
