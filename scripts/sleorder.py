@@ -44,6 +44,6 @@ order = bot._errata._order
 
 childPackages, parentPackages = bot._errata.sanityCheckOrder()
 
-bot._checkMissingPackages()
+missingPackages, missingOrder = bot._checkMissingPackages()
 
 import epdb; epdb.st()

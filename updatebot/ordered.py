@@ -38,6 +38,7 @@ from updatebot.errors import PromoteMissingVersionError
 from updatebot.errors import PromoteFlavorMismatchError
 from updatebot.errors import PlatformAlreadyImportedError
 from updatebot.errors import FoundModifiedNotImportedErrataError
+from updatebot.errors import UnhandledUpdateError
 
 log = logging.getLogger('updatebot.ordered')
 
@@ -219,11 +220,13 @@ class Bot(BotSuperClass):
                     ver = package.version + '_' + package.release
                     try:
                         if ver not in allSourceVersions[package.name]:
-                            log.warn('missing %s (%s)' % (package, bucket))
-                            missingPackages[package] = bucket
-                            missingOrder.setdefault(bucket, set()).add(package)
+                            # Handle all missing-version cases as exception.
+                            raise KeyError
                     except KeyError:
-                        log.warn('missing (KeyError) %s (%s)' % (package, bucket))
+                        log.warn('%s missing from repository' % package)
+                        log.info('? reorderSource %s otherId>%s %s' % (
+                            bucket, group.errataState,
+                            ' '.join(package.getNevra())))
                         missingPackages[package] = bucket
                         missingOrder.setdefault(bucket, set()).add(package)
 
@@ -232,6 +235,8 @@ class Bot(BotSuperClass):
             import epdb ; epdb.st()
         else:
             log.info('all expected source packages found in repository')
+
+        return missingPackages, missingOrder
 
     def update(self, *args, **kwargs):
         """
@@ -262,7 +267,9 @@ class Bot(BotSuperClass):
         self._errata.sanityCheckOrder()
 
         # Ensure no packages are missing from repository.
-        self._checkMissingPackages()
+        missingPackages, missingOrder = self._checkMissingPackages()
+        if len(missingPackages):
+            raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
 
         # Check for updated errata that may require some manual changes to the
         # repository. These are errata that were issued before the current
@@ -490,7 +497,9 @@ class Bot(BotSuperClass):
 
         if checkMissingPackages:
             self._errata.sanityCheckOrder()
-            self._checkMissingPackages()
+            missingPackages, missingOrder = self._checkMissingPackages()
+            if len(missingPackages):
+                raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
 
         log.info('querying repository for all group versions')
         sourceLatest = self._updater.getUpstreamVersionMap(self._cfg.topGroup)
