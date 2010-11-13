@@ -183,6 +183,48 @@ class Bot(BotSuperClass):
 
         return pkgMap, failures
 
+    def _checkMissingPackages(self):
+        """
+        Check previously ordered buckets for any missing source
+        packages.  These are usually caused by delayed release of errata
+        into repositories.
+        """
+
+        log.info('checking for any packages missing from repository')
+
+        group = self._groupmgr.getGroup()
+        log.info('querying buildLabel %s for all committed package versions' %
+                 self._updater._conaryhelper._ccfg.buildLabel)
+        allPackageVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel({None: {self._updater._conaryhelper._ccfg.buildLabel: None}})
+        allSourceVersions = {}
+
+        for source, versions in allPackageVersions.iteritems():
+            if source.endswith(':source'):
+                allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version for x in versions.keys() ]
+
+        missingPackages = {}
+        missingOrder = {}
+
+        for bucket, packages in sorted(self._errata._order.iteritems()):
+            if bucket <= group.errataState:
+                for package in packages:
+                    ver = package.version + '_' + package.release
+                    try:
+                        if ver not in allSourceVersions[package.name]:
+                            log.warn('missing %s (%s)' % (package, bucket))
+                            missingPackages[package] = bucket
+                            missingOrder.setdefault(bucket, set()).add(package)
+                    except KeyError:
+                        log.warn('missing (KeyError) %s (%s)' % (package, bucket))
+                        missingPackages[package] = bucket
+                        missingOrder.setdefault(bucket, set()).add(package)
+
+        if len(missingPackages) > 0:
+            log.error('missing %s ordered source packages from repository; inspect missingPackages and missingOrder' % len(missingPackages))
+            import epdb ; epdb.st()
+        else:
+            log.info('all expected source packages found in repository')
+
     def update(self, *args, **kwargs):
         """
         Handle update case.
@@ -193,6 +235,7 @@ class Bot(BotSuperClass):
 
         # Get current group
         group = self._groupmgr.getGroup()
+        #import epdb ; epdb.st()
 
         # Get current timestamp
         current = group.errataState
@@ -210,6 +253,9 @@ class Bot(BotSuperClass):
 
         # Sanity check errata ordering.
         self._errata.sanityCheckOrder()
+
+        # Ensure no packages are missing from repository.
+        self._checkMissingPackages()
 
         # Check for updated errata that may require some manual changes to the
         # repository. These are errata that were issued before the current
@@ -421,7 +467,7 @@ class Bot(BotSuperClass):
 
         return updateSet
 
-    def promote(self, enforceAllExpected=True):
+    def promote(self, enforceAllExpected=True, checkMissingPackages=False):
         """
         Promote binary groups from the devel label to the production lable in
         the order that they were built.
@@ -434,6 +480,10 @@ class Bot(BotSuperClass):
 
         # laod package source
         self._pkgSource.load()
+
+        if checkMissingPackages:
+            self._errata.sanityCheckOrder()
+            self._checkMissingPackages()
 
         log.info('querying repository for all group versions')
         sourceLatest = self._updater.getUpstreamVersionMap(self._cfg.topGroup)
