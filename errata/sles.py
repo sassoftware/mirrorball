@@ -290,4 +290,4 @@ class AdvisoryManager(common.AdvisoryManager):
             self._advisories.add(adv)
             self._advOrder.setdefault(int(patch.timestamp), set()).add(adv)
 
-        import epdb ; epdb.st()
+#        import epdb ; epdb.st()

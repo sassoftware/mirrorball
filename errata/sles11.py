@@ -243,4 +243,4 @@ class AdvisoryManager11(AdvisoryManager):
             self._advisories.add(adv)
             self._advOrder.setdefault(int(patch.issued), set()).add(adv)
 
-        import epdb ; epdb.st()
+#        import epdb ; epdb.st()

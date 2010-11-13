@@ -191,12 +191,12 @@ class Bot(BotSuperClass):
         into repositories, which play havoc with timestamp ordering.
         """
 
-        log.info('checking for any packages missing from repository')
+        log.info('checking for any source packages missing from repository')
 
         # Get current group; needed for latest commit timestamp.
         group = self._groupmgr.getGroup()
 
-        log.info('querying buildLabel %s for all committed package versions' %
+        log.info('querying buildLabel %s for all committed packages' %
                  self._updater._conaryhelper._ccfg.buildLabel)
 
         # Get all versions of all on buildLabel committed to repo.
