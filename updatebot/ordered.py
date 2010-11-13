@@ -185,19 +185,25 @@ class Bot(BotSuperClass):
 
     def _checkMissingPackages(self):
         """
-        Check previously ordered buckets for any missing source
-        packages.  These are usually caused by delayed release of errata
-        into repositories.
+        Check previously committed buckets for any missing source
+        packages.  These are usually caused by delayed releases of errata
+        into repositories, which play havoc with timestamp ordering.
         """
 
         log.info('checking for any packages missing from repository')
 
+        # Get current group; needed for latest commit timestamp.
         group = self._groupmgr.getGroup()
+
         log.info('querying buildLabel %s for all committed package versions' %
                  self._updater._conaryhelper._ccfg.buildLabel)
+
+        # Get all versions of all on buildLabel committed to repo.
         allPackageVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel({None: {self._updater._conaryhelper._ccfg.buildLabel: None}})
+
         allSourceVersions = {}
 
+        # Build dict of all source versions found in repo.
         for source, versions in allPackageVersions.iteritems():
             if source.endswith(':source'):
                 allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version for x in versions.keys() ]
@@ -205,6 +211,8 @@ class Bot(BotSuperClass):
         missingPackages = {}
         missingOrder = {}
 
+        # Check all previously ordered/committed buckets for packages
+        # missing from the repo.
         for bucket, packages in sorted(self._errata._order.iteritems()):
             if bucket <= group.errataState:
                 for package in packages:
