@@ -538,6 +538,7 @@ class Bot(BotSuperClass):
                 log.info('%s found on target label, skipping' % upver)
                 continue
             elif upver not in targetSpecMap:
+                # FIXME: This log message is confusing.
                 log.info('%s found on target label, but newer version '
                          'available on source, will repromote' % upver)
 
