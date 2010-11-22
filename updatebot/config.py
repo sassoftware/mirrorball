@@ -519,6 +519,13 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # the model.
     ignoreSourceUpdate = (CfgIntDict(CfgList(CfgNevra)), {})
 
+    # updateId sourceNevra
+    # At updateId, allow the source package (and any related binary
+    # packages) specified by sourceNevra to be missing from the
+    # repository. Useful for working around selected gaps uncovered by
+    # OrderedBot._checkMissingPackages() during updates or promotes.
+    allowMissingPackage = (CfgIntDict(CfgList(CfgNevra)), {})
+
     # updateId binaryNevra
     # As of updateId, I expect the code to think this nevra should be removed,
     # but I want to keep it.

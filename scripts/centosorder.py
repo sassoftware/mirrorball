@@ -18,12 +18,12 @@ from updatebot import log
 from updatebot.ordered import Bot
 from updatebot import UpdateBotConfig
 
-from errata.centos import AdvisoryManager as Errata
-
 slog = log.addRootLogger()
 
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
+
+from errata.centos import AdvisoryManager as Errata
 
 bot = Bot(cfg, None)
 errata = Errata(bot._pkgSource)
@@ -34,13 +34,14 @@ errata.fetch()
 bot._pkgSource.load()
 bot._errata._orderErrata()
 
+# For easy inspection.
 order = bot._errata._order
-advMap = bot._errata._advMap
-sorder = sorted(order)
 
 def tconv(tstamp):
     return time.strftime('%m-%d-%Y %H:%M:%S', time.localtime(tstamp))
 
 childPackages, parentPackages = bot._errata.sanityCheckOrder()
+
+missingPackages, missingOrder = bot._checkMissingPackages()
 
 import epdb; epdb.st()

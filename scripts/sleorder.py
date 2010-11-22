@@ -42,6 +42,9 @@ bot._errata._orderErrata()
 # For easy inspection.
 order = bot._errata._order
 
+def tconv(tstamp):
+    return time.strftime('%m-%d-%Y %H:%M:%S', time.localtime(tstamp))
+
 childPackages, parentPackages = bot._errata.sanityCheckOrder()
 
 missingPackages, missingOrder = bot._checkMissingPackages()

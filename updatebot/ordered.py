@@ -223,6 +223,13 @@ class Bot(BotSuperClass):
                             # Handle all missing-version cases as exception.
                             raise KeyError
                     except KeyError:
+                        #import epdb ; epdb.st()
+                        try:
+                            if package.getNevra() in self._cfg.allowMissingPackage[bucket]:
+                                log.warn('explicitly allowing missing repository package %s at %s' % (package, bucket))
+                                continue
+                        except KeyError:
+                            pass
                         log.warn('%s missing from repository' % package)
                         log.info('? reorderSource %s otherId>%s %s' % (
                             bucket, group.errataState,
@@ -245,6 +252,7 @@ class Bot(BotSuperClass):
 
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
+        checkMissingPackages = kwargs.pop('checkMissingPackages', True)
 
         # Get current group
         group = self._groupmgr.getGroup()
@@ -266,10 +274,11 @@ class Bot(BotSuperClass):
         # Sanity check errata ordering.
         self._errata.sanityCheckOrder()
 
-        # Ensure no packages are missing from repository.
-        missingPackages, missingOrder = self._checkMissingPackages()
-        if len(missingPackages):
-            raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
+        if checkMissingPackages:
+            # Ensure no packages are missing from repository.
+            missingPackages, missingOrder = self._checkMissingPackages()
+            if len(missingPackages):
+                raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
 
         # Check for updated errata that may require some manual changes to the
         # repository. These are errata that were issued before the current
@@ -481,7 +490,7 @@ class Bot(BotSuperClass):
 
         return updateSet
 
-    def promote(self, enforceAllExpected=True, checkMissingPackages=False):
+    def promote(self, enforceAllExpected=True, checkMissingPackages=True):
         """
         Promote binary groups from the devel label to the production lable in
         the order that they were built.
@@ -496,6 +505,7 @@ class Bot(BotSuperClass):
         self._pkgSource.load()
 
         if checkMissingPackages:
+            # Ensure no packages are missing from repository.
             self._errata.sanityCheckOrder()
             missingPackages, missingOrder = self._checkMissingPackages()
             if len(missingPackages):
