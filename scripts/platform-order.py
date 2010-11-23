@@ -23,7 +23,14 @@ slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-from errata.centos import AdvisoryManager as Errata
+if cfg.platformName == 'sles':
+    from errata.sles import AdvisoryManager as Errata
+elif cfg.platformName == 'sles11':
+    from errata.sles11 import AdvisoryManager11 as Errata
+elif cfg.platformName == 'centos':
+    from errata.centos import AdvisoryManager as Errata
+else:
+    raise RuntimeError, 'unsupported platformName'
 
 bot = Bot(cfg, None)
 errata = Errata(bot._pkgSource)
