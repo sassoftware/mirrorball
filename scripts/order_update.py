@@ -65,8 +65,9 @@ if cfg.platformName == 'rhel':
     mcfg.read(confDir + '/erratarc')
 
     errata = rhnmirror.Errata(mcfg)
-
     bot = ordered.Bot(cfg, errata)
+
+    checkMissingPackages = False
 
 else:
     bot = ordered.Bot(cfg, None)
@@ -86,7 +87,9 @@ else:
     errata = Errata(bot._pkgSource)
     bot._errata._errata = errata
 
+    checkMissingPackages = True
+
 pkgMap = bot.update(fltr=fltr, restoreFile=restoreFile,
-                    checkMissingPackages=True)
+                    checkMissingPackages=checkMissingPackages)
 
 import epdb; epdb.st()

@@ -50,6 +50,8 @@ if cfg.platformName == 'rhel':
 
     bot = OrderedBot(cfg, errata)
 
+    checkMissingPackages = False
+
 else:
     bot = OrderedBot(cfg, None)
 
@@ -68,6 +70,8 @@ else:
     errata = Errata(bot._pkgSource)
     bot._errata._errata = errata
 
-bot.promote(enforceAllExpected=True, checkMissingPackages=True)
+    checkMissingPackages = True
+
+bot.promote(enforceAllExpected=True, checkMissingPackages=checkMissingPackages)
 
 import epdb; epdb.st()
