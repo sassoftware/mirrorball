@@ -23,18 +23,29 @@ slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 
-if cfg.platformName == 'sles':
-    from errata.sles import AdvisoryManager as Errata
-elif cfg.platformName == 'sles11':
-    from errata.sles11 import AdvisoryManager11 as Errata
-elif cfg.platformName == 'centos':
-    from errata.centos import AdvisoryManager as Errata
-else:
-    raise RuntimeError, 'unsupported platformName'
+if cfg.platformName == 'rhel':
+    import rhnmirror
 
-bot = Bot(cfg, None)
-errata = Errata(bot._pkgSource)
-bot._errata._errata = errata
+    mcfg = rhnmirror.MirrorConfig()
+    mcfg.read(confDir + '/erratarc')
+
+    errata = rhnmirror.Errata(mcfg)
+    bot = Bot(cfg, errata)
+    
+else:
+    bot = Bot(cfg, None)
+
+    if cfg.platformName == 'sles':
+        from errata.sles import AdvisoryManager as Errata
+    elif cfg.platformName == 'sles11':
+        from errata.sles11 import AdvisoryManager11 as Errata
+    elif cfg.platformName == 'centos':
+        from errata.centos import AdvisoryManager as Errata
+    else:
+        raise RuntimeError, 'unsupported platformName'
+
+    errata = Errata(bot._pkgSource)
+    bot._errata._errata = errata
 
 errata.fetch()
 
@@ -49,6 +60,7 @@ def tconv(tstamp):
 
 childPackages, parentPackages = bot._errata.sanityCheckOrder()
 
-missingPackages, missingOrder = bot._checkMissingPackages()
+if cfg.platformName != 'rhel':
+    missingPackages, missingOrder = bot._checkMissingPackages()
 
 import epdb; epdb.st()
