@@ -25,6 +25,7 @@ if 'CONARY_PATH' in os.environ:
 import rmake
 import conary
 import updatebot
+from updatebot import cmdline
 
 print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
 print >>sys.stderr, 'using rmake from', os.path.dirname(rmake.__file__)
@@ -49,7 +50,7 @@ class Bot(OrderedBot):
         # load package source
         self._pkgSource.load()
 
-        ui = UserInterface()
+        ui = cmdline.UserInterface()
 
         mgr = groupmgr.GroupManager(self._cfg, ui, useMap=self._pkgSource.useMap)
         mgr.setReadOnly()
