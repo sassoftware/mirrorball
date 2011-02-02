@@ -34,6 +34,9 @@ from updatebot.errors import UpdateGoesBackwardsError
 from updatebot.errors import UpdateRemovesPackageError
 from updatebot.errors import UpdateReusesPackageError
 
+# Fix default type of _findTrovesCache
+from updatebot.lib.findtroves import FindTrovesCache
+
 log = logging.getLogger('updatebot.errata')
 
 def loadErrata(func):
@@ -994,7 +997,7 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
     def __init__(self, cfg):
         conaryhelper.ConaryHelper.__init__(self, cfg)
         self._client = None
-        self._findTrovesCache = {}
+        self._findTrovesCache = FindTrovesCache(None)
 
     @staticmethod
     def _getCacheKey(nvf):

@@ -51,6 +51,7 @@ autoLoadPackages="
     groupinfo
     redirect
     userinfo
+    groupset
 "
 
 for pkg in $autoLoadPackages ; do

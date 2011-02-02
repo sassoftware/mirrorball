@@ -305,17 +305,23 @@ class YumSource(BasePackageSource):
         for srcTup in self._rpmMap.keys():
             srcKey = list(srcTup)
             epoch = int(srcKey[1])
-            while epoch >= 0:
-                srcKey[1] = str(epoch)
+
+            # _createSrcMap has already tested this
+            sources = [ x for x in self._srcMap.iterkeys()
+                if (srcKey[0], srcKey[2], srcKey[3], srcKey[4]) == 
+                   (x[0], x[2], x[3], x[4]) ]
+
+            if sources:
+                srcKey[1] = max([ x[1] for x in sources ])
                 key = tuple(srcKey)
-                if key in self._srcMap:
-                    srcPkg = self._srcMap[key]
-                    for binPkg in self._rpmMap[srcTup]:
-                        self.srcPkgMap[srcPkg].add(binPkg)
-                        self.binPkgMap[binPkg] = srcPkg
-                    del self._rpmMap[srcTup]
-                    break
-                epoch -= 1
+                srcPkg = self._srcMap[key]
+                for binPkg in self._rpmMap[srcTup]:
+                    self.srcPkgMap[srcPkg].add(binPkg)
+                    self.binPkgMap[binPkg] = srcPkg
+                del self._rpmMap[srcTup]
+            else:
+                # raise something here
+                import epdb; epdb.st()
 
         if self._rpmMap:
             count = sum([ len(x) for x in self._rpmMap.itervalues() ])
