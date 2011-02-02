@@ -465,6 +465,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # manual specification.
     firstErrata = CfgInt
 
+    # Timestamp of last erratum.  This is used to stop errata processing
+    # at a specified timestamp, which is useful if recent errata are
+    # broken and some sort of catch-up run is being done.
+    lastErrata = CfgInt
+    
     # Timestamp after which errata promotions begin.  This is useful in
     # cases where the baseline distribution must be split across
     # multiple updateId's in order to de-dupe the package list.

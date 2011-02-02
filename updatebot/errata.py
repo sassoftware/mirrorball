@@ -640,6 +640,8 @@ class ErrataFilter(object):
             for bin in bins:
                 assert bin in self._pkgSource.srcPkgMap[src]
 
+        self._handleLastErrata()
+        
         ##
         # Start order munging here
         ##
@@ -730,6 +732,21 @@ class ErrataFilter(object):
                 if target not in self._advMap:
                     self._advMap[target] = set()
                 self._advMap[target].update(advInfo)
+
+    def _handleLastErrata(self):
+        """
+        Remove timestamps past the configured lastErrata to prevent
+        processing them.
+        """
+        if self._cfg.lastErrata:
+            log.info('handling configured lastErrata (%s)' %
+                     self._cfg.lastErrata)
+            updateIds = [ x for x in self._order.iterkeys() ]
+            for x in updateIds:
+                if x > self._cfg.lastErrata:
+                    log.info('unsequencing timestamp %s (> %s)' %
+                             (x, self._cfg.lastErrata))
+                    del self._order[x]
 
     def _reorderUpdates(self, source, dest):
         """
