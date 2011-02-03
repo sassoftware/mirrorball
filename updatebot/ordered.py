@@ -823,7 +823,6 @@ class Bot(BotSuperClass):
 
             log.info('%s: committing group sources' % updateId)
 
-            import epdb ; epdb.st()
             mgr.commit()
 
             log.info('%s: building groups' % updateId)
