@@ -223,7 +223,6 @@ class Bot(BotSuperClass):
                             # Handle all missing-version cases as exception.
                             raise KeyError
                     except KeyError:
-                        #import epdb ; epdb.st()
                         try:
                             if package.getNevra() in self._cfg.allowMissingPackage[bucket]:
                                 log.warn('explicitly allowing missing repository package %s at %s' % (package, bucket))
@@ -634,8 +633,6 @@ class Bot(BotSuperClass):
         # Load package source.
         self._pkgSource.load()
 
-        #import epdb ; epdb.st()
-
         # Get latest errataState from the targetLabel so that we can
         # fence group building based on the target label state.
         targetGroup = groupmgr.GroupManager(self._cfg, self._ui,
@@ -655,8 +652,6 @@ class Bot(BotSuperClass):
                     'contents' % updateId)
                 break
 
-            # import epdb ; epdb.st()
-
             # Make sure the group representing the current updateId has been
             # imported and promoted to the production label.
             version = self._errata.getBucketVersion(updateId)
@@ -673,8 +668,6 @@ class Bot(BotSuperClass):
                     ))[0]
                 )
             ])
-
-            # import epdb ; epdb.st()
 
             # Now that we know that the packages that are part of this update
             # should be on the target label we can separate things into
@@ -753,7 +746,7 @@ class Bot(BotSuperClass):
                     # Should be empty:
                     if len([ x for x in grp.iterpackages() ]):
                         log.error('%s: group model not empty after pre-rebuild package removal' % advisory)
-                        # Eventually change to assertion?
+                        # Change to assertion?
                         import epdb ; epdb.st()
 
                 # Add packages to group model.
