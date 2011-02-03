@@ -16,6 +16,7 @@
 Module for modeling the contents of a top level group.
 """
 
+#import copy
 import logging
 
 from conary.deps import deps
@@ -79,6 +80,18 @@ class Group(object):
         self._dirty = False
         self._committed = False
         self._readOnly = False
+
+#    def __copy__(self):
+#        cls = self.__class__
+#        groups = copy.deepcopy(self._groups)
+#
+#        newGroup = cls(self._cfg, self._useMap, self._sanity, self._mgr,
+#                       self._pkgGroupName, groups, self._errataState
+#
+#        newGroup._dirty = self._dirty
+#        newGroup._committed = self._committed
+#        newGroup._readOnly = self._readOnly
+#        return newGroup
 
     errataState = enforce_readonly('_errataState')
     version = enforce_readonly('_version')

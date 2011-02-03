@@ -619,7 +619,7 @@ class Bot(BotSuperClass):
         log.info('promoted %s groups in %s seconds'
             % (count, time.time() - startime))
 
-    def createErrataGroups(self):
+    def createErrataGroups(self, rebuildGroups=False):
         """
         Create groups for each advisory that only contain the versions of
         packages that were included in that advisory. Once created, promote
@@ -634,8 +634,10 @@ class Bot(BotSuperClass):
         # Load package source.
         self._pkgSource.load()
 
-        # Get latest errataState from the targetLabel so that we can fence group
-        # building based on the target label state.
+        #import epdb ; epdb.st()
+
+        # Get latest errataState from the targetLabel so that we can
+        # fence group building based on the target label state.
         targetGroup = groupmgr.GroupManager(self._cfg, self._ui,
                                             targetGroup=True)
         targetErrataState = targetGroup.latest.errataState
@@ -645,21 +647,24 @@ class Bot(BotSuperClass):
         count = 0
         startime = time.time()
 
-        for updateId, updates in self._errata.iterByIssueDate(current=0):
-            # Stop if the updateId is greater than the state of the latest group
-            # on the production label.
+        for updateId, updates in self._errata.iterByIssueDate(current=1280462400):
+            # Stop if the updateId is greater than the state of the
+            # latest group on the production label.
             if updateId > targetErrataState:
                 log.info('current updateId (%s) is newer than target label '
                     'contents' % updateId)
                 break
 
+            # import epdb ; epdb.st()
+
             # Make sure the group representing the current updateId has been
-            # imorted and promoted to the production label.
+            # imported and promoted to the production label.
             version = self._errata.getBucketVersion(updateId)
             if not targetGroup.hasBinaryVersion(sourceVersion=version):
                 raise TargetVersionNotFoundError(version=version,
                                                  updateId=updateId)
 
+            log.info('%s: looking up version exceptions' % updateId)
             # Lookup any places we need to use old versions ahead of time.
             multiVersionExceptions = dict([
                 (x[0], x[1]) for x in itertools.chain(
@@ -668,6 +673,8 @@ class Bot(BotSuperClass):
                     ))[0]
                 )
             ])
+
+            # import epdb ; epdb.st()
 
             # Now that we know that the packages that are part of this update
             # should be on the target label we can separate things into
@@ -684,7 +691,7 @@ class Bot(BotSuperClass):
                 targetGrp = groupmgr.SingleGroupManager(groupNames[advisory],
                     self._cfg, self._ui, targetGroup=True)
 
-                if targetGrp.hasBinaryVersion():
+                if targetGrp.hasBinaryVersion() and not rebuildGroups:
                     log.info('%s: found existing version, skipping' % advisory)
                     continue
 
@@ -717,8 +724,37 @@ class Bot(BotSuperClass):
                 # Group unique versions by flavor
                 nvfMap = {}
                 for n, v, f in self._filterBinPkgSet(binTrvs, multiVersionExceptions):
+                    # Taghandler components were moved to common label
+                    # and packages were rebuilt, so omit them here to
+                    # prevent older versions of packages being pulled in
+                    # (raising exceptions during commit) due solely to
+                    # their taghandler components (which are missing in
+                    # the newer versions).
+                    if n.endswith(':tagdescription') or n.endswith(':taghandler'):
+                        continue
                     n = n.split(':')[0]
                     nvfMap.setdefault((n, v), set()).add(f)
+
+                if rebuildGroups and targetGrp.hasBinaryVersion():
+                    # For comparing with rebuilt group model.
+                    oldGrp = {}
+                    for x in grp.iterpackages():
+                        if x.flavor != None:
+                            log.info('%s: found flavoring for %s=%s: %s' % (advisory, x.name, x.version, x.flavor))
+                        oldGrp.setdefault(x.name,set()).add((x.version,
+                                                             x.flavor))
+
+                    packagesToRemove = set()
+                    for packageToRemove in grp.iterpackages():
+                        packagesToRemove.add(packageToRemove.name)
+                    for packageToRemove in packagesToRemove:
+                        grp.removePackage(packageToRemove)
+
+                    # Should be empty:
+                    if len([ x for x in grp.iterpackages() ]):
+                        log.error('%s: group model not empty after pre-rebuild package removal' % advisory)
+                        # Eventually change to assertion?
+                        import epdb ; epdb.st()
 
                 # Add packages to group model.
                 for (n, v), flvs in nvfMap.iteritems():
@@ -727,12 +763,67 @@ class Bot(BotSuperClass):
                         log.info('%s: %s' % (advisory, f))
                     grp.addPackage(n, v, flvs)
 
+                if rebuildGroups and targetGrp.hasBinaryVersion():
+                    # Sanity-checking craziness, could use a haircut, perhaps
+                    # a move to its own function.
+                    newGrp = {}
+                    for x in grp.iterpackages():
+                        newGrp.setdefault(x.name,set()).add((x.version,
+                                                             x.flavor))
+
+                    # Compare old & new.
+                    for oldPkg, oldVF in oldGrp.iteritems():
+                        for oldV, oldF in oldVF:
+                            try:
+                                if not newGrp[oldPkg]:
+                                    raise KeyError
+                            except KeyError:
+                                log.error('%s: missing package %s in new group model' % (advisory, oldPkg))
+                                import epdb ; epdb.st()
+                                continue
+                            found = False
+                            oldVt = versions.ThawVersion(oldV).trailingRevision().getVersion()
+                            for newVF in newGrp[oldPkg]:
+                                if not oldF:
+                                    newVt = versions.ThawVersion(newVF[0]).trailingRevision().getVersion()
+                                    if oldVt == newVt:
+                                        log.info('%s: found matching version %s for %s in new group model' % (advisory, newVt, oldPkg))
+                                        if oldV != newVF[0]:
+                                            log.warning('%s: note difference in %s source/build versions due to rebuilt package: %s != %s' % (advisory, oldPkg, oldV, newVF[0]))
+                                        found = True
+                                        del newGrp[oldPkg]
+                                        break
+                                else:
+                                    newVt = versions.ThawVersion(newVF[0]).trailingRevision().getVersion()
+                                    if oldVt == newVt and oldF == newVF[1]:
+                                        log.info('%s: found matching version ' % advisory + '%s and flavor %s ' % (newVt, newVF[1]) + 'for %s in new group model' % oldPkg)
+                                        if oldV != newVF[0]:
+                                            log.warning('%s: note difference in %s source/build versions due to rebuilt package: %s != %s' % (advisory, oldPkg, oldV, newVF[0]))
+                                        found = True
+                                        newGrp[oldPkg].remove((newVF[0], oldF))
+                                        if not len(newGrp[oldPkg]):
+                                            log.info('%s: all versions/flavors matched for %s' % (advisory, oldPkg))
+                                            del newGrp[oldPkg]
+                                        break
+                            if not found:
+                                log.error('%s: cannot find %s for %s in new group model' % (advisory, oldV, oldPkg))
+                                import epdb ; epdb.st()
+                    
+                    if len(newGrp):
+                        log.error('%s: new group model has extra packages: %s' % (advisory, newGrp))
+                        import epdb ; epdb.st()
+                    else:
+                        log.info('%s: new group model package versions verified to match old group model' % advisory)
+                        log.info('%s: (note flavor match between old and new models may have been left unchecked for some packages)' % advisory)
+                    
             # Make sure there are groups to build.
             if not mgr.hasGroups():
                 log.info('%s: groups already built and promoted' % updateId)
                 continue
 
             log.info('%s: committing group sources' % updateId)
+
+            import epdb ; epdb.st()
             mgr.commit()
 
             log.info('%s: building groups' % updateId)

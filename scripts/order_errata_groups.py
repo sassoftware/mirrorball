@@ -61,6 +61,9 @@ errata = rhnmirror.Errata(mcfg)
 errata.fetch()
 
 bot = ordered.Bot(cfg, errata)
-bot.createErrataGroups()
+
+#import epdb; epdb.st()
+
+bot.createErrataGroups(rebuildGroups=True)
 
 import epdb; epdb.st()
