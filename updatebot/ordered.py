@@ -644,7 +644,7 @@ class Bot(BotSuperClass):
         count = 0
         startime = time.time()
 
-        for updateId, updates in self._errata.iterByIssueDate(current=1291698000):
+        for updateId, updates in self._errata.iterByIssueDate(current=0):
             # Stop if the updateId is greater than the state of the
             # latest group on the production label.
             if updateId > targetErrataState:
