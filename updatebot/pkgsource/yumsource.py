@@ -423,28 +423,71 @@ class YumSource(BasePackageSource):
             nosrcMap = dict([ (x, y) for x, y in self.srcPkgMap.iteritems()
                               if 'nosrc' in os.path.basename(x.location) ])
 
-            # Build a mapping of version to nosrc package.
-            verMap = {}
-            for src in nosrcMap:
-                verMap.setdefault((src.version, src.release), set()).add(src)
+            for nosrc in nosrcMap:
+                for srcName, (fltrStr, fltr) in self._cfg.nosrcFilter:
+                    if fltr.match(nosrc.name):
+                        # We've got a filter match, but we don't know
+                        # yet whether we've got a NEVRA match
+                        nevraFound = False
+                        for src in self.srcNameMap[srcName]:
+                            if (nosrc.version == src.version and
+                                nosrc.release == src.release):
+                                log.info('relocating package content %s -> %s'
+                                         % (nosrc, src))
+                                nosrcSet = self.srcPkgMap.pop(nosrc)
+                                self.srcPkgMap[src].update(nosrcSet)
+                                for binPkg in nosrcSet:
+                                    self.binPkgMap[binPkg] = src
+                                nevraFound = True
+                                break
 
-            for srcName, (fltrStr, fltr) in self._cfg.nosrcFilter:
-                for src in self.srcNameMap[srcName]:
-                    # Match source version and release to nosrc version and
-                    # release. This may be too strong a requirement.
-                    if (src.version, src.release) not in verMap:
-                        continue
-
-                    # Move all binaries associated with the nosrc package into
-                    # the source package.
-                    for nosrc in verMap[(src.version, src.release)]:
-                        if fltr.match(nosrc.name):
+                        # We didn't find a matching source, so we have to
+                        # synthesize.  This is tricky, too, because it likely
+                        # means that we'll need to keep old versions of
+                        # binary packages when we build this source.
+                        if not nevraFound and self._cfg.synthesizeSources:
+                            # This is like getSourcePackage
+                            srcPkg = self.PkgClass()
+                            srcPkg.name = srcName
+                            srcPkg.epoch = nosrc.epoch
+                            srcPkg.version = nosrc.version
+                            srcPkg.release = nosrc.release
+                            srcPkg.arch = nosrc.arch
+                            srcPkg.location = '-'.join([srcName, nosrc.version, 
+                                                        nosrc.release]) + '.src.rpm'
+                            srcPkg.buildTimestamp = nosrc.buildTimestamp
+                            self.synthesizeSource(srcPkg)
                             log.info('relocating package content %s -> %s'
-                                     % (nosrc, src))
+                                     % (nosrc, srcPkg))
                             nosrcSet = self.srcPkgMap.pop(nosrc)
-                            self.srcPkgMap[src].update(nosrcSet)
+                            self.srcPkgMap[srcPkg] = nosrcSet
+
+                            # I don't understand why the source needs to be
+                            # in the binPkgMap, but whatever
+                            self.binPkgMap[srcPkg] = srcPkg
                             for binPkg in nosrcSet:
-                                self.binPkgMap[binPkg] = src
+                                self.binPkgMap[binPkg] = srcPkg
+
+                        # Whether we found the source or synthesized it, break
+                        break
+
+        # One last thing ... those sources that we just synthesized
+        # probably were wrong, so let's merge them into real sources
+        for srcMerge in self._cfg.mergeSources:
+            mergeTarget = [ x for x in self.srcPkgMap.keys() 
+                            if x.name==srcMerge[0][0] and 
+                               x.version==srcMerge[0][2] and 
+                               x.release==srcMerge[0][3] and 
+                               x.arch==srcMerge[0][4] ][0]
+            mergeOrig = [ x for x in self.srcPkgMap.keys() 
+                          if x.name==srcMerge[1][0] and 
+                             x.version==srcMerge[1][2] and 
+                             x.release==srcMerge[1][3] and 
+                             x.arch==srcMerge[1][4] ][0]
+            srcToMove = self.srcPkgMap.pop(mergeOrig)
+            self.srcPkgMap[mergeTarget].update(srcToMove)
+            for binPkg in srcToMove:
+                self.binPkgMap[binPkg] = mergeTarget
 
     def loadFileLists(self, client, basePath):
         """
@@ -456,6 +499,18 @@ class YumSource(BasePackageSource):
                 if util.packageCompare(pkg, binPkg) == 0:
                     binPkg.files = pkg.files
                     break
+
+    def synthesizeSource(self, srcPkg):
+        # add source to structures
+        if srcPkg.getNevra() not in self._srcMap:
+            log.warn('synthesizing source package %s' % srcPkg)
+            self._procSrc(srcPkg)
+
+        # Add location mappings for packages that may have once been
+        # synthesized so that parsing old manifest files still works.
+        elif srcPkg.location not in self.locationMap:
+            pkg = self._srcMap[srcPkg.getNevra()]
+            self.locationMap[srcPkg.location] = pkg
 
     def _createSrcMap(self):
         """
@@ -490,18 +545,6 @@ class YumSource(BasePackageSource):
 
             return srcPkg
 
-        def synthesizeSource(srcPkg):
-            # add source to structures
-            if srcPkg.getNevra() not in self._srcMap:
-                log.warn('synthesizing source package %s' % srcPkg)
-                self._procSrc(srcPkg)
-
-            # Add location mappings for packages that may have once been
-            # synthesized so that parsing old manifest files still works.
-            elif srcPkg.location not in self.locationMap:
-                pkg = self._srcMap[srcPkg.getNevra()]
-                self.locationMap[srcPkg.location] = pkg
-
         # Return if sources should be available in repos.
         if not self._cfg.synthesizeSources:
             return
@@ -519,7 +562,7 @@ class YumSource(BasePackageSource):
                 continue
 
             # Synthesize the source
-            synthesizeSource(srcPkg)
+            self.synthesizeSource(srcPkg)
 
         broken = set()
         # Make an attempt to sort out the binaries that have different names
@@ -543,7 +586,7 @@ class YumSource(BasePackageSource):
 
             # If this isn't a case of a missmatched epoch, just go ahead and
             # make up a source. What could go wrong?
-            synthesizeSource(srcPkg)
+            self.synthesizeSource(srcPkg)
             #broken.add((nevra, tuple(bins)))
 
         # Raise an exception if this ever happens. We can figure out the right

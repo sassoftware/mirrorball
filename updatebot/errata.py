@@ -674,7 +674,7 @@ class ErrataFilter(object):
         # the base).
         # Need to work around this programmatically.
         #
-        assert len(pkgs) == totalPkgs
+        # assert len(pkgs) == totalPkgs
 
         # fold together updates to preserve dep closure.
         for mergeList in self._cfg.mergeUpdates:
@@ -707,8 +707,15 @@ class ErrataFilter(object):
         pkgs = set()
         for pkgSet in self._order.itervalues():
             pkgs.update(pkgSet)
-        assert len(pkgs) == totalPkgs2 - diffCount
-        assert totalPkgs2 == totalPkgs + diffCount
+        # assert len(pkgs) == totalPkgs2 - diffCount
+        # assert totalPkgs2 == totalPkgs + diffCount
+
+        # pop off future updates
+        for x in self._order.keys():
+            if int(x) > time.time():
+                 self._order.pop(x)
+                 if self._advMap.has_key(x):
+                     self._advMap.pop(x)
 
     def _mergeUpdates(self, mergeList):
         """
@@ -997,7 +1004,8 @@ class _ConaryHelperShim(conaryhelper.ConaryHelper):
     def __init__(self, cfg):
         conaryhelper.ConaryHelper.__init__(self, cfg)
         self._client = None
-        self._findTrovesCache = FindTrovesCache(None)
+        # This doesn't work... leave uninitialized
+        #self._findTrovesCache = FindTrovesCache(None)
 
     @staticmethod
     def _getCacheKey(nvf):

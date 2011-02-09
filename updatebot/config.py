@@ -457,6 +457,13 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # bucket listed.
     mergeUpdates = (CfgList(CfgQuotedLineList(CfgInt)), [])
 
+    # Sometimes, we synthesize a source for a nosrc rpm, because we
+    # really don't know any better.  When we find out that, in fact,
+    # the nosrc rpm belongs to a src rpm with a _different_ version,
+    # the only way to resolve it is by an explicit merging of the two 
+    # source packages.
+    mergeSources = (CfgList(CfgNevraTuple), [])
+
     # Timestamp of first erratum.  This is used as a baseline for
     # determining if any update packages are missing errata.  It should
     # auto-detect correctly, but in some cases--for instance, when a
