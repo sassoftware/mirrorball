@@ -644,7 +644,7 @@ class Bot(BotSuperClass):
         count = 0
         startime = time.time()
 
-        for updateId, updates in self._errata.iterByIssueDate(current=1280462400):
+        for updateId, updates in self._errata.iterByIssueDate(current=0):
             # Stop if the updateId is greater than the state of the
             # latest group on the production label.
             if updateId > targetErrataState:
@@ -679,7 +679,12 @@ class Bot(BotSuperClass):
                 log.info('%s: processing' % advisory)
 
                 srcPkgs = self._errata.getAdvisoryPackages(advisory)
-                assert srcPkgs
+                if advisory in self._cfg.brokenErrata:
+                    # We expect srcPkgs to be empty for known-broken errata.
+                    log.warning('%s: skipping broken advisory' % advisory)
+                    continue
+                else:
+                    assert srcPkgs
 
                 targetGrp = groupmgr.SingleGroupManager(groupNames[advisory],
                     self._cfg, self._ui, targetGroup=True)

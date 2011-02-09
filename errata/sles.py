@@ -230,7 +230,10 @@ class AdvisoryManager(common.AdvisoryManager):
                     splitpatch[1][2].timestamp = splitpatch[0][2].timestamp
                 # So far this has only been tested in pure-subset cases.
                 else:
-                    raise RuntimeError , 'neither %s nor %s is a subset of the other' % (splitpatch[0][0], splitpatch[1][0])
+                    maxtime = max(splitpatch[1][2].timestamp,
+                                  splitpatch[0][2].timestamp)
+                    log.info('neither %s nor %s is a subset of the other, syncing timestamps (%s & %s) to later timestamp: %s' % (splitpatch[0][0], splitpatch[1][0], splitpatch[1][2].timestamp, splitpatch[0][2].timestamp, maxtime))
+                    splitpatch[1][2].timestamp = splitpatch[0][2].timestamp = maxtime
 
         advPkgMap = {}
         nevras = {}
