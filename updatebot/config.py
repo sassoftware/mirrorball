@@ -342,6 +342,15 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # another, usually deps, we had to rebuild.
     extraExpectedPromoteTroves = (CfgIntDict(CfgList(CfgTroveSpec)), {})
 
+    # List of source packages for which we expect manifest differences
+    # between parent and child platform. When differences are found,
+    # create a new package on the child label, overriding the
+    # parent-platform package/manifest.
+    expectParentManifestDifferences = (CfgList(CfgString), [])
+
+    # For debugging the above--use with caution!
+    ignoreAllParentManifestDifferences = (CfgBool, False)
+
     # Packages to import
     package             = (CfgList(CfgString), [])
 

@@ -854,9 +854,21 @@ class Updater(object):
         #                               for x in parentManifest ])
 
         if baseManifest != parentBaseManifest:
-            log.error('found matching parent trove, but manifests differ')
-            raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg,
-                manifest=manifest, parentManifest=parentManifest)
+            if srcPkg.getFileName() in self._cfg.expectParentManifestDifferences:
+                if srcPkg.getFileName() in baseManifest and srcPkg.getFileName() in parentBaseManifest:
+                    log.info('%s: found expected difference in manifests between parent and child platforms, ignoring parent platform' % srcPkg)
+                    return None
+                else:
+                    # This is basically an assertion.
+                    log.error('%s: unexpected manifest error between parent and child platforms: %s not found in both manifests' % (srcName, srcPkg))
+                    raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg, manifest=manifest, parentManifest=parentManifest)
+            if self._cfg.ignoreAllParentManifestDifferences:
+                log.warn('%s: found matching parent trove, but manifests differ; soldiering onward to madness--thank goodness this is a dry run...' % srcPkg)
+                import epdb ; epdb.st()
+                return None
+            else:
+                log.error('%s: found matching parent trove, but manifests differ' % srcPkg)
+                raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg, manifest=manifest, parentManifest=parentManifest)
 
         return srcVersion
 
