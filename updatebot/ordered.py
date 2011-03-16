@@ -153,6 +153,8 @@ class Bot(BotSuperClass):
         """
 
         group = self._groupmgr.getGroup()
+        if group.errataState == 'None':
+            group.errataState = None
 
         # Make sure this platform has not already been imported.
         if group.errataState is not None:
