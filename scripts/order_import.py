@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2009-2010 rPath, Inc.
+# Copyright (c) rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -13,24 +13,11 @@
 # full details.
 #
 
+from _scriptsetup import mirrorballDir
+
 import os
 import sys
 import logging
-
-mirrorballDir = os.path.abspath('../')
-sys.path.insert(0, mirrorballDir)
-
-if 'CONARY_PATH' in os.environ:
-    sys.path.insert(0, os.environ['CONARY_PATH'])
-
-import conary
-import updatebot
-
-print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
-print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
-
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
 
 from updatebot import config
 from updatebot import ordered

@@ -16,17 +16,7 @@ import os
 import sys
 import tempfile
 
-mirrorballDir = os.path.dirname(__file__) + '/..'
-sys.path.insert(0, mirrorballDir)
-
-if 'CONARY_PATH' in os.environ:
-    sys.path.insert(0, os.environ['CONARY_PATH'])
-
-import conary
-import updatebot
-
-print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
-print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
+from _scriptsetup import mirrorballDir
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -60,7 +50,7 @@ def displayTrove(nvf):
     return '%s=%s%s' % (nvf[0], nvf[1], flavor)
 
 def display(trvMap):
-    for srcTrv in trvMap.iterkeys():
+    for srcTrv in sorted(trvMap.iterkeys()):
         print displayTrove(srcTrv)
-        for binTrv in trvMap[srcTrv]:
+        for binTrv in sorted(trvMap[srcTrv]):
             print " " * 4, displayTrove(binTrv)
