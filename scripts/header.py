@@ -16,7 +16,7 @@ import os
 import sys
 import tempfile
 
-mirrorballDir = os.path.abspath('../')
+mirrorballDir = os.path.dirname(__file__) + '/..'
 sys.path.insert(0, mirrorballDir)
 
 if 'CONARY_PATH' in os.environ:
