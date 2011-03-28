@@ -3,6 +3,7 @@ import sys
 
 mirrorballDir = os.path.realpath(os.path.dirname(__file__) + '/..')
 sys.path.insert(0, mirrorballDir)
+sys.path.insert(0, mirrorballDir + '/include')
 
 if 'CONARY_PATH' in os.environ:
     sys.path.insert(0, os.environ['CONARY_PATH'])

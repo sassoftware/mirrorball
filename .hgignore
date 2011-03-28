@@ -7,3 +7,5 @@
 .*\/\.times$
 .*\/\.coverage\/.*
 ^pylint\/reports
+^config$
+^include
