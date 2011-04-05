@@ -13,7 +13,7 @@
 # full details.
 #
 
-from _scriptsetup import mirrorballDir
+from _scriptsetup import getBot, mirrorballDir
 
 import os
 import sys

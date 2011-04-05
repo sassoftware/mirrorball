@@ -7,7 +7,7 @@ troves required to satisfy python and perl dependencies by the source that
 requires them.
 """
 
-from _scriptsetup import mirrorballDir
+from _scriptsetup import getBot
 
 import logging
 import pprint
@@ -15,7 +15,6 @@ import sys
 from conary.deps import deps
 
 from updatebot import config
-from updatebot import log as ulog
 from updatebot import OrderedBot
 
 log = logging.getLogger('mkbuildreqsmap')
@@ -25,11 +24,7 @@ log = logging.getLogger('mkbuildreqsmap')
 DEP_CLASSES = (deps.PythonDependencies, deps.PerlDependencies)
 
 def main():
-    ulog.addRootLogger()
-
-    cfg = config.UpdateBotConfig()
-    cfg.read('%s/config/%s/updatebotrc' % (mirrorballDir, sys.argv[1]))
-    bot = OrderedBot(cfg, None)
+    bot = getBot(OrderedBot, None)
     helper = bot._updater._conaryhelper
 
     log.info("Collecting RPM list")

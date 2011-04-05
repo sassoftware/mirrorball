@@ -13,24 +13,13 @@
 # full details.
 #
 
-from _scriptsetup import mirrorballDir
+from _scriptsetup import getBot
 import os
 import sys
 
 if __name__ == '__main__':
     import rmake
-    import conary
-    import updatebot
-
-    print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
     print >>sys.stderr, 'using rmake from', os.path.dirname(rmake.__file__)
-    print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
-
-    from conary.lib import util
-    sys.excepthook = util.genExcepthook()
-
-    from updatebot import log as logSetup
-    logSetup.addRootLogger()
 
 import logging
 
@@ -134,12 +123,7 @@ class Bot(OrderedBot):
         return built
 
 if __name__ == '__main__':
-    from updatebot import config
-
-    cfg = config.UpdateBotConfig()
-    cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
-
-    bot = Bot(cfg, None)
+    bot = getBot(Bot, None)
     trvMap = bot.generateInitialGroup()
 
     import epdb; epdb.st()
