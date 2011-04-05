@@ -13,16 +13,11 @@
 # full details.
 #
 
+from _scriptsetup import mirrorballDir
 import os
 import sys
 
 if __name__ == '__main__':
-    mirrorballDir = os.path.abspath('../')
-    sys.path.insert(0, mirrorballDir)
-
-    if 'CONARY_PATH' in os.environ:
-        sys.path.insert(0, os.environ['CONARY_PATH'])
-
     import rmake
     import conary
     import updatebot
