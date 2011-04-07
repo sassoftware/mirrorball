@@ -81,6 +81,7 @@ def main():
 
         reqTroves.discard('perl:rpm')
         reqTroves.discard('python:rpm')
+        reqTroves.discard('python-test:rpm')
         if reqTroves:
             buildRequiresMap[name] = reqTroves
 

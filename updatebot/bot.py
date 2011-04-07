@@ -142,9 +142,13 @@ class Bot(object):
             recreate=bool(recreate),
             toCreate=toCreate)
 
-        toBuild = self._formatBuildTroves(buildSet)
+        if fail:
+            log.error('failed to create %s packages:' % len(fail))
+            for pkg, e in fail:
+                log.error('failed to import %s: %s' % (pkg, e))
+            return {}, fail
 
-        log.info('failed to create %s packages' % len(fail))
+        toBuild = self._formatBuildTroves(buildSet)
         log.info('found %s packages to build' % len(toBuild))
 
         trvMap = {}
