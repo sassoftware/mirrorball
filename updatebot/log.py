@@ -33,7 +33,7 @@ def addRootLogger(logFile=None):
 
     rootLog = logging.getLogger('')
 
-    streamHandler = logging.StreamHandler(sys.stdout)
+    streamHandler = logging.StreamHandler(sys.stderr)
     logFileHandler = handlers.RotatingFileHandler(logFile,
                                                   maxBytes=logSize,
                                                   backupCount=5)
