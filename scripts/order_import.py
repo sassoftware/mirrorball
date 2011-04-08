@@ -21,9 +21,7 @@ import logging
 
 from updatebot import config
 from updatebot import ordered
-from updatebot import log as logSetup
 
-logSetup.addRootLogger()
 log = logging.getLogger('script')
 
 def usage():
