@@ -21,7 +21,6 @@ from _scriptsetup import mirrorballDir
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
 
-from updatebot import log
 from updatebot import build
 from updatebot import config
 
@@ -32,7 +31,6 @@ def usage():
 if len(sys.argv) < 2 or sys.argv[1] not in os.listdir(mirrorballDir + '/config'):
     usage()
 
-log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
 
