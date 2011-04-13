@@ -9,12 +9,10 @@ requires them.
 
 from _scriptsetup import getBot
 
-import bz2
 import logging
 import pprint
 import sys
 from conary.deps import deps
-from xml.dom import minidom
 
 from updatebot import config
 from updatebot import OrderedBot
@@ -61,11 +59,10 @@ def main():
 
     # For each source, collect all the troves that provide a dep that its built
     # binaries require.
-    buildRequiresMap = {}
     allRequiringBins = set(reqMap)
     log.info("Collecting source list for %d troves", len(allRequiringBins))
     srcNameMap = helper.getSourceVersions(allRequiringBins)
-    toCheckLogs = set()
+    buildRequiresMap = {}
     for srcTup, binTups in srcNameMap.iteritems():
         name = srcTup[0]
         assert name.endswith(':source')
@@ -82,62 +79,14 @@ def main():
                         continue
                     reqTroves.add(provTup[0])
 
-        if reqTroves:
-            version = list(binTups)[0][1]
-            flavors = set(x[2] for x in binTups)
-            debugTups = set((name + ':debuginfo', version, x) for x in flavors)
-            toCheckLogs.update(debugTups)
-
         reqTroves.discard('perl:rpm')
         reqTroves.discard('python:rpm')
         reqTroves.discard('python-test:rpm')
         if reqTroves:
             buildRequiresMap[name] = reqTroves
 
-    toCheckLogs = sorted(toCheckLogs)
-    n = 0
-    total = len(toCheckLogs)
-    while toCheckLogs:
-        log.info("Analyzing build logs (%d/%d)", n, total)
-        toFetch, toCheckLogs = toCheckLogs[:numBins], toCheckLogs[numBins:]
-        n += len(toFetch)
-        addExtraRequires(buildRequiresMap, toFetch, helper._client)
-
     print 'buildRequiresMap = ',
     pprint.PrettyPrinter().pprint(buildRequiresMap)
-
-
-def addExtraRequires(buildRequiresMap, binTups, client):
-    jobs = [(x[0], (None, None), (x[1], x[2]), True) for x in binTups]
-    cs = client.createChangeSet(jobs, withFiles=True, withFileContents=True,
-            recurse=False)
-    logMap = {}
-    for trvCs in cs.iterNewTroveList():
-        pkgName = trvCs.getName().split(':')[0]
-        for pathId, path, fileId, fileVer in trvCs.getNewFileList():
-            if path.endswith('-xml.bz2'):
-                cs.reset()
-                _, cont = cs.getFileContents(pathId, fileId)
-                logContents = cont.get().read()
-                logMap[pkgName] = logContents
-                break
-
-    for pkgName, logContents in logMap.items():
-        dom = minidom.parseString(bz2.decompress(logContents))
-        for node in dom.childNodes[0].childNodes:
-            if getattr(node, 'tagName', '') != 'record':
-                continue
-            desc = message = None
-            for subnode in node.childNodes:
-                if getattr(subnode, 'tagName', '') == 'descriptor':
-                    desc = subnode.childNodes[0].nodeValue
-                elif getattr(subnode, 'tagName', '') == 'message':
-                    message = subnode.childNodes[0].nodeValue
-            if desc == 'cook.build.policy.ERROR_REPORTING.reportExcessBuildRequires.excessBuildRequires':
-                excessReqs = message.split()
-                if 'python-setuptools:rpm' not in excessReqs:
-                    buildRequiresMap.setdefault(pkgName, set()).add(
-                            'python-setuptools:rpm')
 
 if __name__ == '__main__':
     main()
