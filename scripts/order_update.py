@@ -15,29 +15,11 @@
 
 import os
 import sys
-import logging
 
-mirrorballDir = os.path.abspath('../')
-sys.path.insert(0, mirrorballDir)
-
-if 'CONARY_PATH' in os.environ:
-    sys.path.insert(0, os.environ['CONARY_PATH'])
-
-import conary
-import updatebot
-
-print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
-print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
-
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
+from _scriptsetup import mirrorballDir
 
 from updatebot import config
 from updatebot import ordered
-from updatebot import log as logSetup
-
-logSetup.addRootLogger()
-log = logging.getLogger('script')
 
 def usage():
     print 'usage: %s <platform>' % sys.argv[0]

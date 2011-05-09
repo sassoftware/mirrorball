@@ -16,26 +16,15 @@
 Script for promoting groups in the correct order.
 """
 
+from _scriptsetup import mirrorballDir as mbdir
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
-sys.path.insert(0, os.environ['HOME'] + '/hg/xobj/py')
-sys.path.insert(0, os.environ['HOME'] + '/hg/rbuilder-trunk/rpath-xmllib')
-
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
-
-mbdir = os.path.abspath('../')
-sys.path.insert(0, mbdir)
-
 confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
-from updatebot import log
 from updatebot import OrderedBot
 from updatebot import UpdateBotConfig
 
-slog = log.addRootLogger()
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
 

@@ -16,21 +16,13 @@
 Script for finding and fixing group issues.
 """
 
+from _scriptsetup import mirrorballDir as mbdir
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
-sys.path.insert(0, os.environ['HOME'] + '/hg/xobj/py')
-sys.path.insert(0, os.environ['HOME'] + '/hg/rbuilder-trunk/rpath-xmllib')
-
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
 
 from conary import versions
 from conary.conaryclient import cmdline
-
-mbdir = os.path.abspath('../')
-sys.path.insert(0, mbdir)
 
 confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
