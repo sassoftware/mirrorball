@@ -4,21 +4,13 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
-
-from conary.lib import util
-sys.excepthook = util.genExcepthook()
-
-mbdir = os.path.abspath('../')
-sys.path.insert(0, mbdir)
+from _scriptsetup import mirrorballDir as mbdir
 
 confDir = os.path.join(mbdir, 'config', sys.argv[1])
 
-from updatebot import log
 from updatebot.ordered import Bot
 from updatebot import UpdateBotConfig
 
-slog = log.addRootLogger()
 
 cfg = UpdateBotConfig()
 cfg.read(os.path.join(confDir, 'updatebotrc'))
