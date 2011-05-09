@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2010 rPath, Inc.
+# Copyright (c) 2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -16,10 +16,13 @@
 Module for ordering errata.
 """
 
+import datetime
 import os
 import copy
 import time
 import logging
+from dateutil import parser as dateutil_parser
+from dateutil import tz as dateutil_tz
 
 from updatebot import update
 from updatebot import conaryhelper
@@ -884,6 +887,23 @@ class ErrataFilter(object):
 
         return nevra
 
+    @staticmethod
+    def _mktime(date_str):
+        """Convert a datetime string, assumed to be in the EST5EDT zone, to a
+        POSIX timestamp.
+        """
+        # Shouldn't this be in datetime or something? It's pretty awful.
+        ref_zone = dateutil_tz.gettz('EST5EDT')
+        assert ref_zone is not None
+        utc_zone = dateutil_tz.tzutc()
+        epoch = datetime.datetime.fromtimestamp(0, utc_zone)
+        as_local = dateutil_parser.parse(date_str).replace(tzinfo=ref_zone)
+        as_utc = as_local.astimezone(utc_zone)
+        offset = as_utc - epoch
+        return ((offset.days * 60*60*24) +
+                (offset.seconds) +
+                (offset.microseconds * 1e-6))
+
     def _sortPackagesByErrataTimestamp(self):
         """
         Sort packages by errata release timestamp.
@@ -953,8 +973,7 @@ class ErrataFilter(object):
                 msg('broken advisory: %s' % e.advisory)
 
             if bucketId is None:
-                bucketId = int(time.mktime(time.strptime(e.issue_date,
-                                                         '%Y-%m-%d %H:%M:%S')))
+                bucketId = int(self._mktime(e.issue_date))
 
             if bucketId not in buckets:
                 buckets[bucketId] = set()
