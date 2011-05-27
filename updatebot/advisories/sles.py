@@ -100,6 +100,21 @@ class Advisor(BaseAdvisor):
 
         # W0613 - Unused argument patchSet
         # pylint: disable-msg=W0613
+        
+        # Don't have dups on sles 
+        # Now we do have duplicates in sles
+        patchObjNames = list(patchSet)
 
-        # Don't have dups on sles
+        patchObjNames.sort()
+
+        tempPatchObjNames = {}
+
+        tempPatchObjNames = dict(('-'.join(x.split('-')[:-1]), x) 
+                                 for x in patchObjNames)
+
+        newpatchObjNames = list(tempPatchObjNames.values())
+
+        if newpatchObjNames != patchObjNames:
+            return True
+
         return False
