@@ -103,18 +103,21 @@ class Advisor(BaseAdvisor):
         
         # Don't have dups on sles 
         # Now we do have duplicates in sles
-        patchObjNames = list(patchSet)
+        # Testing code from centos
 
-        patchObjNames.sort()
+        if not len(patchSet):
+            return False
 
-        tempPatchObjNames = {}
+        primary = list(patchSet)[0]
+        for patch in patchSet:
+            if patch is primary:
+                continue
 
-        tempPatchObjNames = dict(('-'.join(x.split('-')[:-1]), x) 
-                                 for x in patchObjNames)
+            # These are the same if they use the same advisory.
+            if primary.upstreamAdvisoryUrl != patch.upstreamAdvisoryUrl:
+                return False
 
-        newpatchObjNames = list(tempPatchObjNames.values())
-
-        if newpatchObjNames != patchObjNames:
-            return True
-
-        return False
+            # Copy pkg data into the primary
+            primary.pkgs.update(patch.pkgs)
+            primary.packages.update(patch.packages)
+        return True
