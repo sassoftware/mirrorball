@@ -109,15 +109,21 @@ class Advisor(BaseAdvisor):
             return False
 
         primary = list(patchSet)[0]
+
         for patch in patchSet:
             if patch is primary:
                 continue
-
-            # These are the same if they use the same advisory.
-            if primary.upstreamAdvisoryUrl != patch.upstreamAdvisoryUrl:
+            if primary.name != patch.name:
                 return False
 
+            log.warn('''Duplicate detected in %s and %s''' % 
+                     (primary.name, patch.name))
+
             # Copy pkg data into the primary
-            primary.pkgs.update(patch.pkgs)
-            primary.packages.update(patch.packages)
+            # FIXME: This is not the correct solution need more than rpm list
+            # Need to add the descriptions and patch numbers when updating
+            # Possible add an update method 
+
+            primary.packages.append(patch.packages)
+
         return True

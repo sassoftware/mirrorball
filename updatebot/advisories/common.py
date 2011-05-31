@@ -256,7 +256,7 @@ class BaseAdvisor(object):
                                                    advisories=patches)
 
             # len(patches) will only be 0 if there is an exception or the new
-            # pkg is not in an updates repsitory.
+            # pkg is not in an updates repository.
             elif len(patches) == 0:
                 continue
 
