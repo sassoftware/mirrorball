@@ -102,4 +102,26 @@ class Advisor(BaseAdvisor):
         # pylint: disable-msg=W0613
 
         # Don't have dups on sles
+        # Now we do have dupes in sles
+        # Testing initial code
+
+        if not len(patchSet):
+            return False
+
+        primary = list(patchSet)[0]
+
+        for patch in patchSet:
+            if patch is primary:
+                continue
+            if primary.name != patch.name:
+                return False
+
+            log.warn('''Duplicate detected in %s and %s''' % 
+                     (primary.name, patch.name))
+            # Copy pkg data into the primary
+            # FIXME: This is not the correct solution need more than rpm list
+            # Need to add the descriptions and patch numbers when updating
+            # Possible add an update method 
+            primary.packages.append(patch.packages)
+
         return False

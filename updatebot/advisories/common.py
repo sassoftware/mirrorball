@@ -219,6 +219,8 @@ class BaseAdvisor(object):
         # FIXME: Maybe we should check to see if all binary rpms listed in
         #        the advisory are in the set of packages to be updated.
 
+        import epdb; epdb.st()
+
         for nvf, srcPkg in trvLst:
             patches = set()
             for binPkg in self._pkgSource.srcPkgMap[srcPkg]:
