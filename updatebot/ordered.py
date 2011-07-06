@@ -209,7 +209,8 @@ class Bot(BotSuperClass):
         # Build dict of all source versions found in repo.
         for source, versions in allPackageVersions.iteritems():
             if source.endswith(':source'):
-                allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version for x in versions.keys() ]
+                allSourceVersions[source.replace(':source', '')] = [
+                        x.trailingRevision().version for x in versions.keys() ]
 
         missingPackages = {}
         missingOrder = {}
