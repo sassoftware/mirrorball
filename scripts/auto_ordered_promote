@@ -22,16 +22,39 @@ from updatebot.cmdline import display
 from updatebot.cmdline.simple import main
 
 def promote(cfg):
-    mcfg = rhnmirror.MirrorConfig()
-    mcfg.read(os.path.join(cfg.configPath, 'erratarc'))
+    if cfg.platformName == 'rhel':
+        mcfg = rhnmirror.MirrorConfig()
+        mcfg.read(os.path.join(cfg.configPath, 'erratarc'))
 
-    errata = rhnmirror.Errata(mcfg)
-    errata.fetch()
+        errata = rhnmirror.Errata(mcfg)
+        errata.fetch()
 
-    bot = OrderedBot(cfg, errata)
-    bot.promote()
+        bot = OrderedBot(cfg, errata)
+    else:
+        bot = OrderedBot(cfg, None)
+
+        if cfg.platformName == 'sles':
+            from errata.sles import AdvisoryManager as Errata
+
+        elif cfg.platformName == 'sles11':
+            from errata.sles11 import AdvisoryManager11 as Errata
+
+        elif cfg.platformName == 'centos':
+            from errata.centos import AdvisoryManager as Errata
+
+        else:
+            raise RuntimeError, 'no errata source found for %s' % cfg.platformName
+
+        errata = Errata(bot._pkgSource)
+        bot._errata._errata = errata
+
+    trvMap = bot.promote()
+    if trvMap:
+        print 'Updated the following troves:'
+        print display.displayTroveMap(trvMap)
 
     return 0
+
 
 if __name__ == '__main__':
     import sys
