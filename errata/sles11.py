@@ -108,8 +108,9 @@ class AdvisoryManager11(AdvisoryManager):
 
         # Each client value is a SLES release/update repository object.
         # self._pkgSource._clients.values()[...]
-
-        # now get the patch data...
+		
+        
+		# now get the patch data...
         patches = set()
 
         for path, client in self._pkgSource.getClients().iteritems():
@@ -224,6 +225,7 @@ class AdvisoryManager11(AdvisoryManager):
                                      'across same-SRPM advisories for %s' % (
                                 srcPkgAdvs))
                             srcPkgAdv.issued = syncTimestamp
+                #import epdb ; epdb.st()
 
             # There should be no srcPkgs with more than two patchids.
             assert(len([ x for x, y in srcPkgPatchidMap.iteritems()
