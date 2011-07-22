@@ -55,6 +55,8 @@ class AbstractDispatcher(object):
         Check if all jobs are complete.
         """
 
+        log.info('waiting for the following jobs: %s' % ','.join(map(str, self._jobs.keys())))
+
         if not len(self._jobs):
             return False
 

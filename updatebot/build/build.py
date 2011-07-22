@@ -547,6 +547,7 @@ class Builder(object):
             # Check if this looks like a kernel module source rpm that wasn't
             # handled by the last two checks.
             elif '-kmod' in name or '-kmp' in name:
+                log.error('raising error for kernel module package %s' % name)
                 raise UnhandledKernelModule(name=name)
 
             # All other packages.
