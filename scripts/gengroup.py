@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2009-2010 rPath, Inc.
+# Copyright (c) 2009-2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -19,7 +19,7 @@ Script for generating group model from current state of the repository.
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
+#sys.path.insert(0, os.environ['HOME'] + '/hg/conary')
 sys.path.insert(0, os.environ['HOME'] + '/hg/xobj/py')
 sys.path.insert(0, os.environ['HOME'] + '/hg/rbuilder-trunk/rpath-xmllib')
 
@@ -34,6 +34,7 @@ confDir = os.path.join(mbdir, 'config', sys.argv[1])
 from updatebot import log
 from updatebot import Bot
 from updatebot import UpdateBotConfig
+from updatebot import cmdline
 
 import time
 import logging
@@ -47,14 +48,15 @@ cfg.read(os.path.join(confDir, 'updatebotrc'))
 bot = Bot(cfg)
 
 from updatebot import groupmgr
+ui = cmdline.UserInterface()
 
-mgr = groupmgr.GroupManager(cfg)
+mgr = groupmgr.GroupManager(cfg, ui)
 
 slog.info('retrieving trove information')
 troves = mgr._helper._getLatestTroves()
 label = mgr._helper._ccfg.buildLabel
 allTroves = mgr._helper._repos.getTroveLeavesByLabel({None: {label: None}})
-mgr._checkout()
+group = mgr.getGroup()
 
 import itertools
 for k1, k2 in itertools.izip(sorted(troves), sorted(allTroves)):
@@ -64,8 +66,6 @@ for k1, k2 in itertools.izip(sorted(troves), sorted(allTroves)):
     if not k1.startswith('group-') and len(a.values()[0]) != len(b.values()[0]):
         slog.error('unhandled flavor found %s' % k1)
         raise RuntimeError
-
-#import epdb; epdb.st()
 
 for name, vf in troves.iteritems():
     if ':' in name or bot._updater._fltrPkg(name):
@@ -77,16 +77,29 @@ for name, vf in troves.iteritems():
     version = versions[-1]
     flavors = vf[version]
 
-    mgr.addPackage(name, version, flavors)
+    group.addPackage(name, version, flavors)
 
-#import epdb; epdb.st()
+# Set the errata state and version to some defaults.
+group.errataState = 0
+group.version = '0'
 
-mgr.setVersion('0')
-mgr.setErrataState('0')
-mgr._copyVersions()
-mgr._sanity.check(mgr._groups, mgr.getErrataState())
-mgr._helper.setModel(mgr._sourceName, mgr._groups)
-#mgr._commit()
-#mgr.build()
+# Sanity check the group model and write out the current state so that
+# you can do a local test cook.
+group._copyVersions()
+group._sanityCheck()
+group._setGroupFlags()
+group._mgr._persistGroup(group)
+
+# You probably want to do a test cook if your groups here. It would be
+# nice if mirrorball could just do this for you, but it can't right now.
+# To run a test cook take a look at group._mgr._helper._checkoutCache to
+# find the directory where the checkout is and then run cvc cook from
+# that directory.
+import epdb; epdb.st()
+
+# Commit and build the group.
+group = group.commit()
+built = group.build()
 
 import epdb; epdb.st()
+
