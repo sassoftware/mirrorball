@@ -34,6 +34,7 @@ from updatebot.errors import UpdateReusesPackageError
 from updatebot.errors import UpdateRemovesPackageError
 from updatebot.errors import ParentPlatformManifestInconsistencyError
 from updatebot.errors import RepositoryPackageSourceInconsistencyError
+from updatebot.errors import CanNotPromoteGroupsAndPackagesTogetherError
 
 log = logging.getLogger('updatebot.update')
 
@@ -979,6 +980,38 @@ class Updater(object):
 
         return self._conaryhelper.getBuildRequires(pkgName)
 
+    def _orderPromoteJobList(self, trvLst):
+        """
+        Filter trove list into separate jobs when attempting to promote two
+        versions of the same package.
+        """
+
+        data = {}
+        for n, v, f in trvLst:
+            if n.endswith(':source'):
+                continue
+            data.setdefault(n.split(':'), dict()).setdefault(v, set()).add(f)
+
+        jobs = []
+
+        while data:
+            job = []
+            toRemove = []
+            for n, vs in data.iteritems():
+                v = sorted(vs)[0]
+                for f in vs.pop(v):
+                    job.append((n, v, f))
+
+                if not vs:
+                    toRemove.append(n)
+
+            for n in toRemove:
+                data.pop(n)
+
+            jobs.append(job)
+
+        return jobs
+
     def publish(self, trvLst, expected, targetLabel, checkPackageList=True,
         extraExpectedPromoteTroves=None, enforceAllExpected=True):
         """
@@ -999,16 +1032,37 @@ class Updater(object):
                                           where version and flavor may be None.
         """
 
-        return self._conaryhelper.promote(
-            trvLst,
-            expected,
-            self._cfg.sourceLabel,
-            targetLabel,
-            checkPackageList=checkPackageList,
-            extraPromoteTroves=self._cfg.extraPromoteTroves,
-            extraExpectedPromoteTroves=extraExpectedPromoteTroves,
-            enforceAllExpected=enforceAllExpected,
-        )
+        # Don't try to promote groups and packages together.
+        grps = [ x for x in trvLst if x[0].startswith('group-') ]
+        if grps and len(grps) != len(trvLst):
+            raise CanNotPromoteGroupsAndPackagesTogetherError(trvs=trvLst)
+
+        if grps:
+            jobs = [ trvLst, ]
+        else:
+            # When promoting packages, we know what is being promoted, disable
+            # the sanity.
+            jobs = self._orderPromoteJobList(trvLst)
+            expected = set()
+            checkPackageList = False
+
+        res = []
+        for job in jobs:
+            res.append(self._conaryhelper.promote(
+                jobs,
+                expected,
+                self._cfg.sourceLabel,
+                targetLabel,
+                checkPackageList=checkPackageList,
+                extraPromoteTroves=self._cfg.extraPromoteTroves,
+                extraExpectedPromoteTroves=extraExpectedPromoteTroves,
+                enforceAllExpected=enforceAllExpected,
+            ))
+
+        if grps:
+            return res[0]
+
+        return res
 
     def mirror(self, fullTroveSync=False):
         """

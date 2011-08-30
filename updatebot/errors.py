@@ -317,6 +317,15 @@ class PromoteFailedError(UnhandledUpdateError):
     _params = ['what']
     _template = 'Failed to promote %(what)s'
 
+class CanNotPromoteGroupsAndPackagesTogetherError(PromoteFailedError):
+    """
+    CanNotPromoteGroupsAndPackagesTogetherError, raised when you try to promote
+    groups and packages at the same time, don't do that.
+    """
+
+    _params = ['trvs', ]
+    _template = 'You can not promote groups and packages at the same time.'
+
 class PromoteMismatchError(PromoteFailedError):
     """
     PromoteMismatchError, raised when the promote to the production label
