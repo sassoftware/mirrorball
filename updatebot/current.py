@@ -209,13 +209,23 @@ class Bot(BotSuperClass):
         allPackageVersions = {}
 
         # Get all versions of all on buildLabel committed to repo.
-        allPackageVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel(
+        allPkgVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel(
                                 {None: {self._updater._conaryhelper._ccfg.buildLabel: None}})
+
+        for binary, versions in allPkgVersions.iteritems():
+
+            if ( binary.endswith(':debuginfo') or 
+                binary.endswith(':source')):
+                 continue
+
+            allPackageVersions[binary] = [ x.versions[1].version 
+                                                for x in versions.keys() ]
+
 
         allSourceVersions = {}
 
         # Build dict of all source versions found in repo.
-        for source, versions in allPackageVersions.iteritems():
+        for source, versions in allPkgVersions.iteritems():
             if source.endswith(':source'):
                 allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version 
                                                                         for x in versions.keys() ]
@@ -254,14 +264,18 @@ class Bot(BotSuperClass):
 
                 version = util.srpmToConaryVersion(pkgPkg)
                 #version = pkgPkg.getConaryVersion() # Only works on src
-                
+             
+                # skip special packages
+                if self._updater._fltrPkg(pkgPkg.name):
+                    continue               
+
                 # FAST lookup
                 if pkgPkg.name in allVersions:
                     onLabel = [ x for x in allVersions[pkgPkg.name] if
                                                 x == version ] 
 
                 #maybe look up by sha1 sum as well...               
-                # SLOW 
+                # SLOW  -- Really this is slow
                 if debug: 
                     log.debug('looking up %s on the label' % pkgPkg)
                     onLabel = self._conaryhelper.findTrove((pkgPkg.name, 
@@ -326,9 +340,9 @@ class Bot(BotSuperClass):
         
         allPackageVersions, allSourceVersions = self._getAllPkgVersionsLabel()
 
-        srcUpdate, srcCreate = self._diffRepos(allVersions=allSourceVersions, debug=1)
+        srcUpdate, srcCreate = self._diffRepos(allVersions=allSourceVersions, debug=0)
         binUpdate, binCreate = self._diffRepos(allVersions=allPackageVersions,
-                                                     pkgSrcType='bin', debug=1)
+                                                     pkgSrcType='bin', debug=0)
 
         
         # TESTING
