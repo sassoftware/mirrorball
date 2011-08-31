@@ -30,13 +30,15 @@ class FindTrovesCache(dict):
 
         self._repos = repos
 
-    def findTroves(self, labelPath, troves, getLeaves=True, cache=True):
+    def findTroves(self, labelPath, troves, getLeaves=True, cache=True,
+        allowMissing=False):
         """
         Emulate the behavior of repos.findTroves while caching results.
         """
 
         if not cache:
-            return self._repos.findTroves(labelPath, troves, getLeaves=getLeaves)
+            return self._repos.findTroves(labelPath, troves,
+                getLeaves=getLeaves, allowMissing=allowMissing)
 
         found = set()
         needed = {}
@@ -62,7 +64,7 @@ class FindTrovesCache(dict):
                 log.info('CACHE hit on %s troves' % len(found))
             log.info('CACHE querying repository for %s troves' % len(needed))
             results = self._repos.findTroves(labelPath, needed,
-                getLeaves=getLeaves)
+                getLeaves=getLeaves, allowMissing=allowMissing)
         else:
             log.info('CACHE hit on all troves')
             results = {}
