@@ -380,6 +380,8 @@ class Bot(BotSuperClass):
                 fltr = kwargs.pop('fltr', None)
                 if fltr:
                     updates = fltr(updates)
+                #Test updates
+                #import epdb; epdb.st()
 
                 pkgMap.update(self._update(*args, updatePkgs=updates,
                     expectedRemovals=expectedRemovals,

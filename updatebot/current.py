@@ -346,10 +346,12 @@ class Bot(BotSuperClass):
 
         
         # TESTING
-        print "need to check toUpdate"
-        import epdb ; epdb.st() 
+        #print "need to check toUpdate"
+        #import epdb ; epdb.st() 
 
-                
+        updates = set( [[ pkg[1] for pkg in  pkgList ] 
+                    for pkgList in srcUpdate, binUpdate, srcCreate, binCreate] )
+
 
         # TESTING
         print "need to check toUpdate"
