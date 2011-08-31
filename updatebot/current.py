@@ -27,6 +27,8 @@ from conary.deps import deps
 
 from updatebot import errata
 from updatebot import groupmgr
+from updatebot import conaryhelper
+from updatebot.lib import util
 from updatebot.lib import watchdog
 from updatebot.bot import Bot as BotSuperClass
 
@@ -40,25 +42,31 @@ from updatebot.errors import PlatformAlreadyImportedError
 from updatebot.errors import FoundModifiedNotImportedErrataError
 from updatebot.errors import UnhandledUpdateError
 
-log = logging.getLogger('updatebot.ordered')
+# FIXME: update the logger for current mode
+#log = logging.getLogger('updatebot.ordered')
+log = logging.getLogger('updatebot.current')
 
 class Bot(BotSuperClass):
     """
-    Implement errata driven create/update interface.
+    Implement package driven create/update interface.
     """
 
-    _updateMode = 'ordered'
+    _updateMode = 'current'
 
     _create = BotSuperClass.create
     _update = BotSuperClass.update
-
-    def __init__(self, cfg, errataSource):
+    # REMOVED errataSource from __init__
+    def __init__(self, cfg):
         BotSuperClass.__init__(self, cfg)
-        self._errata = errata.ErrataFilter(self._cfg, self._ui, self._pkgSource,
-            errataSource)
+        # FIXME: remove errata stuff
+        #self._errata = errata.ErrataFilter(self._cfg, self._ui, self._pkgSource,
+        #    errataSource)
+        
         self._groupmgr = groupmgr.GroupManager(self._cfg, self._ui,
             useMap=self._pkgSource.useMap)
-
+        
+        self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
+        
         if self._cfg.platformSearchPath:
             self._parentGroup = groupmgr.GroupManager(self._cfg, self._ui,
                                                       parentGroup=True)
@@ -186,65 +194,95 @@ class Bot(BotSuperClass):
 
         return pkgMap, failures
 
-    def _checkMissingPackages(self):
-        """
-        Check previously committed buckets for any missing source
-        packages.  These are usually caused by delayed releases of errata
-        into repositories, which play havoc with timestamp ordering.
-        """
 
-        log.info('checking for any source packages missing from repository')
-
-        # Get current group; needed for latest commit timestamp.
-        group = self._groupmgr.getGroup()
+    def _getAllPkgVersionsLabel(self):
+        """
+        get all versions of a package from the buildLabel 
+        and return 2 dictionaries
+        allPackageVersions
+        allSourceVersions
+        """
 
         log.info('querying buildLabel %s for all committed packages' %
                  self._updater._conaryhelper._ccfg.buildLabel)
 
+        allPackageVersions = {}
+
         # Get all versions of all on buildLabel committed to repo.
-        allPackageVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel({None: {self._updater._conaryhelper._ccfg.buildLabel: None}})
+        allPackageVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel(
+                                {None: {self._updater._conaryhelper._ccfg.buildLabel: None}})
 
         allSourceVersions = {}
 
         # Build dict of all source versions found in repo.
         for source, versions in allPackageVersions.iteritems():
             if source.endswith(':source'):
-                allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version for x in versions.keys() ]
+                allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version 
+                                                                        for x in versions.keys() ]
 
-        missingPackages = {}
-        missingOrder = {}
 
-        # Check all previously ordered/committed buckets for packages
-        # missing from the repo.
-        for bucket, packages in sorted(self._errata._order.iteritems()):
-            if bucket <= group.errataState:
-                for package in packages:
-                    ver = package.version + '_' + package.release
-                    try:
-                        if ver not in allSourceVersions[package.name]:
-                            # Handle all missing-version cases as exception.
-                            raise KeyError
-                    except KeyError:
-                        try:
-                            if package.getNevra() in self._cfg.allowMissingPackage[bucket]:
-                                log.warn('explicitly allowing missing repository package %s at %s' % (package, bucket))
-                                continue
-                        except KeyError:
-                            pass
-                        log.warn('%s missing from repository' % package)
-                        log.info('? reorderSource %s otherId>%s %s' % (
-                            bucket, group.errataState,
-                            ' '.join(package.getNevra())))
-                        missingPackages[package] = bucket
-                        missingOrder.setdefault(bucket, set()).add(package)
+        return allPackageVersions, allSourceVersions
 
-        if len(missingPackages) > 0:
-            log.error('missing %s ordered source packages from repository; inspect missingPackages and missingOrder' % len(missingPackages))
-            import epdb ; epdb.st()
-        else:
-            log.info('all expected source packages found in repository')
 
-        return missingPackages, missingOrder
+    def _diffRepos(self, allVersions, pkgSrcType=None, debug=0):
+        """
+        Diff the yum/rpm repo vs the label and return lists
+        @pkgSrcType = 'bin' or None
+        @allSource = self._pkgSource.srcNameMap or self._pkgSource.binNameMap
+        @toUpdate = [(n, e, v, r, a, s),rpm)] list of troves to be updated
+        @toCreate = [(n, e, v, r, a, s),rpm)] list of new troves to the label
+        """
+        
+        allSource = self._pkgSource.srcNameMap
+        
+        if pkgSrcType:
+            allSource = self._pkgSource.binNameMap
+            
+        toUpdate = []
+        toCreate = []
+
+        for pkgName, pkgSet in allSource.iteritems():
+            if len(pkgSet) == 0:
+                continue
+
+            pkgList = list(pkgSet)
+            pkgList.sort()
+
+            for pkgPkg in pkgList:
+                onLabel = []
+                log.info('Working on %s package' % pkgPkg)
+
+                version = util.srpmToConaryVersion(pkgPkg)
+                #version = pkgPkg.getConaryVersion() # Only works on src
+                
+                # FAST lookup
+                if pkgPkg.name in allVersions:
+                    onLabel = [ x for x in allVersions[pkgPkg.name] if
+                                                x == version ] 
+
+                #maybe look up by sha1 sum as well...               
+                # SLOW 
+                if debug: 
+                    log.debug('looking up %s on the label' % pkgPkg)
+                    onLabel = self._conaryhelper.findTrove((pkgPkg.name, 
+                                               version, None))
+
+                if onLabel:
+                    log.info('MATCH:version %s of %s  already on the label'
+                                % (version, pkgPkg.name))
+                    continue
+
+                log.info('Version %s %s not on label adding to update'
+                            % (version, pkgPkg.name))
+                if pkgPkg.name not in allVersions:
+                    log.warn('%s is a new pkg adding to create' % pkgPkg.name)
+                    toCreate.append((pkgPkg.getNevra(), pkgPkg))
+                else:
+                    log.info('%s added to update list' % pkgPkg)
+                    toUpdate.append((pkgPkg.getNevra(), pkgPkg))
+                    
+        return toUpdate, toCreate
+
 
     def update(self, *args, **kwargs):
         """
@@ -253,6 +291,7 @@ class Bot(BotSuperClass):
 
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
+        # Not sure we care in current mode 
         checkMissingPackages = kwargs.pop('checkMissingPackages', True)
 
         # Get current group
@@ -266,59 +305,92 @@ class Bot(BotSuperClass):
         # Check to see if there is a binary version if the current group.
         # This handles restarts where the group failed to build, but we don't
         # want to rebuild all of the packages again.
-        if not group.hasBinaryVersion():
-            group.build()
+        #if not group.hasBinaryVersion():
+        #    group.build()
 
         # Load package source.
         self._pkgSource.load()
 
+        # FIXME: Not needed in current mode
         # Sanity check errata ordering.
-        self._errata.sanityCheckOrder()
+        #self._errata.sanityCheckOrder()
 
-        if checkMissingPackages:
-            # Ensure no packages are missing from repository.
-            missingPackages, missingOrder = self._checkMissingPackages()
-            if len(missingPackages):
-                raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
-
-        # Check for updated errata that may require some manual changes to the
-        # repository. These are errata that were issued before the current
-        # errata state, but have been modified in the upstream errata source.
-        changed = self._errata.getModifiedErrata(current)
-        # Iterate through changed and verify the current conary repository
-        # contents against any changes.
-        if changed:
-            notimported = set()
-            expectedDowngrades = [ x for x in
-                itertools.chain(*self._cfg.allowPackageDowngrades.values()) ]
-            sourceExceptions = dict((x[2], x[1])
-                for x in self._cfg.reorderAdvisory)
-            log.info('found modified updates, validating repository state')
-            for advisory, advInfo in changed.iteritems():
-                log.info('validating %s' % advisory)
-                for srpm in advInfo['srpms']:
-                    log.info('checking %s' % srpm.name)
-                    # This will raise an exception if any inconsistencies are
-                    # detected.
-                    try:
-                        self._updater.sanityCheckSource(srpm,
-                            allowPackageDowngrades=expectedDowngrades)
-                    except SourceNotImportedError, e:
-                        if (advisory in sourceExceptions and
-                            sourceExceptions[advisory] > current):
-                            log.info('found exception for advisory')
-                            continue
-                        notimported.add(advisory)
-
-            if notimported:
-                raise FoundModifiedNotImportedErrataError(
-                    advisories=notimported)
-
+        
+        self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
+        
         log.info('starting update run')
 
         count = 0
         startime = time.time()
         updateSet = {}
+        
+        allPackageVersions, allSourceVersions = self._getAllPkgVersionsLabel()
+
+        srcUpdate, srcCreate = self._diffRepos(allVersions=allSourceVersions, debug=1)
+        binUpdate, binCreate = self._diffRepos(allVersions=allPackageVersions,
+                                                     pkgSrcType='bin', debug=1)
+
+        
+        # TESTING
+        print "need to check toUpdate"
+        import epdb ; epdb.st() 
+
+                
+
+        # TESTING
+        print "need to check toUpdate"
+        import epdb ; epdb.st() 
+ 
+        #if checkMissingPackages:
+            # Ensure no packages are missing from repository.
+        #    missingPackages, missingOrder = self._checkMissingPackages()
+        #    if len(missingPackages):
+        #        raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
+
+        # FIXME: Not needed in current mode
+        # Check for updated errata that may require some manual changes to the
+        # repository. These are errata that were issued before the current
+        # errata state, but have been modified in the upstream errata source.
+        #changed = self._errata.getModifiedErrata(current)
+        # Iterate through changed and verify the current conary repository
+        # contents against any changes.
+        #if changed:
+        #    notimported = set()
+        #    expectedDowngrades = [ x for x in
+        #        itertools.chain(*self._cfg.allowPackageDowngrades.values()) ]
+        #    sourceExceptions = dict((x[2], x[1])
+        #        for x in self._cfg.reorderAdvisory)
+        #    log.info('found modified updates, validating repository state')
+        #    for advisory, advInfo in changed.iteritems():
+        #        log.info('validating %s' % advisory)
+        #        for srpm in advInfo['srpms']:
+        #            log.info('checking %s' % srpm.name)
+        #            # This will raise an exception if any inconsistencies are
+        #            # detected.
+        #            try:
+        #                self._updater.sanityCheckSource(srpm,
+        #                    allowPackageDowngrades=expectedDowngrades)
+        #            except SourceNotImportedError, e:
+        #                if (advisory in sourceExceptions and
+        #                    sourceExceptions[advisory] > current):
+        #                    log.info('found exception for advisory')
+        #                    continue
+        #                notimported.add(advisory)
+        #
+        #    if notimported:
+        #        raise FoundModifiedNotImportedErrataError(
+        #            advisories=notimported)
+
+        # Get troves to update and send advisories.
+        #toAdvise, toUpdate = self._updater.getUpdates(
+        #    updateTroves=updateTroves,
+        #    expectedRemovals=expectedRemovals,
+        #    allowPackageDowngrades=allowPackageDowngrades)
+        
+
+        # FIXME: remove errata crap
+
+
         for updateId, updates in self._errata.iterByIssueDate(current=current):
             start = time.time()
             detail = self._errata.getUpdateDetailMessage(updateId)

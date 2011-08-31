@@ -491,21 +491,28 @@ class ErrataFilter(object):
                     if e[0] == 'duplicates':
                         sortedOrder = sorted(self._order)
                         previousId = sortedOrder[sortedOrder.index(updateId)-1]
+                        nextId = sortedOrder[sortedOrder.index(updateId)+1]
                         for dupName, dupSet in e[1].iteritems():
                             dupList = sorted(dupSet)
                             log.error('%s contains duplicate %s %s' %(updateId,
                                 dupName, dupList))
+                            # Changing to use older pkgs to make msg
                             for srcPkg in sorted(dupList[1:]):
                                 srcNevra = str(' '.join(srcPkg.getNevra()))
                                 if srcPkg in srpmToAdvisory:
                                     log.info('%s : %s' % (
                                         srcNevra, rhnUrls(srpmToAdvisory[srcPkg])))
-                                log.info('? reorderSource %s earlierId>%s %s' %
+                                log.info('? reorderSource %s earlierId> %s %s' %
                                     (updateId, previousId, srcNevra))
+                                log.info('? reorderSource %s laterId> %s %s' %
+                                    (updateId, nextId, srcNevra))
                                 for errataId in srpmToAdvisory.get(srcPkg, []):
                                     log.info(
-                                        '? reorderAdvisory %s earlierId>%s %r'
+                                        '? reorderAdvisory %s earlierId> %s %r'
                                         % (updateId, previousId, errataId))
+                                    log.info(
+                                        '? reorderAdvisory %s laterId> %s %r'
+                                        % (updateId, nextId, errataId))
 
                     elif e[0] == 'obsoleteBinaries':
                         for (obsoleteEdgeList, srcPkg, binPkgs,

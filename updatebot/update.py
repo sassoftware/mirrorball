@@ -1123,6 +1123,25 @@ class Updater(object):
             missingOk=True, labels=[filteredSrcTrvs[0][1].trailingLabel(), ])
         return srcMap
 
+    def getSourceVersionMapFromSrpms(self, srpms):
+        """
+        Generate a mapping of source trove tuple to binary trove tuple for all
+        source rpms in srpms.
+        @param srpms: collection of srpm objects.
+        @return dict((str, conary.versions.Version, None)=[(str,
+            conary.versions.Version, conary.deps.deps.Flavor), ...])
+        """
+
+        query = [ ('%s:source' % x.name, x.getConaryVersion(), None)
+            for x in srpms ]
+        results = self._conaryhelper.findTroves(query, allowMissing=True)
+        srcSpecs = [ x for x in itertools.chain(*results.itervalues()) ]
+        labels = list(set([ x[1].trailingLabel() for x in srcSpecs ]))
+        pkgMap = self._conaryhelper.getBinaryVersions(srcSpecs, missingOk=True,
+            labels=labels)
+
+        return pkgMap
+
     def remove(self, srcPkgs):
         """
         Remove all instances of packages from the conary repository that were
