@@ -28,6 +28,7 @@ from updatebot.build.monitor import JobStarter
 from updatebot.build.monitor import JobMonitor
 from updatebot.build.monitor import JobCommitter
 from updatebot.build.monitor import JobRebuildStarter
+from updatebot.build.monitor import JobPromoter
 from updatebot.build.constants import JobStatus
 
 
@@ -418,3 +419,64 @@ class RebuildDispatcher(MultiVersionDispatcher):
 
         self._starter = self._starterClass((builder, useLatest,
             additionalResolveTroves))
+
+
+class PromoteDispatcher(Dispatcher):
+    """
+    Dispatcher class that promotes the builds to the production label once they
+    are complete.
+    """
+
+    _completed = (
+        JobStatus.ERROR_MONITOR_FAILURE,
+        JobStatus.ERROR_COMMITTER_FAILURE,
+        JobStatus.ERROR_PROMOTE_FAILURE,
+        buildjob.JOB_STATE_FAILED,
+        JobStatus.JOB_PROMOTED,
+    )
+
+    _slotdone = (
+        buildjob.JOB_STATE_FAILED,
+        buildjob.JOB_STATE_BUILT
+    )
+
+    _promoterClass = JobPromoter
+
+    def __init__(self, builder, maxSlots):
+        Dispatcher.__init__(self, builder, maxSlots)
+
+        self._promoteSlots = util.BoundedCounter(0, 2, 2)
+
+        self._promoter = self._promoterClass(self._builder._conaryhelper,
+            self._builder._cfg.targetLabel)
+
+    def _jobDone(self):
+        # Override the job done method from the parent to hook into the
+        # build loop. This is kinda dirty, but I don't really have a
+        # better idea at the moment.
+
+        done = Dispatcher._jobDone(self)
+        if done:
+            return done
+
+        self._promoteJobs()
+
+        return done
+
+    def _promoteJobs(self):
+        """
+        Handle the promote section of the build loop.
+        """
+
+        # Find jobs in the Committed state that need to be promoted
+        toPromote = []
+        for jobId, (trove, state, result) in self._jobs.iteritems():
+            # not ready to be promoted
+            if state != JobStatus.JOB_COMMITTED:
+                continue
+
+            toPromote.append((jobId, result))
+
+        if self._promoteSlots and toPromote:
+            self._promoteSlots -= 1
+            self._promoter.promoteJob(toPromote)

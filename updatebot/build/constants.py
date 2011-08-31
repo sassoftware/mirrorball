@@ -38,6 +38,7 @@ class WorkerTypes(object):
     LOCAL_GROUP_BUILD = 3
     LOCAL_CHANGESET_COMMIT = 4
     REBUILD_START = 5
+    PROMOTE = 6
 
     names = {
         START: 'Start',
@@ -46,6 +47,7 @@ class WorkerTypes(object):
         LOCAL_GROUP_BUILD: 'Local Group Build',
         LOCAL_CHANGESET_COMMIT: 'Local Changeset Commit',
         REBUILD_START: 'Rebuild Start',
+        PROMOTE: 'Promote Troves',
     }
 
 
@@ -63,3 +65,6 @@ class JobStatus(object):
     JOB_COMMITTED = -7
     JOB_FAILED = -8
     JOB_STARTING = -9
+    JOB_PROMOTING = -10
+    JOB_PROMOTED = -11
+    ERROR_PROMOTE_FAILURE = -12

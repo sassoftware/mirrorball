@@ -140,6 +140,31 @@ class CommitWorker(AbstractWorker):
         self.status.put((MessageTypes.DATA, (self.jobId, result)))
 
 
+class PromoteWorker(AbstractWorker):
+    """
+    Worker thread for promoting committed troves.
+    """
+
+    threadType = WorkerTypes.PROMOTE
+
+    def __init__(self, status, (helper, targetLabel, trvLst)):
+        AbstractWorker.__init__(self, status)
+
+        self.helper = helper
+        self.targetLabel = targetLabel
+        self.trvLst = trvLst
+
+    def work(self):
+        """
+        Promote the specified list of troves.
+        """
+
+        srcLabel = self.trvLst[0][1].trailingLabel()
+        result = self.helper.promote(self.trvLst, set(), srcLabel,
+            self.targetLabel, checkPackageList=False)
+        self.status.put((MessageTypes.DATA, (self.trvLst, result)))
+
+
 class JobStarter(AbstractStatusMonitor):
     """
     Abstraction around threaded starter model.
@@ -174,3 +199,12 @@ class JobCommitter(AbstractStatusMonitor):
 
     workerClass = CommitWorker
     commitJob = AbstractStatusMonitor.addJob
+
+
+class JobPromoter(AbstractStatusMonitor):
+    """
+    Abstraction around threaded promote model.
+    """
+
+    workerClass = PromoteWorker
+    promoteJob = AbstractStatusMonitor.addJob
