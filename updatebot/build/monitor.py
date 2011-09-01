@@ -17,6 +17,7 @@ Module for managing monitors.
 """
 
 import os
+import itertools
 
 from rmake.cmdline import monitor
 
@@ -147,22 +148,46 @@ class PromoteWorker(AbstractWorker):
 
     threadType = WorkerTypes.PROMOTE
 
-    def __init__(self, status, (helper, targetLabel, trvLst)):
+    def __init__(self, status, (helper, targetLabel, jobs)):
         AbstractWorker.__init__(self, status)
 
         self.helper = helper
         self.targetLabel = targetLabel
-        self.trvLst = trvLst
+        self.jobs = jobs
+        self.workerId = (x[0] for x in jobs)
 
     def work(self):
         """
         Promote the specified list of troves.
         """
 
+        # Let's be smart about promoting troves and batch all of the jobs
+        # together. This means we need to keep track of what we put in and
+        # what we get back so that we can map the output to a jobId.
+
+        # Build mapping of nvf tuple to jobId
+        jobMap = {}
+        for jobId, built in self.jobs.iteritems():
+            for bintrv in itertools.chain(*built.itervalues()):
+                jobMap[bintrv] = jobId
+
+        # Assume that all troves are on the same source label.
         srcLabel = self.trvLst[0][1].trailingLabel()
+
+        # Promote
         result = self.helper.promote(self.trvLst, set(), srcLabel,
             self.targetLabel, checkPackageList=False)
-        self.status.put((MessageTypes.DATA, (self.trvLst, result)))
+
+        # Map the results back to source label troves
+        clonedFrom = self.helper.getClonedFrom(result)
+
+        # Map jobIds back to promoted troves.
+        resultMap = {}
+        for spec, jobId in jobMap.iteritems():
+            resultMap.setdefault(jobId, set()).add(clonedFrom.get(spec))
+
+        # Send back all of the results.
+        self.status.put((MessageTypes.DATA, tuple(resultMap.items())))
 
 
 class JobStarter(AbstractStatusMonitor):

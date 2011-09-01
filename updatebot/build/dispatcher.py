@@ -469,14 +469,30 @@ class PromoteDispatcher(Dispatcher):
         """
 
         # Find jobs in the Committed state that need to be promoted
-        toPromote = []
-        for jobId, (trove, state, result) in self._jobs.iteritems():
-            # not ready to be promoted
-            if state != JobStatus.JOB_COMMITTED:
-                continue
+        if self._promoteSlots:
+            toPromote = []
+            for jobId, (trove, state, result) in self._jobs.iteritems():
+                # not ready to be promoted
+                if state != JobStatus.JOB_COMMITTED:
+                    continue
 
-            toPromote.append((jobId, result))
+                toPromote.append((jobId, result))
+                self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
 
-        if self._promoteSlots and toPromote:
-            self._promoteSlots -= 1
-            self._promoter.promoteJob(toPromote)
+            if toPromote:
+                self._promoteSlots -= 1
+                self._promoter.promoteJob(toPromote)
+
+        # Gather results
+        for result in self._promoter.getStatus():
+            self._promoteSlots += 1
+            for jobId, trvLst in result:
+                self._jobs[jobId][2] = trvLst
+                self._jobs[jobId][1] = JobStatus.JOB_PROMOTED
+
+        # Gather errors
+        for jobs, error in self._promoter.getErrors():
+            self._promoteSlots += 1
+            for jobId in jobs:
+                self._jobs[jobId][1] = JobStatus.ERROR_PROMOTE_FAILURE
+                self._failures.append((jobId, error))

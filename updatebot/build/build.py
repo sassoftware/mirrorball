@@ -40,6 +40,7 @@ from rmake.cmdline import helper
 from rmake.cmdline import monitor
 
 from updatebot.lib import util
+from updatebot.conaryhelper import ConaryHelper
 from updatebot.errors import JobFailedError
 from updatebot.errors import CommitFailedError
 from updatebot.errors import UnhandledKernelModule
@@ -52,8 +53,9 @@ from updatebot.build.cvc import Cvc
 from updatebot.build.jobs import LocalDispatcher
 from updatebot.build.jobs import OrderedCommitDispatcher
 from updatebot.build.dispatcher import Dispatcher
-from updatebot.build.dispatcher import NonCommittalDispatcher
 from updatebot.build.dispatcher import RebuildDispatcher
+from updatebot.build.dispatcher import PromoteDispatcher
+from updatebot.build.dispatcher import NonCommittalDispatcher
 from updatebot.build.callbacks import StatusOnlyDisplay
 
 log = logging.getLogger('updatebot.build')
@@ -157,6 +159,8 @@ class Builder(object):
 
         self._asyncDispatcher = OrderedCommitDispatcher(self, 30)
 
+        self._conaryhelper = ConaryHelper(self._cfg)
+
     def build(self, troveSpecs):
         """
         Build a list of troves.
@@ -188,7 +192,9 @@ class Builder(object):
         """
 
         workers = 30
-        if not lateCommit:
+        if self._cfg.updateMode == 'current':
+            dispatcher = PromoteDispatcher(self, workers)
+        elif not lateCommit:
             dispatcher = Dispatcher(self, workers)
         else:
             dispatcher = NonCommittalDispatcher(self, workers)
