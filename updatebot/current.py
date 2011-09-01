@@ -237,7 +237,7 @@ class Bot(BotSuperClass):
     def _diffRepos(self, allVersions, pkgSrcType=None, debug=0):
         """
         Diff the yum/rpm repo vs the label and return lists
-        @pkgSrcType = 'bin' or None
+        @pkgSrcType = 'bin' or None -- At this time no need for binary  
         @allSource = self._pkgSource.srcNameMap or self._pkgSource.binNameMap
         @toUpdate = [(n, e, v, r, a, s),rpm)] list of troves to be updated
         @toCreate = [(n, e, v, r, a, s),rpm)] list of new troves to the label
@@ -290,10 +290,10 @@ class Bot(BotSuperClass):
                             % (version, pkgPkg.name))
                 if pkgPkg.name not in allVersions:
                     log.warn('%s is a new pkg adding to create' % pkgPkg.name)
-                    toCreate.append((pkgPkg.getNevra(), pkgPkg))
+                    toCreate.append(pkgPkg)
                 else:
                     log.info('%s added to update list' % pkgPkg)
-                    toUpdate.append((pkgPkg.getNevra(), pkgPkg))
+                    toUpdate.append(pkgPkg)
                     
         return toUpdate, toCreate
 
@@ -305,8 +305,6 @@ class Bot(BotSuperClass):
 
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
-        # Not sure we care in current mode 
-        checkMissingPackages = kwargs.pop('checkMissingPackages', True)
 
         # Get current group
         group = self._groupmgr.getGroup()
@@ -325,12 +323,6 @@ class Bot(BotSuperClass):
         # Load package source.
         self._pkgSource.load()
 
-        # FIXME: Not needed in current mode
-        # Sanity check errata ordering.
-        #self._errata.sanityCheckOrder()
-
-        
-        self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
         
         log.info('starting update run')
 
@@ -341,68 +333,88 @@ class Bot(BotSuperClass):
         allPackageVersions, allSourceVersions = self._getAllPkgVersionsLabel()
 
         srcUpdate, srcCreate = self._diffRepos(allVersions=allSourceVersions, debug=0)
-        binUpdate, binCreate = self._diffRepos(allVersions=allPackageVersions,
-                                                     pkgSrcType='bin', debug=0)
 
-        
         # TESTING
         #print "need to check toUpdate"
         #import epdb ; epdb.st() 
 
-        updates = set( [[ pkg[1] for pkg in  pkgList ] 
-                    for pkgList in srcUpdate, binUpdate, srcCreate, binCreate] )
+        updates = set()
+
+        if srcUpdate:
+            updates.update(srcUpdate)    
+        
+        if srcCreate: 
+            updates.update(srcCreate)
+
+        # If recovering from a failure, restore the pkgMap from disk.
+        pkgMap = {}
+        if restoreFile:
+            pkgMap = self._restorePackages(restoreFile)
+            restoreFile = None
+
+        # NOT SURE HOW THIS WORKS 
+        # Filter out anything that has already been built from the list
+        # of updates.
+        upMap = dict([ (x.name, x) for x in updates ])
+        for n, v, f in pkgMap:
+            if n in upMap:
+                updates.remove(upMap[n])
+
+        # Update package set.
+        if updates:
+            fltr = kwargs.pop('fltr', None)
+            if fltr:
+                updates = fltr(updates)
+
+            # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+            print "REMOVE LINE AFTER ALTERNATE REPO SETUP"
+            import epdb; epdb.st()
+
+            #pkgMap.update(self._update(*args, updatePkgs=updates,
+            #    expectedRemovals=expectedRemovals,
+            #    allowPackageDowngrades=allowDowngrades, **kwargs))
+
+            # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+            print "REMOVE LINE AFTER RUNNING WITH RMAKE JOB IDS"
+            import epdb; epdb.st()
+
+        # When deriving from an upstream platform sometimes we don't want
+        # the latest versions.
+        oldVersions = self._cfg.useOldVersion.get(updateId, None)
+        if oldVersions:
+            for nvf in oldVersions:
+                # Lookup all source and binaries that match this binary.
+                srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                    nvf, labels=self._cfg.platformSearchPath, latest=False)
+
+                # Make sure there is only one
+                assert len(srcMap) == 1
+
+                # Filter out any versions that don't match the version we
+                # are looking for.
+                curVerMap = dict((x, [ z for z in y
+                                       if z[1].asString() == nvf[1] ])
+                                 for x, y in srcMap.iteritems())
+
+                # Make sure the version we are looking for is in the list
+                assert curVerMap and curVerMap.values()[0]
+
+                # Update the package map with the new versions.
+                pkgMap.update(curVerMap)
+
+        # Save package map in case we run into trouble later.
+        self._savePackages(pkgMap)
+
+
+
+
 
 
         # TESTING
-        print "need to check toUpdate"
+        print "need to check updates set"
         import epdb ; epdb.st() 
  
-        #if checkMissingPackages:
-            # Ensure no packages are missing from repository.
-        #    missingPackages, missingOrder = self._checkMissingPackages()
-        #    if len(missingPackages):
-        #        raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
-
-        # FIXME: Not needed in current mode
-        # Check for updated errata that may require some manual changes to the
-        # repository. These are errata that were issued before the current
-        # errata state, but have been modified in the upstream errata source.
-        #changed = self._errata.getModifiedErrata(current)
-        # Iterate through changed and verify the current conary repository
-        # contents against any changes.
-        #if changed:
-        #    notimported = set()
-        #    expectedDowngrades = [ x for x in
-        #        itertools.chain(*self._cfg.allowPackageDowngrades.values()) ]
-        #    sourceExceptions = dict((x[2], x[1])
-        #        for x in self._cfg.reorderAdvisory)
-        #    log.info('found modified updates, validating repository state')
-        #    for advisory, advInfo in changed.iteritems():
-        #        log.info('validating %s' % advisory)
-        #        for srpm in advInfo['srpms']:
-        #            log.info('checking %s' % srpm.name)
-        #            # This will raise an exception if any inconsistencies are
-        #            # detected.
-        #            try:
-        #                self._updater.sanityCheckSource(srpm,
-        #                    allowPackageDowngrades=expectedDowngrades)
-        #            except SourceNotImportedError, e:
-        #                if (advisory in sourceExceptions and
-        #                    sourceExceptions[advisory] > current):
-        #                    log.info('found exception for advisory')
-        #                    continue
-        #                notimported.add(advisory)
-        #
-        #    if notimported:
-        #        raise FoundModifiedNotImportedErrataError(
-        #            advisories=notimported)
-
-        # Get troves to update and send advisories.
-        #toAdvise, toUpdate = self._updater.getUpdates(
-        #    updateTroves=updateTroves,
-        #    expectedRemovals=expectedRemovals,
-        #    allowPackageDowngrades=allowPackageDowngrades)
-        
+        # BELOW THIS LINE WILL BE REMOVED
 
         # FIXME: remove errata crap
 
