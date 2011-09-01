@@ -1088,7 +1088,7 @@ class ConaryHelper(object):
         results = []
         kwargs['checkPackageList'] = False
         for job in self._iterPromoteJobList(trvLst):
-            results.append(self._promote(job, set(), *args, **kwargs))
+            results.extend(self._promote(job, set(), *args, **kwargs))
         return results
 
     def _promote(self, trvLst, expected, sourceLabels, targetLabel,
