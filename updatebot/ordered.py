@@ -516,7 +516,7 @@ class Bot(BotSuperClass):
         if current is None:
             raise PlatformNotImportedError
 
-        # laod package source
+        # load package source
         self._pkgSource.load()
 
         if checkMissingPackages:

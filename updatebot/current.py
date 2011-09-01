@@ -306,6 +306,13 @@ class Bot(BotSuperClass):
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
 
+        # Generate an updateId
+        updateId = int(time.time())
+
+        # Generate a todayId for config file.
+        #todayId = int(time.mktime(time.strptime(time.strftime('%Y%m%d', 
+        #                                time.gmtime(time.time())), '%Y%m%d')))
+
         # Get current group
         group = self._groupmgr.getGroup()
 
@@ -323,7 +330,6 @@ class Bot(BotSuperClass):
         # Load package source.
         self._pkgSource.load()
 
-        
         log.info('starting update run')
 
         count = 0
@@ -352,7 +358,6 @@ class Bot(BotSuperClass):
             pkgMap = self._restorePackages(restoreFile)
             restoreFile = None
 
-        # NOT SURE HOW THIS WORKS 
         # Filter out anything that has already been built from the list
         # of updates.
         upMap = dict([ (x.name, x) for x in updates ])
@@ -367,20 +372,40 @@ class Bot(BotSuperClass):
                 updates = fltr(updates)
 
             # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-            print "REMOVE LINE AFTER ALTERNATE REPO SETUP"
-            import epdb; epdb.st()
+            #print "REMOVE LINE AFTER ALTERNATE REPO SETUP"
+            #import epdb; epdb.st()
 
             #pkgMap.update(self._update(*args, updatePkgs=updates,
             #    expectedRemovals=expectedRemovals,
             #    allowPackageDowngrades=allowDowngrades, **kwargs))
 
-            # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-            print "REMOVE LINE AFTER RUNNING WITH RMAKE JOB IDS"
-            import epdb; epdb.st()
+        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+        #print "REMOVE LINE AFTER TESTING"
+        #import epdb; epdb.st()
+
+        # Start Group Build
+
+        # Get last group -
+        
+
+        # Keep Obsoleted
+        keepObsolete = set(self._cfg.keepObsolete)
+        keepObsoleteSource = set(self._cfg.keepObsoleteSource)
+
 
         # When deriving from an upstream platform sometimes we don't want
         # the latest versions.
-        oldVersions = self._cfg.useOldVersion.get(updateId, None)
+        # Since we want this to expire in the new mode useOldVersion timestamp 
+        # Should be in the future. This way an old version will not remain 
+        # pinned forever. If group breaks move the useOldVersion into the 
+        # future (not far as that would defeat the purpose)    
+        oldVersions = [ x for x in self._cfg.useOldVersion if x > updateId ]
+        
+        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+        print "REMOVE LINE AFTER TESTING"
+        import epdb; epdb.st()
+
+        #oldVersions = self._cfg.useOldVersion.get(updateId, None)
         if oldVersions:
             for nvf in oldVersions:
                 # Lookup all source and binaries that match this binary.
