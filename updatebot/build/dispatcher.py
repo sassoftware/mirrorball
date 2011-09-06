@@ -447,8 +447,8 @@ class PromoteDispatcher(Dispatcher):
 
         self._promoteSlots = util.BoundedCounter(0, 2, 2)
 
-        self._promoter = self._promoterClass(self._builder._conaryhelper,
-            self._builder._cfg.targetLabel)
+        self._promoter = self._promoterClass((self._builder._conaryhelper,
+            self._builder._cfg.targetLabel))
 
     def _jobDone(self):
         # Override the job done method from the parent to hook into the

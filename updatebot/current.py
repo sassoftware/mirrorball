@@ -217,6 +217,7 @@ class Bot(BotSuperClass):
                 flavors = list(vf[version])
                 labelVf = allPkgVer[name]
                 labelLatest = sorted(labelVf)[-1]
+                #labelLatest = sorted(labelVf, key=_newerVFS)[-1]
                 if version > labelLatest:
                     log.info('adding %s=%s' % (name, version))
                     for f in flavors:
