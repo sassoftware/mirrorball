@@ -154,7 +154,7 @@ class PromoteWorker(AbstractWorker):
         self.helper = helper
         self.targetLabel = targetLabel
         self.jobs = jobs
-        self.workerId = (x[0] for x in jobs)
+        self.workerId = tuple([ x[0] for x in jobs ])
 
     def work(self):
         """
