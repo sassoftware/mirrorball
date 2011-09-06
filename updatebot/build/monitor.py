@@ -167,24 +167,29 @@ class PromoteWorker(AbstractWorker):
 
         # Build mapping of nvf tuple to jobId
         jobMap = {}
-        for jobId, built in self.jobs.iteritems():
-            for bintrv in itertools.chain(*built.itervalues()):
-                jobMap[bintrv] = jobId
+        for jobId, built in self.jobs:
+            for srcTrv, binTrvs in dict(built).iteritems():
+                for binTrv in binTrvs:
+                    jobMap.setdefault(binTrv, list()).append(jobId, srcTrv)
+
+        # Get the list of binary troves to promote.
+        trvLst = jobMap.keys()
 
         # Assume that all troves are on the same source label.
-        srcLabel = self.trvLst[0][1].trailingLabel()
+        srcLabel = trvLst[0][1].trailingLabel()
 
         # Promote
-        result = self.helper.promote(self.trvLst, set(), srcLabel,
-            self.targetLabel, checkPackageList=False)
+        result = self.helper.promote(trvLst, set(), srcLabel, self.targetLabel,
+            checkPackageList=False)
 
         # Map the results back to source label troves
         clonedFrom = self.helper.getClonedFrom(result)
 
         # Map jobIds back to promoted troves.
         resultMap = {}
-        for spec, jobId in jobMap.iteritems():
-            resultMap.setdefault(jobId, set()).add(clonedFrom.get(spec))
+        for spec, (jobId, srcTrv) in jobMap.iteritems():
+            resultMap.setdefault(jobId, dict()).setdefault(srcTrv,
+                set()).add(clonedFrom.get(spec))
 
         # Send back all of the results.
         self.status.put((MessageTypes.DATA, tuple(resultMap.items())))

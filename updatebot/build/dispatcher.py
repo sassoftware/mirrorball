@@ -476,7 +476,7 @@ class PromoteDispatcher(Dispatcher):
                 if state != buildjob.JOB_STATE_COMMITTED:
                     continue
 
-                toPromote.append((jobId, result))
+                toPromote.append((jobId, tuple(result.items())))
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
 
             if toPromote:
@@ -486,8 +486,8 @@ class PromoteDispatcher(Dispatcher):
         # Gather results
         for result in self._promoter.getStatus():
             self._promoteSlots += 1
-            for jobId, trvLst in result:
-                self._jobs[jobId][2] = trvLst
+            for jobId, promoted in result:
+                self._jobs[jobId][2] = promoted
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTED
 
         # Gather errors
