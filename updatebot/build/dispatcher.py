@@ -473,7 +473,7 @@ class PromoteDispatcher(Dispatcher):
             toPromote = []
             for jobId, (trove, state, result) in self._jobs.iteritems():
                 # not ready to be promoted
-                if state != JobStatus.JOB_COMMITTED:
+                if state != buildjob.JOB_STATE_COMMITTED:
                     continue
 
                 toPromote.append((jobId, result))
