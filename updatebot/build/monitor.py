@@ -170,7 +170,7 @@ class PromoteWorker(AbstractWorker):
         for jobId, built in self.jobs:
             for srcTrv, binTrvs in dict(built).iteritems():
                 for binTrv in binTrvs:
-                    jobMap.setdefault(binTrv, list()).append(jobId, srcTrv)
+                    jobMap.setdefault(binTrv, list()).append((jobId, srcTrv))
 
         # Get the list of binary troves to promote.
         trvLst = jobMap.keys()
