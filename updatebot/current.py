@@ -194,6 +194,35 @@ class Bot(BotSuperClass):
 
         return pkgMap, failures
 
+    def _addNewPackages(self, allPkgVer, pkgMap, group):
+        """
+        Add pkgMap to group.
+        """
+
+        for binSet in pkgMap.itervalues():
+            pkgs = {}
+            for n, v, f in binSet:
+                if ':' in n:
+                    continue
+                elif n not in pkgs:
+                    pkgs[n] = {v: set([f, ])}
+                elif v not in pkgs[n]:
+                    pkgs[n][v] = set([f, ])
+                else:
+                    pkgs[n][v].add(f)
+
+            for name, vf in pkgs.iteritems():
+                assert len(vf) == 1
+                version = vf.keys()[0]
+                flavors = list(vf[version])
+                labelVf = allPkgVer[name]
+                labelLatest = sorted(labelVf)[-1]
+                if version > labelLatest:
+                    log.info('adding %s=%s' % (name, version))
+                    for f in flavors:
+                        log.info('\t%s' % f)
+                    group.addPackage(name, version, flavors)
+
 
     def _getAllPkgVersionsLabel(self):
         """
@@ -239,8 +268,8 @@ class Bot(BotSuperClass):
         Diff the yum/rpm repo vs the label and return lists
         @pkgSrcType = 'bin' or None -- At this time no need for binary  
         @allSource = self._pkgSource.srcNameMap or self._pkgSource.binNameMap
-        @toUpdate = [(n, e, v, r, a, s),rpm)] list of troves to be updated
-        @toCreate = [(n, e, v, r, a, s),rpm)] list of new troves to the label
+        @toUpdate = [(rpm)] set of rpms to be updated
+        @toCreate = [(rpm)] set of rpms to be created
         """
         
         allSource = self._pkgSource.srcNameMap
@@ -274,7 +303,9 @@ class Bot(BotSuperClass):
                     onLabel = [ x for x in allVersions[pkgPkg.name] if
                                                 x == version ] 
 
-                #maybe look up by sha1 sum as well...               
+                # This is not the way to do this
+                # Use for debuging only 
+                # maybe look up by sha1 sum as well...               
                 # SLOW  -- Really this is slow
                 if debug: 
                     log.debug('looking up %s on the label' % pkgPkg)
@@ -297,6 +328,69 @@ class Bot(BotSuperClass):
                     
         return toUpdate, toCreate
 
+    def _removeSource(self, updateId, group):
+        # Handle the case of entire source being obsoleted, this causes all
+        # binaries from that source to be removed from the group model.
+        if updateId in self._cfg.removeSource:
+            # get nevras from the config
+            nevras = self._cfg.removeSource[updateId]
+
+            # get a map of source nevra to binary package list.
+            nevraMap = dict((x.getNevra(), y) for x, y in
+                            self._pkgSource.srcPkgMap.iteritems()
+                            if x.getNevra() in nevras)
+
+            for nevra in nevras:
+                # if for some reason the nevra from the config is not in
+                # the pkgSource, raise an error.
+                if nevra not in nevraMap:
+                    raise UnknownRemoveSourceError(nevra=nevra)
+
+                # remove all binary names from the group.
+                binNames = set([ x.name for x in nevraMap[nevra] ])
+                for name in binNames:
+                    group.removePackage(name)
+
+        return group 
+
+    def _useOldVersions(self, updateId, pkgMap):
+        # When deriving from an upstream platform sometimes we don't want
+        # the latest versions.
+        #oldVersions = self._cfg.useOldVersion.get(updateId, None)
+        # Since we want this to expire in the new mode useOldVersion timestamp 
+        # Should be in the future. This way an old version will not remain 
+        # pinned forever. If group breaks move the useOldVersion into the 
+        # future (not far as that would defeat the purpose)    
+        oldVersions = [ x for x in self._cfg.useOldVersion if x > updateId ]
+
+        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+        print "REMOVE LINE AFTER TESTING"
+        import epdb; epdb.st()
+
+        #oldVersions = self._cfg.useOldVersion.get(updateId, None)
+        if oldVersions:
+            for nvf in oldVersions:
+                # Lookup all source and binaries that match this binary.
+                srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
+                    nvf, labels=self._cfg.platformSearchPath, latest=False)
+
+                # Make sure there is only one
+                assert len(srcMap) == 1
+
+                # Filter out any versions that don't match the version we
+                # are looking for.
+                curVerMap = dict((x, [ z for z in y
+                                       if z[1].asString() == nvf[1] ])
+                                 for x, y in srcMap.iteritems())
+
+                # Make sure the version we are looking for is in the list
+                assert curVerMap and curVerMap.values()[0]
+
+                # Update the package map with the new versions.
+                pkgMap.update(curVerMap)
+
+        return pkgMap
+
 
     def update(self, *args, **kwargs):
         """
@@ -305,11 +399,15 @@ class Bot(BotSuperClass):
 
         # Load specific kwargs
         restoreFile = kwargs.pop('restoreFile', None)
-
+        checkMissingPackages = kwargs.pop('checkMissingPackages', True)
+        
         # Generate an updateId
         updateId = int(time.time())
 
         # Generate a todayId for config file.
+        # Not sure how to handle this yet
+        # This would make it easier to control groups built on the 
+        # same day...
         #todayId = int(time.mktime(time.strptime(time.strftime('%Y%m%d', 
         #                                time.gmtime(time.time())), '%Y%m%d')))
 
@@ -344,6 +442,26 @@ class Bot(BotSuperClass):
         #print "need to check toUpdate"
         #import epdb ; epdb.st() 
 
+        # remove packages from config
+        removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
+        removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+        removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
+
+        # take the union of the three lists to get a unique list of packages
+        # to remove.
+        expectedRemovals = (set(removePackages) |
+                            set(removeObsoleted) |
+                            set(removeReplaced))
+        # The following packages are expected to exist and must be removed
+        # (removeObsoleted may be mentioned for buckets where the package
+        # is not in the model, in order to support later adding the ability
+        # for a package to re-appear if an RPM obsoletes entry disappears.)
+        requiredRemovals = (set(removePackages) |
+                            set(removeReplaced))
+
+        # Get the list of package that are allowed to be downgraded.
+        allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
+
         updates = set()
 
         if srcUpdate:
@@ -371,10 +489,19 @@ class Bot(BotSuperClass):
             if fltr:
                 updates = fltr(updates)
 
+            #Only build one pkg. 
+            upDates = set()
+            upDates.add([ x for x in updates ][0])
+            # This is to check what we are building before we build it
+            
+
             # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
             #print "REMOVE LINE AFTER ALTERNATE REPO SETUP"
             #import epdb; epdb.st()
 
+            pkgMap.update(self._update(*args, updatePkgs=upDates,
+                expectedRemovals=expectedRemovals,
+                allowPackageDowngrades=allowDowngrades, **kwargs))
             #pkgMap.update(self._update(*args, updatePkgs=updates,
             #    expectedRemovals=expectedRemovals,
             #    allowPackageDowngrades=allowDowngrades, **kwargs))
@@ -383,55 +510,80 @@ class Bot(BotSuperClass):
         #print "REMOVE LINE AFTER TESTING"
         #import epdb; epdb.st()
 
+        # Save package map in case we run into trouble later.
+        self._savePackages(pkgMap)
+
         # Start Group Build
 
-        # Get last group -
-        
+        # Get current group
+        group = self._groupmgr.getGroup()
+
+        # Get current timestamp
+        current = group.errataState
+        if current is None:
+            raise PlatformNotImportedError        
+
+        # Generate grpPkgMap
+
+        #grpPkgNameMap = [ (x.name, x.version, x.flavor) for x in group.iterpackages() ]
+
 
         # Keep Obsoleted
         keepObsolete = set(self._cfg.keepObsolete)
         keepObsoleteSource = set(self._cfg.keepObsoleteSource)
 
+        # Remove any packages that are scheduled for removal.
+        # NOTE: This should always be done before adding packages so that
+        #       any packages that move between sources will be removed and
+        #       then readded.
+        if requiredRemovals:
+            log.info('removing the following packages from the managed '
+                'group: %s' % ', '.join(requiredRemovals))
+            for pkg in requiredRemovals:
+                group.removePackage(pkg, missingOk=True)
+        if removeObsoleted:
+            log.info('removing any of obsoleted packages from the managed '
+                'group: %s' % ', '.join(removeObsoleted))
+            for pkg in removeObsoleted:
+                group.removePackage(pkg, missingOk=True)
 
-        # When deriving from an upstream platform sometimes we don't want
-        # the latest versions.
-        # Since we want this to expire in the new mode useOldVersion timestamp 
-        # Should be in the future. This way an old version will not remain 
-        # pinned forever. If group breaks move the useOldVersion into the 
-        # future (not far as that would defeat the purpose)    
-        oldVersions = [ x for x in self._cfg.useOldVersion if x > updateId ]
-        
+        pkgMap = self._useOldVersions(updateId, pkgMap)
+
+
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         print "REMOVE LINE AFTER TESTING"
         import epdb; epdb.st()
 
-        #oldVersions = self._cfg.useOldVersion.get(updateId, None)
-        if oldVersions:
-            for nvf in oldVersions:
-                # Lookup all source and binaries that match this binary.
-                srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
-                    nvf, labels=self._cfg.platformSearchPath, latest=False)
+        # Make sure built troves are part of the group.
+        self._addNewPackages(allPackageVersions, pkgMap, group)
 
-                # Make sure there is only one
-                assert len(srcMap) == 1
+        # Modify any extra groups to match config.
+        self._modifyGroups(updateId, group)
 
-                # Filter out any versions that don't match the version we
-                # are looking for.
-                curVerMap = dict((x, [ z for z in y
-                                       if z[1].asString() == nvf[1] ])
-                                 for x, y in srcMap.iteritems())
+        # Get timestamp version.
+        version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(updateId))
+        if not version:
+            version = 'unknown.%s' % updateId
 
-                # Make sure the version we are looking for is in the list
-                assert curVerMap and curVerMap.values()[0]
+        # Build groups.
+        log.info('setting version %s' % version)
+        group.version = version
 
-                # Update the package map with the new versions.
-                pkgMap.update(curVerMap)
+        group = group.commit()
+        grpTrvMap = group.build()
 
-        # Save package map in case we run into trouble later.
-        self._savePackages(pkgMap)
+        updateSet.update(pkgMap)
 
+        # Report timings
+        advTime = time.strftime('%m-%d-%Y %H:%M:%S',
+                                    time.localtime(updateId))
+        totalTime = time.time() - startime
+        log.info('published update %s in %s seconds' % (advTime, totalTime))
+        count += 1
 
-
+        # Set this breakpoint when you're committing a list of
+        # already-built job id's.  (See long comment above.)
+        #import epdb ; epdb.st()
 
 
 
@@ -443,184 +595,6 @@ class Bot(BotSuperClass):
 
         # FIXME: remove errata crap
 
-
-        for updateId, updates in self._errata.iterByIssueDate(current=current):
-            start = time.time()
-            detail = self._errata.getUpdateDetailMessage(updateId)
-            log.info('attempting to apply %s' % detail)
-
-            # If on a derived platform and the current updateId is greater than
-            # the parent updateId, stop applying updates.
-            if (self._cfg.platformSearchPath and
-                self._parentGroup.latest.errataState < updateId):
-                # FIXME: This means that if there is an update the the child
-                #        platform that is not included in the parent platform,
-                #        we will not apply the update until there is a later
-                #        update to the parent platform.
-                log.info('reached end of parent platform update stream')
-                break
-
-            # remove packages from config
-            removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
-            removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
-            removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
-
-            # take the union of the three lists to get a unique list of packages
-            # to remove.
-            expectedRemovals = (set(removePackages) |
-                                set(removeObsoleted) |
-                                set(removeReplaced))
-            # The following packages are expected to exist and must be removed
-            # (removeObsoleted may be mentioned for buckets where the package
-            # is not in the model, in order to support later adding the ability
-            # for a package to re-appear if an RPM obsoletes entry disappears.)
-            requiredRemovals = (set(removePackages) |
-                                set(removeReplaced))
-
-            # Get the list of package that are allowed to be downgraded.
-            allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
-
-            # If recovering from a failure, restore the pkgMap from disk.
-            pkgMap = {}
-            if restoreFile:
-                pkgMap = self._restorePackages(restoreFile)
-                restoreFile = None
-
-            # Pull out packages that have already been built.
-            #pkgMap.update(self._updater.getSourceVersionMapFromSrpms(updates))
-            
-            # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-            #print "FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE"
-            #import epdb; epdb.st()
-
-            # Filter out anything that has already been built from the list
-            # of updates.
-            upMap = dict([ (x.name, x) for x in updates ])
-            for n, v, f in pkgMap:
-                if n in upMap:
-                    updates.remove(upMap[n])
-
-            # Update package set.
-            if updates:
-                fltr = kwargs.pop('fltr', None)
-                if fltr:
-                    updates = fltr(updates)
-
-                pkgMap.update(self._update(*args, updatePkgs=updates,
-                    expectedRemovals=expectedRemovals,
-                    allowPackageDowngrades=allowDowngrades, **kwargs))
-
-                # Comment out the above pkgMap.update() call and
-                # uncomment the below call with list of rmake job id's
-                # in order to commit already-built packages.  (Useful in
-                # cases where a large commit has failed and a retry
-                # would save time.)  Also, set a breakpoint at end of
-                # enclosing loop so mirrorball won't keep trying this
-                # over and over!
-                # pkgMap.update(self._builder.commit([job1,job2,...]))
-                #pkgMap.update(self._builder.commit([]))
-
-                # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-                #print "REMOVE LINE AFTER RUNNING WITH RMAKE JOB IDS"
-                #import epdb; epdb.st()
-
-            # When deriving from an upstream platform sometimes we don't want
-            # the latest versions.
-            oldVersions = self._cfg.useOldVersion.get(updateId, None)
-            if oldVersions:
-                for nvf in oldVersions:
-                    # Lookup all source and binaries that match this binary.
-                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
-                        nvf, labels=self._cfg.platformSearchPath, latest=False)
-
-                    # Make sure there is only one
-                    assert len(srcMap) == 1
-
-                    # Filter out any versions that don't match the version we
-                    # are looking for.
-                    curVerMap = dict((x, [ z for z in y
-                                           if z[1].asString() == nvf[1] ])
-                                     for x, y in srcMap.iteritems())
-
-                    # Make sure the version we are looking for is in the list
-                    assert curVerMap and curVerMap.values()[0]
-
-                    # Update the package map with the new versions.
-                    pkgMap.update(curVerMap)
-
-            # Save package map in case we run into trouble later.
-            self._savePackages(pkgMap)
-
-            # Store current updateId.
-            group.errataState = updateId
-
-            # Remove any packages that are scheduled for removal.
-            # NOTE: This should always be done before adding packages so that
-            #       any packages that move between sources will be removed and
-            #       then readded.
-            if requiredRemovals:
-                log.info('removing the following packages from the managed '
-                    'group: %s' % ', '.join(requiredRemovals))
-                for pkg in requiredRemovals:
-                    group.removePackage(pkg, missingOk=True)
-            if removeObsoleted:
-                log.info('removing any of obsoleted packages from the managed '
-                    'group: %s' % ', '.join(removeObsoleted))
-                for pkg in removeObsoleted:
-                    group.removePackage(pkg, missingOk=True)
-
-            # Handle the case of entire source being obsoleted, this causes all
-            # binaries from that source to be removed from the group model.
-            if updateId in self._cfg.removeSource:
-                # get nevras from the config
-                nevras = self._cfg.removeSource[updateId]
-
-                # get a map of source nevra to binary package list.
-                nevraMap = dict((x.getNevra(), y) for x, y in
-                                self._pkgSource.srcPkgMap.iteritems()
-                                if x.getNevra() in nevras)
-
-                for nevra in nevras:
-                    # if for some reason the nevra from the config is not in
-                    # the pkgSource, raise an error.
-                    if nevra not in nevraMap:
-                        raise UnknownRemoveSourceError(nevra=nevra)
-
-                    # remove all binary names from the group.
-                    binNames = set([ x.name for x in nevraMap[nevra] ])
-                    for name in binNames:
-                        group.removePackage(name)
-
-            # Make sure built troves are part of the group.
-            self._addPackages(pkgMap, group)
-
-            # Modify any extra groups to match config.
-            self._modifyGroups(updateId, group)
-
-            # Get timestamp version.
-            version = self._errata.getBucketVersion(updateId)
-            if not version:
-                version = 'unknown.%s' % updateId
-
-            # Build groups.
-            log.info('setting version %s' % version)
-            group.version = version
-
-            group = group.commit()
-            grpTrvMap = group.build()
-
-            updateSet.update(pkgMap)
-
-            # Report timings
-            advTime = time.strftime('%m-%d-%Y %H:%M:%S',
-                                    time.localtime(updateId))
-            totalTime = time.time() - start
-            log.info('published update %s in %s seconds' % (advTime, totalTime))
-            count += 1
-
-            # Set this breakpoint when you're committing a list of
-            # already-built job id's.  (See long comment above.)
-            #import epdb ; epdb.st()
 
         log.info('update completed')
         log.info('applied %s updates in %s seconds'
