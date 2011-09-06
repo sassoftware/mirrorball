@@ -476,7 +476,10 @@ class PromoteDispatcher(Dispatcher):
                 if state != buildjob.JOB_STATE_COMMITTED:
                     continue
 
-                toPromote.append((jobId, tuple(result.items())))
+                # Make result hashable
+                res = tuple([ (x, tuple(y)) for x, y in result.iteritems() ])
+
+                toPromote.append((jobId, res))
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
 
             if toPromote:
