@@ -77,6 +77,9 @@ class ConaryHelperSharedCache(object):
         self.conaryConfigCache = {}
         self.sharedTmpDir = None
 
+        self.nevraCache = {}
+        self.labelNevraCache = {}
+
 
 class ConaryHelper(object):
     """
@@ -298,7 +301,7 @@ class ConaryHelper(object):
 
         return self.getSourceVersions(list(troves))
 
-    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None):
+    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None, missingOk=False):
         """
         Retrieve a bit of trove info for a listed trove specs and cache the
         results.
@@ -329,11 +332,14 @@ class ConaryHelper(object):
         for i, nvf in enumerate(uncached):
             # If this trove doesn't have this piece of trove info, log a warning
             # and skip over it.
-            if tiLst[i] is None:
+            if tiLst[i] is None and not missingOk:
                 log.warn('found missing trove info for %s, skipping' % (nvf, ))
                 continue
 
-            ti = tiLst[i]()
+            ti = tiLst[i]
+            if callable(ti):
+                ti = ti()
+
             if tiFunc:
                 ti = tiFunc(ti, nvf)
             tiMap.setdefault(ti, set()).add(nvf)
@@ -343,6 +349,60 @@ class ConaryHelper(object):
             tiMap.setdefault(cache[spec], set()).add(spec)
 
         return tiMap
+
+    def getNevras(self, troveSpecs):
+        """
+        Get a mapping of nvf to nevra for all specified trove specs.
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: list((name, conary.versions.Version,
+            conary.deps.deps.Flavor), ..)
+        @return map of trove spec to nevra, map contains None if no nevra was
+            found.
+        """
+
+        def tiFunc(ti, nvf):
+            if ti is None:
+                return None
+
+            return (ti.rpm.name(), ti.rpm.epoch(), ti.rpm.version(),
+                ti.rpm.release(), ti.rpm.arch())
+
+        self._cacheTroveInfo(troveSpecs, self._cache.nevraCache,
+            trove._TROVEINFO_TAG_CAPSULE, tiFunc=tiFunc)
+
+        results = {}
+        for spec in troveSpecs:
+            results[spec] = self._cache.nevraCache.get(spec, None)
+
+        return results
+
+    def getNevrasForLabel(self, label):
+        """
+        Query an entire label for nevra information.
+        @param label: conary label
+        @type label: conary.versions.Label
+        """
+
+        if hasattr(label, 'label'):
+            label = label.label()
+
+        if label in self._cache.labelNevraCache:
+            return self._cache.labelClonedFromCache[label]
+
+        req = {None: {label: None}}
+        binTrvMap = self._repos.getTroveVersionsByLabel(req)
+
+        binTrvs = set()
+        for n, vMap in binTrvMap.iteritems():
+            for v, flvs in vMap.iteritems():
+                if n.endswith(':source'):
+                    binTrvs.add((n, v, None))
+                else:
+                    binTrvs.update(set((n, v, x) for x in flvs))
+
+        nevras = self.getNevras(binTrvs)
+        self._cache.labelNevraCache[label] = nevras
+        return nevras
 
     def getClonedFrom(self, troveSpecs):
         """
