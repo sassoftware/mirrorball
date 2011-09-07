@@ -149,17 +149,17 @@ class AbstractStatusMonitor(object):
         elif isinstance(job, set):
             job = frozenset(job)
 
-        if job in self._workers:
-            log.critical('job already being monitored: %s' % (job, ))
-            import epdb; epdb.st()
-            return
-
         args = list(self._threadArgs)
         args.append(job)
 
         worker = self.workerClass(self._status, args)
 
-        self._workers[job] = worker
+        if worker.workerId in self._workers:
+            log.critical('job already being monitored: %s' % (job, ))
+            import epdb; epdb.st()
+            return
+
+        self._workers[worker.workerId] = worker
         worker.daemon = True
         worker.start()
 
