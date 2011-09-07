@@ -215,14 +215,28 @@ class Bot(BotSuperClass):
                 assert len(vf) == 1
                 version = vf.keys()[0]
                 flavors = list(vf[version])
-                labelVf = allPkgVer[name]
-                labelLatest = sorted(labelVf)[-1]
-                #labelLatest = sorted(labelVf, key=_newerVFS)[-1]
-                if version > labelLatest:
+                if group.hasPackage(name):
+                    # This seems superfluous as we are always 
+                    # going to take the latest from the label 
+                    # and the pkg should already be on the label
+                    curVer = str(version.trailingRevision().version)
+                    last = allPkgVer[name]
+                    last.sort(util.rpmvercmp)
+                    latestVer = last[-1]
+                    if util.rpmvercmp(curVer, latestVer) != -1:
+                        log.info('adding %s=%s' % (name, version))
+                        for f in flavors:
+                            log.info('\t%s' % f)
+                        group.addPackage(name, version, flavors)
+                else:
                     log.info('adding %s=%s' % (name, version))
                     for f in flavors:
                         log.info('\t%s' % f)
                     group.addPackage(name, version, flavors)
+
+        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+        print "REMOVE LINE AFTER TESTING"
+        import epdb; epdb.st()
 
 
     def _getAllPkgVersionsLabel(self):
@@ -365,8 +379,8 @@ class Bot(BotSuperClass):
         oldVersions = [ x for x in self._cfg.useOldVersion if x > updateId ]
 
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-        print "REMOVE LINE AFTER TESTING"
-        import epdb; epdb.st()
+        #print "REMOVE LINE AFTER TESTING"
+        #import epdb; epdb.st()
 
         #oldVersions = self._cfg.useOldVersion.get(updateId, None)
         if oldVersions:
@@ -403,14 +417,15 @@ class Bot(BotSuperClass):
         checkMissingPackages = kwargs.pop('checkMissingPackages', True)
         
         # Generate an updateId
-        updateId = int(time.time())
+        #updateId = int(time.time())
+        groupId = int(time.time())
 
-        # Generate a todayId for config file.
+        # Generate a today ID for config file.
         # Not sure how to handle this yet
         # This would make it easier to control groups built on the 
         # same day...
-        #todayId = int(time.mktime(time.strptime(time.strftime('%Y%m%d', 
-        #                                time.gmtime(time.time())), '%Y%m%d')))
+        updateId = int(time.mktime(time.strptime(time.strftime('%Y%m%d', 
+                                        time.gmtime(time.time())), '%Y%m%d')))
 
         # Get current group
         group = self._groupmgr.getGroup()
@@ -492,7 +507,7 @@ class Bot(BotSuperClass):
 
             #Only build one pkg. 
             upDates = set()
-            upDates.add([ x for x in updates ][0])
+            upDates.add([ x for x in sorted(updates) ][0])
             # This is to check what we are building before we build it
             
 
@@ -550,21 +565,26 @@ class Bot(BotSuperClass):
 
         pkgMap = self._useOldVersions(updateId, pkgMap)
 
-
-        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-        print "REMOVE LINE AFTER TESTING"
-        import epdb; epdb.st()
-
         # Make sure built troves are part of the group.
         self._addNewPackages(allPackageVersions, pkgMap, group)
+
+        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+        print "Check the pkgMap now"
+        import epdb; epdb.st()
 
         # Modify any extra groups to match config.
         self._modifyGroups(updateId, group)
 
         # Get timestamp version.
-        version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(updateId))
+        #version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(updateId))
+        #if not version:
+        #    version = 'unknown.%s' % updateId
+        # Changing the group version to be mopre granular than just day
+        # This is to avoid building the same group over and over on the 
+        # same day... 
+        version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(groupId))
         if not version:
-            version = 'unknown.%s' % updateId
+            version = 'unknown.%s' % groupId
 
         # Build groups.
         log.info('setting version %s' % version)
