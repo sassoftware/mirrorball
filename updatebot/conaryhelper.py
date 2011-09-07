@@ -1027,7 +1027,7 @@ class ConaryHelper(object):
             # conary promote code.
             if n.endswith(':source'):
                 continue
-            data.setdefault(n.split(':'), dict()).setdefault(v, set()).add(f)
+            data.setdefault(n.split(':')[0], dict()).setdefault(v, set()).add(f)
 
         while data:
             job = []
