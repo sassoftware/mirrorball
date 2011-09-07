@@ -301,7 +301,8 @@ class ConaryHelper(object):
 
         return self.getSourceVersions(list(troves))
 
-    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None, missingOk=False):
+    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None,
+        missingOk=False):
         """
         Retrieve a bit of trove info for a listed trove specs and cache the
         results.
@@ -368,7 +369,7 @@ class ConaryHelper(object):
                 ti.rpm.release(), ti.rpm.arch())
 
         self._cacheTroveInfo(troveSpecs, self._cache.nevraCache,
-            trove._TROVEINFO_TAG_CAPSULE, tiFunc=tiFunc)
+            trove._TROVEINFO_TAG_CAPSULE, tiFunc=tiFunc, missingOk=True)
 
         results = {}
         for spec in troveSpecs:
