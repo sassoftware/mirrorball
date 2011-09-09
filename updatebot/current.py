@@ -194,45 +194,61 @@ class Bot(BotSuperClass):
 
         return pkgMap, failures
 
-    def _addNewPackages(self, allPkgVer, pkgMap, group):
+    def _addNewPackages(self, allNevrasOnLabel, pkgMap, group):
         """
         Add pkgMap to group.
         """
+        from repomd.packagexml import _Package as SrcPkg
+        def mkNevraObj(nevra):
+            # positive this code is somewhere in the mess... 
+            # no time to look for it  
+            nvr = SrcPkg()
+            nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch = nevra
+            return nvr
 
         for binSet in pkgMap.itervalues():
             pkgs = {}
-            for n, v, f in binSet:
-                if ':' in n:
-                    continue
-                elif n not in pkgs:
-                    pkgs[n] = {v: set([f, ])}
-                elif v not in pkgs[n]:
-                    pkgs[n][v] = set([f, ])
-                else:
-                    pkgs[n][v].add(f)
+            
+            addGroup = False
+            if not binSet:
+                log.warn('Empty bin set. BAD.')
+                import epdb; epdb.st()
+ 
+            nevraMap = self._conaryhelper.getNevras(binSet)
+            
+            for conaryVer, nevra in nevraMap.iteritems():
+                if nevra:
+                    curPkg = mkNevraObj(nevra)
+                    labelNevra = [ mkNevraObj(labelNevra) for labelVer, 
+                                    labelNevra in allNevrasOnLabel.iteritems() 
+                                        if labelVer[0] == conaryVer[0] ] 
+                    labelNevra.sort(util.packagevercmp)
+                    labelPkg = labelNevra[-1]
 
-            for name, vf in pkgs.iteritems():
-                assert len(vf) == 1
-                version = vf.keys()[0]
-                flavors = list(vf[version])
-                if group.hasPackage(name):
-                    # This seems superfluous as we are always 
-                    # going to take the latest from the label 
-                    # and the pkg should already be on the label
-                    curVer = str(version.trailingRevision().version)
-                    last = allPkgVer[name]
-                    last.sort(util.rpmvercmp)
-                    latestVer = last[-1]
-                    if util.rpmvercmp(curVer, latestVer) != -1:
-                        log.info('adding %s=%s' % (name, version))
-                        for f in flavors:
-                            log.info('\t%s' % f)
-                        group.addPackage(name, version, flavors)
-                else:
+                    if util.packagevercmp(curPkg, labelPkg) == -1:
+                        addGroup = True
+
+            if addGroup:
+
+                for n, v, f in binSet:
+                    if ':' in n:
+                        continue
+                    elif n not in pkgs:
+                        pkgs[n] = {v: set([f, ])}
+                    elif v not in pkgs[n]:
+                        pkgs[n][v] = set([f, ])
+                    else:
+                        pkgs[n][v].add(f)
+
+                for name, vf in pkgs.iteritems():
+                    assert len(vf) == 1
+                    version = vf.keys()[0]
+                    flavors = list(vf[version])
                     log.info('adding %s=%s' % (name, version))
                     for f in flavors:
                         log.info('\t%s' % f)
                     group.addPackage(name, version, flavors)
+ 
 
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         print "REMOVE LINE AFTER TESTING"
@@ -278,13 +294,27 @@ class Bot(BotSuperClass):
         return allPackageVersions, allSourceVersions
 
 
+    def _fltrPkg(self, pkgname):
+        """
+        Return True if this is a package that should be filtered out.
+        """
+
+        if (pkgname.startswith('info-') or
+            pkgname.startswith('group-') or
+            pkgname.startswith('factory-') or
+            pkgname in self._cfg.excludePackages):
+            return True
+
+        return False
+
+
+
     def _diffRepos(self, allVersions, pkgSrcType=None, debug=0):
         """
         Diff the yum/rpm repo vs the label and return lists
         @pkgSrcType = 'bin' or None -- At this time no need for binary  
         @allSource = self._pkgSource.srcNameMap or self._pkgSource.binNameMap
         @toUpdate = [(rpm)] set of rpms to be updated
-        @toCreate = [(rpm)] set of rpms to be created
         """
         
         allSource = self._pkgSource.srcNameMap
@@ -293,14 +323,13 @@ class Bot(BotSuperClass):
             allSource = self._pkgSource.binNameMap
             
         toUpdate = []
-        toCreate = []
 
         for pkgName, pkgSet in allSource.iteritems():
             if len(pkgSet) == 0:
                 continue
 
             pkgList = list(pkgSet)
-            pkgList.sort()
+            pkgList.sort(util.rpmvercmp)
 
             for pkgPkg in pkgList:
                 onLabel = []
@@ -336,12 +365,12 @@ class Bot(BotSuperClass):
                             % (version, pkgPkg.name))
                 if pkgPkg.name not in allVersions:
                     log.warn('%s is a new pkg adding to create' % pkgPkg.name)
-                    toCreate.append(pkgPkg)
+                    toUpdate.append(pkgPkg)
                 else:
                     log.info('%s added to update list' % pkgPkg)
                     toUpdate.append(pkgPkg)
                     
-        return toUpdate, toCreate
+        return toUpdate
 
     def _removeSource(self, updateId, group):
         # Handle the case of entire source being obsoleted, this causes all
@@ -416,12 +445,13 @@ class Bot(BotSuperClass):
         restoreFile = kwargs.pop('restoreFile', None)
         checkMissingPackages = kwargs.pop('checkMissingPackages', True)
         
-        # Generate an updateId
+        # Generate an updateId for the group so we can build several 
+        # groups a day without stomping on the name
         #updateId = int(time.time())
         groupId = int(time.time())
 
-        # Generate a today ID for config file.
-        # Not sure how to handle this yet
+        # Generate the updateID for config file.
+        # Not sure how to handle this yet so we are basing it on the day
         # This would make it easier to control groups built on the 
         # same day...
         updateId = int(time.mktime(time.strptime(time.strftime('%Y%m%d', 
@@ -450,9 +480,17 @@ class Bot(BotSuperClass):
         startime = time.time()
         updateSet = {}
         
+        # Almost completely unnecessary now... need to remove at some point.
         allPackageVersions, allSourceVersions = self._getAllPkgVersionsLabel()
 
-        srcUpdate, srcCreate = self._diffRepos(allVersions=allSourceVersions, debug=0)
+        # Using this to keep track of what the label looked like before we 
+        # promote all the pkgs we are building and for building groups
+        allNevrasOnLabel = self._conaryhelper.getNevrasForLabel(
+                                            self._conaryhelper._ccfg.buildLabel)
+
+        # Diff the repos based on the label 
+        # FIXME: I believe seperating srcUpdate and update is not neccessary 
+        srcUpdate = self._diffRepos(allVersions=allSourceVersions, debug=0)
 
         # TESTING
         #print "need to check toUpdate"
@@ -461,6 +499,11 @@ class Bot(BotSuperClass):
         # remove packages from config
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
         removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+        # FIXME: NEED A FIX for this... since group and pkgs are built seperate
+        # once the new package is built it should be added to the group...
+        # however if the group build fails and the pkg is not replacement 
+        # package is not added it wouldn't be added again until a new new version
+        # comes around... bad
         removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
 
         # take the union of the three lists to get a unique list of packages
@@ -479,13 +522,11 @@ class Bot(BotSuperClass):
         allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
 
         updates = set()
-
+        
+        # Create the update set to pass to the updater
         if srcUpdate:
             updates.update(srcUpdate)    
         
-        if srcCreate: 
-            updates.update(srcCreate)
-
         # If recovering from a failure, restore the pkgMap from disk.
         pkgMap = {}
         if restoreFile:
@@ -505,19 +546,22 @@ class Bot(BotSuperClass):
             if fltr:
                 updates = fltr(updates)
 
-            #Only build one pkg. 
+            # FIXME: For testing Only build one pkg. 
+            # Might add a config option to try and take human bites
             upDates = set()
-            upDates.add([ x for x in sorted(updates) ][0])
+            upDates.add([ x for x in updates ][0])
             # This is to check what we are building before we build it
             
 
             # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
             #print "REMOVE LINE AFTER ALTERNATE REPO SETUP"
             #import epdb; epdb.st()
-
+            
+            # FIXME: For testing purpose we are taking human bites
             pkgMap.update(self._update(*args, updatePkgs=upDates,
                 expectedRemovals=expectedRemovals,
                 allowPackageDowngrades=allowDowngrades, **kwargs))
+
             #pkgMap.update(self._update(*args, updatePkgs=updates,
             #    expectedRemovals=expectedRemovals,
             #    allowPackageDowngrades=allowDowngrades, **kwargs))
@@ -543,7 +587,7 @@ class Bot(BotSuperClass):
 
         #grpPkgNameMap = [ (x.name, x.version, x.flavor) for x in group.iterpackages() ]
 
-
+        # FIXME: Not implemented yet
         # Keep Obsoleted
         keepObsolete = set(self._cfg.keepObsolete)
         keepObsoleteSource = set(self._cfg.keepObsoleteSource)
@@ -566,7 +610,7 @@ class Bot(BotSuperClass):
         pkgMap = self._useOldVersions(updateId, pkgMap)
 
         # Make sure built troves are part of the group.
-        self._addNewPackages(allPackageVersions, pkgMap, group)
+        self._addNewPackages(allNevrasOnLabel, pkgMap, group)
 
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         print "Check the pkgMap now"
@@ -592,6 +636,12 @@ class Bot(BotSuperClass):
 
         group = group.commit()
         grpTrvMap = group.build()
+
+        # Add promote for group if success
+        if grpTrvMap:
+            log.info('promoting group %s ' % group.version)
+            # Add promote code here
+
 
         updateSet.update(pkgMap)
 

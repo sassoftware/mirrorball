@@ -29,7 +29,12 @@ from repomd.xmlcommon import SlotNode
 
 class PackageCompare(object):
     def __str__(self):
-        return '-'.join([self.name, self.epoch, self.version, self.release,
+        epoch = self.epoch
+        if epoch is None:
+            epoch = ''
+        elif not isinstance(epoch, str):
+            epoch = str(epoch)
+        return '-'.join([self.name, epoch, self.version, self.release,
                          self.arch])
 
     def __hash__(self):

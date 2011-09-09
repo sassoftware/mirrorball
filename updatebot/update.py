@@ -406,14 +406,23 @@ class Updater(object):
 
             # make sure new package is actually newer
             if util.packagevercmp(srpm, srcPkg) == -1:
-                srcTuple = (srcPkg.getNevra(), srpm.getNevra())
-                log.warn('version goes backwards %s -> %s' % srcTuple)
-                if srcTuple in allowPackageDowngrades:
-                    log.info('found version downgrade exception in '
-                             'configuration')
+                # In current mode we just need to build
+                # attempts are made in update set to keep the latest rpm
+                # the latest conary version so just let it go
+                if self._cfg.updateMode == 'current':
+                    srcTuple = (srcPkg.getNevra(), srpm.getNevra())
+                    log.warn('running in current mode ignoring')
+                    log.warn('version goes backwards %s -> %s' % srcTuple)
                     needsUpdate = True
                 else:
-                    raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
+                    srcTuple = (srcPkg.getNevra(), srpm.getNevra())
+                    log.warn('version goes backwards %s -> %s' % srcTuple)
+                    if srcTuple in allowPackageDowngrades:
+                        log.info('found version downgrade exception in '
+                             'configuration')
+                        needsUpdate = True
+                    else:
+                        raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
             if ((binPkg.name, binPkg.arch) not in newNames and

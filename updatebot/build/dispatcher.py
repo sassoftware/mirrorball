@@ -477,7 +477,17 @@ class PromoteDispatcher(Dispatcher):
                     continue
 
                 # Make result hashable
-                res = tuple([ (x, tuple(y)) for x, y in result.iteritems() ])
+                # FIXME:
+                # Ran into an instance where the results were none... \
+                # this is probably bad but for now we are going to
+                # ignore it and move on
+                if result:
+                    res = tuple([ (x, tuple(y)) for x, y in result.iteritems() ])
+                else:
+                    log.error('jobId %s returned None for result' % jobId)
+                    log.warn('This is probably bad FIXME')
+                    import epdb; epdb.st()
+                    continue
 
                 toPromote.append((jobId, res))
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
