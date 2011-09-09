@@ -204,6 +204,10 @@ class Bot(BotSuperClass):
             # no time to look for it  
             nvr = SrcPkg()
             nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch = nevra
+            if nvr.epoch is None:
+                nvr.epoch = ''
+            elif not isinstance(nvr.epoch, str):
+                nvr.epoch = str(nvr.epoch)
             return nvr
 
         for binSet in pkgMap.itervalues():
@@ -224,8 +228,15 @@ class Bot(BotSuperClass):
                                         if labelVer[0] == conaryVer[0] ] 
                     labelNevra.sort(util.packagevercmp)
                     labelPkg = labelNevra[-1]
-
-                    if util.packagevercmp(curPkg, labelPkg) == -1:
+                    if group.hasPackage(curPkg.name):
+                        if util.packagevercmp(curPkg, labelPkg) == 1:
+                            log.info('%s newer than what was on label' % 
+                                    "_".join([curPkg.name,curPkg.version,curPkg.release]))
+                            addGroup = True
+                        else:
+                            log.info('later version found on label')
+                    else:
+                        log.info('new package adding to group')
                         addGroup = True
 
             if addGroup:
@@ -294,20 +305,6 @@ class Bot(BotSuperClass):
         return allPackageVersions, allSourceVersions
 
 
-    def _fltrPkg(self, pkgname):
-        """
-        Return True if this is a package that should be filtered out.
-        """
-
-        if (pkgname.startswith('info-') or
-            pkgname.startswith('group-') or
-            pkgname.startswith('factory-') or
-            pkgname in self._cfg.excludePackages):
-            return True
-
-        return False
-
-
 
     def _diffRepos(self, allVersions, pkgSrcType=None, debug=0):
         """
@@ -329,6 +326,8 @@ class Bot(BotSuperClass):
                 continue
 
             pkgList = list(pkgSet)
+
+            # Some attempt to retain order...
             pkgList.sort(util.rpmvercmp)
 
             for pkgPkg in pkgList:
@@ -338,10 +337,6 @@ class Bot(BotSuperClass):
                 version = util.srpmToConaryVersion(pkgPkg)
                 #version = pkgPkg.getConaryVersion() # Only works on src
              
-                # skip special packages
-                if self._updater._fltrPkg(pkgPkg.name):
-                    continue               
-
                 # FAST lookup
                 if pkgPkg.name in allVersions:
                     onLabel = [ x for x in allVersions[pkgPkg.name] if
@@ -465,11 +460,6 @@ class Bot(BotSuperClass):
         if current is None:
             raise PlatformNotImportedError
 
-        # Check to see if there is a binary version if the current group.
-        # This handles restarts where the group failed to build, but we don't
-        # want to rebuild all of the packages again.
-        #if not group.hasBinaryVersion():
-        #    group.build()
 
         # Load package source.
         self._pkgSource.load()
@@ -578,6 +568,12 @@ class Bot(BotSuperClass):
         # Get current group
         group = self._groupmgr.getGroup()
 
+        # Check to see if there is a binary version if the current group.
+        # This handles restarts where the group failed to build, but we don't
+        # want to rebuild all of the packages again.
+        if not group.hasBinaryVersion():
+            group.build()
+
         # Get current timestamp
         current = group.errataState
         if current is None:
@@ -586,6 +582,9 @@ class Bot(BotSuperClass):
         # Generate grpPkgMap
 
         #grpPkgNameMap = [ (x.name, x.version, x.flavor) for x in group.iterpackages() ]
+        # FIXME: should take the list of troves in the group and 
+        # query the label to see if newer nevra versions exist 
+        # Then add them to the group
 
         # FIXME: Not implemented yet
         # Keep Obsoleted
@@ -620,12 +619,9 @@ class Bot(BotSuperClass):
         self._modifyGroups(updateId, group)
 
         # Get timestamp version.
-        #version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(updateId))
-        #if not version:
-        #    version = 'unknown.%s' % updateId
-        # Changing the group version to be mopre granular than just day
+        # Changing the group version to be more granular than just day
         # This is to avoid building the same group over and over on the 
-        # same day... 
+        # same day... to change back groupId == updateId
         version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(groupId))
         if not version:
             version = 'unknown.%s' % groupId
