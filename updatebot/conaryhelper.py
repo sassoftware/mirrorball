@@ -388,7 +388,7 @@ class ConaryHelper(object):
             label = label.label()
 
         if label in self._cache.labelNevraCache:
-            return self._cache.labelClonedFromCache[label]
+            return self._cache.labelNevraCache[label]
 
         req = {None: {label: None}}
         binTrvMap = self._repos.getTroveVersionsByLabel(req)
