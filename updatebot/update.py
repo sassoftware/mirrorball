@@ -384,7 +384,8 @@ class Updater(object):
             if line in self._pkgSource.locationMap:
                 binPkg = self._pkgSource.locationMap[line]
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
-            elif line.strip().endswith('.src.rpm') and self._cfg.synthesizeSources:
+            elif (line.strip().endswith('.src.rpm') and
+                  self._cfg.synthesizeSources):
                 # this is a fake source.  Move on.
                 continue
             else:
@@ -855,7 +856,8 @@ class Updater(object):
 
         # Take the basename of all paths in the manifest since the same rpm will
         # be in different repositories for each platform.
-        baseManifest = sorted([ dropArchRE.sub('', os.path.basename(x)) for x in manifest ])
+        baseManifest = sorted([ dropArchRE.sub('', os.path.basename(x))
+            for x in manifest ])
         parentBaseManifest = sorted([ dropArchRE.sub('', os.path.basename(x))
                                       for x in parentManifest ])
         # baseManifest = sorted([ os.path.basename(x) for x in manifest ])
@@ -863,21 +865,36 @@ class Updater(object):
         #                               for x in parentManifest ])
 
         if baseManifest != parentBaseManifest:
-            if srcPkg.getFileName() in self._cfg.expectParentManifestDifferences:
-                if srcPkg.getFileName() in baseManifest and srcPkg.getFileName() in parentBaseManifest:
-                    log.info('%s: found expected difference in manifests between parent and child platforms, ignoring parent platform' % srcPkg)
+            if (srcPkg.getFileName() in
+                self._cfg.expectParentManifestDifferences):
+
+                if (srcPkg.getFileName() in baseManifest and
+                    srcPkg.getFileName() in parentBaseManifest):
+
+                    log.info('%s: found expected difference in manifests '
+                        'between parent and child platforms, ignoring parent '
+                        'platform' % srcPkg)
                     return None
                 else:
                     # This is basically an assertion.
-                    log.error('%s: unexpected manifest error between parent and child platforms: %s not found in both manifests' % (srcName, srcPkg))
-                    raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg, manifest=manifest, parentManifest=parentManifest)
+                    log.error('%s: unexpected manifest error between parent '
+                        'and child platforms: %s not found in both manifests'
+                        % (srcName, srcPkg))
+                    raise ParentPlatformManifestInconsistencyError(
+                        srcPkg=srcPkg, manifest=manifest,
+                        parentManifest=parentManifest)
+
             if self._cfg.ignoreAllParentManifestDifferences:
-                log.warn('%s: found matching parent trove, but manifests differ; soldiering onward to madness--thank goodness this is a dry run...' % srcPkg)
+                log.warn('%s: found matching parent trove, but manifests '
+                    'differ; soldiering onward to madness--thank goodness this '
+                    'is a dry run...' % srcPkg)
                 import epdb ; epdb.st()
                 return None
             else:
-                log.error('%s: found matching parent trove, but manifests differ' % srcPkg)
-                raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg, manifest=manifest, parentManifest=parentManifest)
+                log.error('%s: found matching parent trove, but manifests '
+                    'differ' % srcPkg)
+                raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg,
+                    manifest=manifest, parentManifest=parentManifest)
 
         return srcVersion
 
