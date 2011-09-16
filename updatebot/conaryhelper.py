@@ -365,7 +365,12 @@ class ConaryHelper(object):
             if ti is None:
                 return None
 
-            return (ti.rpm.name(), ti.rpm.epoch(), ti.rpm.version(),
+            if ti.rpm.epoch() is None:
+                epoch = ''
+            else:
+                epoch = str(ti.rpm.epoch())
+
+            return (ti.rpm.name(), epoch, ti.rpm.version(),
                 ti.rpm.release(), ti.rpm.arch())
 
         self._cacheTroveInfo(troveSpecs, self._cache.nevraCache,
