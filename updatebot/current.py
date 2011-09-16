@@ -138,51 +138,6 @@ class Bot(BotSuperClass):
         if addPackages or removePackages:
             group.modifyContents(additions=addPackages, removals=removePackages)
 
-    def _savePackages(self, pkgMap, fn=None):
-        """
-        Save the package map to a file.
-        """
-
-        if fn is None:
-            fn = tempfile.mktemp()
-
-        log.info('saving package map to file: %s' % fn)
-
-        # freeze contents
-        frzPkgs = dict([ ((x[0], x[1].freeze(), x[2]),
-                          set([ (z[0], z[1].freeze(), z[2].freeze())
-                                for z in y]))
-                          for x, y in pkgMap.iteritems() ])
-
-        # pickle frozen contents
-        pickle.dump(frzPkgs, open(fn, 'w'))
-
-    def _restorePackages(self, fn):
-        """
-        Restore the frozen form of the package map.
-        """
-
-        log.info('restoring package map from file: %s' % fn)
-
-        thawVersion = versions.ThawVersion
-
-        def thawFlavor(flv):
-            if flv is None:
-                return flv
-            else:
-                return deps.ThawFlavor(flv)
-
-        # load pickle
-        frzPkgs = pickle.load(open(fn))
-
-        # thaw versions and flavors
-        pkgMap = dict([ ((x[0], thawVersion(x[1]), thawFlavor(x[2])),
-                         set([ (z[0], thawVersion(z[1]), thawFlavor(z[2]))
-                               for z in y ]))
-                        for x, y in frzPkgs.iteritems() ])
-
-        return pkgMap
-
     def create(self, *args, **kwargs):
         """
         Handle initial import case.
@@ -197,7 +152,11 @@ class Bot(BotSuperClass):
             raise PlatformAlreadyImportedError
 
         self._pkgSource.load()
-        toCreate = self._errata.getInitialPackages()
+
+        # FIXME: Need to determine the initial set of packages to import. Maybe
+        #        we find the first time every nevra appears or maybe we just
+        #        import all of the packages we can see and build a latest group?
+        toCreate = set()
 
         fltr = kwargs.pop('fltr', None)
         if fltr:
@@ -457,6 +416,9 @@ class Bot(BotSuperClass):
         Figure out what this source package was meant to update.
         """
 
+        # FIXME: Should make this take a list of srcPkgs so that we can
+        #        avoid multiple repository calls.
+
         # Get a mapping of nvf -> nevra
         sourceNevras = self._updater._conaryhelper.getNevrasForLabel(
             self._updater._conaryhelper._ccfg.buildLabel)
@@ -513,7 +475,7 @@ class Bot(BotSuperClass):
 
         log.info('starting update run')
 
-        startime = time.time()
+        starttime = time.time()
 
         # Figure out what packages still need to be promoted.
         promotePkgs = self._getPromotePackages()
@@ -543,13 +505,21 @@ class Bot(BotSuperClass):
             updatePkgs.filterPkgs(kwargs.pop('fltr', None))
 
             for updateSet in updatePkgs:
+                log.info('building set of update troves')
                 updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
                     for x in updateSet])
+
+                log.info('running update')
                 self._update(*args, updateTroves=updateTroves, updatePkgs=True,
                     expectedRemovals=expectedRemovals, **kwargs)
+
                 # The NEVRA maps will be changing every time through. Make sure
                 # the clear the cache.
+                log.info('dumping conaryhelper cache')
                 self._updater._conaryhelper.clearCache()
+
+        log.info('completed package update of %s packages in %s seconds'
+            % (len(updatePkgs), starttime-time.time()))
 
     def buildgroups(self):
         """
@@ -574,11 +544,6 @@ class Bot(BotSuperClass):
         # remove packages from config
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
         removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
-        # FIXME: NEED A FIX for this... since group and pkgs are built seperate
-        # once the new package is built it should be added to the group...
-        # however if the group build fails and the pkg is not replacement 
-        # package is not added it wouldn't be added again until a new new
-        # version comes around... bad
         removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
 
         # take the union of the three lists to get a unique list of packages
@@ -586,6 +551,7 @@ class Bot(BotSuperClass):
         expectedRemovals = (set(removePackages) |
                             set(removeObsoleted) |
                             set(removeReplaced))
+
         # The following packages are expected to exist and must be removed
         # (removeObsoleted may be mentioned for buckets where the package
         # is not in the model, in order to support later adding the ability
