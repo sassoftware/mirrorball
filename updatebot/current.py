@@ -20,31 +20,64 @@ import time
 import pickle
 import logging
 import tempfile
-import itertools
 
 from conary import versions
 from conary.deps import deps
 
-from updatebot import errata
 from updatebot import groupmgr
-from updatebot import conaryhelper
 from updatebot.lib import util
-from updatebot.lib import watchdog
 from updatebot.bot import Bot as BotSuperClass
 
-from updatebot.errors import SourceNotImportedError
 from updatebot.errors import UnknownRemoveSourceError
 from updatebot.errors import PlatformNotImportedError
-from updatebot.errors import TargetVersionNotFoundError
-from updatebot.errors import PromoteMissingVersionError
-from updatebot.errors import PromoteFlavorMismatchError
 from updatebot.errors import PlatformAlreadyImportedError
-from updatebot.errors import FoundModifiedNotImportedErrataError
-from updatebot.errors import UnhandledUpdateError
 
-# FIXME: update the logger for current mode
-#log = logging.getLogger('updatebot.ordered')
 log = logging.getLogger('updatebot.current')
+
+class UpdateSet(object):
+    """
+    Basic structure for iterating over a set of update packages.
+    """
+
+    def __init__(self, updatePkgs):
+        self._updatePkgs = updatePkgs
+
+    def __len__(self):
+        return len(self._updatePkgs)
+
+    def __iter__(self):
+        """
+        Update pacakges in NEVRA order if we can.
+        """
+
+        data = {}
+        for srcPkg in self._updatePkgs:
+            data.setdefault(srcPkg.name, set()).add(srcPkg)
+
+        while data:
+            job = []
+            toRemove = []
+            for n, nevras in data.iteritems():
+                nevra = sorted(nevras)[0]
+                nevras.remove(nevra)
+                job.append(nevra)
+
+                if not nevras:
+                    toRemove.append(n)
+
+            for n in toRemove:
+                data.pop(n)
+
+            yield job
+
+    def filterPkgs(self, fltr):
+        if not fltr:
+            return
+        self._updatePkgs = fltr(self._updatePkgs)
+
+    def pop(self):
+        return self._updatePkgs.pop()
+
 
 class Bot(BotSuperClass):
     """
@@ -55,18 +88,13 @@ class Bot(BotSuperClass):
 
     _create = BotSuperClass.create
     _update = BotSuperClass.update
-    # REMOVED errataSource from __init__
+
     def __init__(self, cfg):
         BotSuperClass.__init__(self, cfg)
-        # FIXME: remove errata stuff
-        #self._errata = errata.ErrataFilter(self._cfg, self._ui, self._pkgSource,
-        #    errataSource)
-        
+
         self._groupmgr = groupmgr.GroupManager(self._cfg, self._ui,
             useMap=self._pkgSource.useMap)
-        
-        self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
-        
+
         if self._cfg.platformSearchPath:
             self._parentGroup = groupmgr.GroupManager(self._cfg, self._ui,
                                                       parentGroup=True)
@@ -212,14 +240,14 @@ class Bot(BotSuperClass):
 
         for binSet in pkgMap.itervalues():
             pkgs = {}
-            
+
             addGroup = False
             if not binSet:
                 log.warn('Empty bin set. BAD.')
                 import epdb; epdb.st()
- 
+
             nevraMap = self._conaryhelper.getNevras(binSet)
-            
+
             for conaryVer, nevra in nevraMap.iteritems():
                 if nevra:
                     curPkg = mkNevraObj(nevra)
@@ -259,113 +287,11 @@ class Bot(BotSuperClass):
                     for f in flavors:
                         log.info('\t%s' % f)
                     group.addPackage(name, version, flavors)
- 
+
 
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         print "REMOVE LINE AFTER TESTING"
         import epdb; epdb.st()
-
-
-    def _getAllPkgVersionsLabel(self):
-        """
-        get all versions of a package from the buildLabel 
-        and return 2 dictionaries
-        allPackageVersions
-        allSourceVersions
-        """
-
-        log.info('querying buildLabel %s for all committed packages' %
-                 self._updater._conaryhelper._ccfg.buildLabel)
-
-        allPackageVersions = {}
-
-        # Get all versions of all on buildLabel committed to repo.
-        allPkgVersions = self._updater._conaryhelper._repos.getTroveVersionsByLabel(
-                                {None: {self._updater._conaryhelper._ccfg.buildLabel: None}})
-
-        for binary, versions in allPkgVersions.iteritems():
-
-            if ( binary.endswith(':debuginfo') or 
-                binary.endswith(':source')):
-                 continue
-
-            allPackageVersions[binary] = [ x.versions[1].version 
-                                                for x in versions.keys() ]
-
-
-        allSourceVersions = {}
-
-        # Build dict of all source versions found in repo.
-        for source, versions in allPkgVersions.iteritems():
-            if source.endswith(':source'):
-                allSourceVersions[source.replace(':source', '')] = [ x.versions[1].version 
-                                                                        for x in versions.keys() ]
-
-
-        return allPackageVersions, allSourceVersions
-
-
-
-    def _diffRepos(self, allVersions, pkgSrcType=None, debug=0):
-        """
-        Diff the yum/rpm repo vs the label and return lists
-        @pkgSrcType = 'bin' or None -- At this time no need for binary  
-        @allSource = self._pkgSource.srcNameMap or self._pkgSource.binNameMap
-        @toUpdate = [(rpm)] set of rpms to be updated
-        """
-        
-        allSource = self._pkgSource.srcNameMap
-        
-        if pkgSrcType:
-            allSource = self._pkgSource.binNameMap
-            
-        toUpdate = []
-
-        for pkgName, pkgSet in allSource.iteritems():
-            if len(pkgSet) == 0:
-                continue
-
-            pkgList = list(pkgSet)
-
-            # Some attempt to retain order...
-            pkgList.sort(util.rpmvercmp)
-
-            for pkgPkg in pkgList:
-                onLabel = []
-                log.info('Working on %s package' % pkgPkg)
-
-                version = util.srpmToConaryVersion(pkgPkg)
-                #version = pkgPkg.getConaryVersion() # Only works on src
-             
-                # FAST lookup
-                if pkgPkg.name in allVersions:
-                    onLabel = [ x for x in allVersions[pkgPkg.name] if
-                                                x == version ] 
-
-                # This is not the way to do this
-                # Use for debuging only 
-                # maybe look up by sha1 sum as well...               
-                # SLOW  -- Really this is slow
-                if debug: 
-                    log.debug('looking up %s on the label' % pkgPkg)
-                    onLabel = self._conaryhelper.findTrove((pkgPkg.name, 
-                                               version, None))
-
-                if onLabel:
-                    log.info('MATCH:version %s of %s  already on the label'
-                                % (version, pkgPkg.name))
-                    continue
-
-                log.info('Version %s %s not on label adding to update'
-                            % (version, pkgPkg.name))
-                if pkgPkg.name not in allVersions:
-                    log.warn('%s is a new pkg adding to create' % pkgPkg.name)
-                    toUpdate.append(pkgPkg)
-                else:
-                    log.info('%s added to update list' % pkgPkg)
-                    toUpdate.append(pkgPkg)
-                    
-        return toUpdate
 
     def _removeSource(self, updateId, group):
         # Handle the case of entire source being obsoleted, this causes all
@@ -430,27 +356,144 @@ class Bot(BotSuperClass):
 
         return pkgMap
 
+    def _getLatestNevraPackageMap(self, nevraMap):
+        """
+        Take a mapping of nvf to nevra and transform it into nevra to latest
+        package nvf.
+        """
+
+        nevras = {}
+        for (n, v, f), nevra in nevraMap.iteritems():
+            # Skip nvfs that don't have a nevra
+            if not nevra:
+                continue
+
+            # Skip sources
+            if v.isSourceVersion():
+                continue
+
+            # Repack nevra subbing '0' for '', since yum metadata doesn't
+            # represent epochs of None.
+            if nevra[1] == '':
+                nevra = (nevra[0], '0', nevra[2], nevra[3], nevra[4])
+
+            pkgNvf = (n.split(':')[0], v, f)
+            nevras.setdefault(nevra, set()).add(pkgNvf)
+
+        ret = {}
+        for nevra, pkgs in nevras.iteritems():
+            ret[nevra] = sorted(pkgs)[-1]
+
+        return ret
+
+    def _getPromotePackages(self):
+        """
+        Get the packages that have beeen built on the buildLabel, but have yet
+        to be promoted to the target label. You should only run accross these if
+        the promote step in the package build failed.
+        """
+
+        helper = self._updater._conaryhelper
+
+        # Get all of the nevras for the target and source labels.
+        log.info('querying target nevras')
+        targetNevras = helper.getNevrasForLabel(self._cfg.targetLabel)
+        log.info('querying source nevras')
+        sourceNevras = helper.getNevrasForLabel(helper._ccfg.buildLabel)
+
+        # Massage nevra maps into nevra -> latest package nvf
+        targetLatest = self._getLatestNevraPackageMap(targetNevras)
+        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+
+        # Now we need to map the target nvfs back the source nvfs they were
+        # cloned from.
+        log.info('querying target cloned from information')
+        targetClonedFrom = helper.getClonedFromForLabel(self._cfg.targetLabel)
+
+        # Now diff the two maps. We are looking for things that have been
+        # updated on the source label, that have not made it to the target
+        # label.
+        toPromote = set()
+        for nevra, nvf in sourceLatest.iteritems():
+            # nevra has not been promoted.
+            if nevra not in targetLatest:
+                toPromote.add(nvf)
+            # the conary package containing this nevra has been rebuilt.
+            elif nvf not in targetClonedFrom:
+                toPromote.add(nvf)
+
+        return toPromote
+
+    def _getUpdatePackages(self):
+        """
+        Compare the upstream yum repository and the conary repository to figure
+        out what sources need to be updated.
+        """
+
+        # Get a mapping of nvf -> nevra
+        sourceNevras = self._updater._conaryhelper.getNevrasForLabel(
+            self._updater._conaryhelper._ccfg.buildLabel)
+
+        # Reverse the map and filter out old conary versions.
+        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+
+        # Iterate over all of the available source rpms to find any versions
+        # that have not been imported into the conary repository.
+        toUpdate = set()
+        toUpdateMap = {}
+        for binPkg, srcPkg in self._pkgSource.binPkgMap.iteritems():
+            # Skip over source packages
+            if binPkg.arch == 'src':
+                continue
+
+            if binPkg.getNevra() not in sourceLatest:
+                toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
+                toUpdate.add(srcPkg)
+
+        return UpdateSet(toUpdate)
+
+    def _getPreviousNVFForSrcPkg(self, srcPkg):
+        """
+        Figure out what this source package was meant to update.
+        """
+
+        # Get a mapping of nvf -> nevra
+        sourceNevras = self._updater._conaryhelper.getNevrasForLabel(
+            self._updater._conaryhelper._ccfg.buildLabel)
+
+        # Reverse the map and filter out old conary versions.
+        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+
+        # Find the previous nevra
+        srcPkgs = sorted(self._pkgSource.srcNameMap.get(srcPkg.name))
+        idx = srcPkgs.index(srcPkg) - 1
+
+        # This is a new package
+        if idx < 0:
+            return (srcPkg.name, None, None)
+
+        binPkgs = [ x for x in self._pkgSource.srcPkgMap[srcPkgs[idx]]
+            if x.arch != 'src' ]
+
+        binPkg = binPkgs[0]
+
+        binNVF = sourceLatest[binPkg.getNevra()]
+        sourceVersions = self._updater._conaryhelper.getSourceVersions(
+            [binNVF, ]).keys()
+
+        assert len(sourceVersions) == 1
+        return sourceVersions[0]
 
     def update(self, *args, **kwargs):
         """
         Handle update case.
         """
 
-        # Load specific kwargs
-        restoreFile = kwargs.pop('restoreFile', None)
-        checkMissingPackages = kwargs.pop('checkMissingPackages', True)
-        
-        # Generate an updateId for the group so we can build several 
-        # groups a day without stomping on the name
-        #updateId = int(time.time())
-        groupId = int(time.time())
-
-        # Generate the updateID for config file.
-        # Not sure how to handle this yet so we are basing it on the day
-        # This would make it easier to control groups built on the 
-        # same day...
-        updateId = int(time.mktime(time.strptime(time.strftime('%Y%m%d', 
-                                        time.gmtime(time.time())), '%Y%m%d')))
+        # We don't use these for anything in current update mode, but need to
+        # pop them off the kwargs dict so as to not confuse the lower level
+        # update code.
+        kwargs.pop('checkMissingPackages', None)
+        kwargs.pop('restoreFile', None)
 
         # Get current group
         group = self._groupmgr.getGroup()
@@ -460,31 +503,73 @@ class Bot(BotSuperClass):
         if current is None:
             raise PlatformNotImportedError
 
+        # Get the latest errata state, increment if the source has been built.
+        if group.hasBinaryVersion():
+            group.errataState += 1
+        updateId = group.errataState
 
         # Load package source.
         self._pkgSource.load()
 
         log.info('starting update run')
 
-        count = 0
         startime = time.time()
-        updateSet = {}
-        
-        # Almost completely unnecessary now... need to remove at some point.
-        allPackageVersions, allSourceVersions = self._getAllPkgVersionsLabel()
 
-        # Using this to keep track of what the label looked like before we 
-        # promote all the pkgs we are building and for building groups
-        allNevrasOnLabel = self._conaryhelper.getNevrasForLabel(
-                                            self._conaryhelper._ccfg.buildLabel)
+        # Figure out what packages still need to be promoted.
+        promotePkgs = self._getPromotePackages()
 
-        # Diff the repos based on the label 
-        # FIXME: I believe seperating srcUpdate and update is not neccessary 
-        srcUpdate = self._diffRepos(allVersions=allSourceVersions, debug=0)
+        # Go ahead and promote any packages that didn't get promoted during the
+        # last run or have been rebuilt since then.
+        log.info('found %s packages that need to be promoted' %
+            len(promotePkgs))
+        self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
-        # TESTING
-        #print "need to check toUpdate"
-        #import epdb ; epdb.st() 
+        # Figure out what packages need to be updated.
+        updatePkgs = self._getUpdatePackages()
+
+        # remove packages from config
+        removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
+        removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+        removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
+
+        # take the union of the three lists to get a unique list of packages
+        # to remove.
+        expectedRemovals = (set(removePackages) |
+                            set(removeObsoleted) |
+                            set(removeReplaced))
+
+        # Update package set.
+        if updatePkgs:
+            updatePkgs.filterPkgs(kwargs.pop('fltr', None))
+
+            for updateSet in updatePkgs:
+                updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
+                    for x in updateSet])
+                self._update(*args, updateTroves=updateTroves, updatePkgs=True,
+                    expectedRemovals=expectedRemovals, **kwargs)
+                # The NEVRA maps will be changing every time through. Make sure
+                # the clear the cache.
+                self._updater._conaryhelper.clearCache()
+
+    def buildgroups(self):
+        """
+        Find the latest packages on the production label by nevra and build a
+        group, taking into account any packages that would have been obsoleted
+        along the way.
+        """
+
+        # Get current group
+        group = self._groupmgr.getGroup()
+
+        # Get current timestamp
+        current = group.errataState
+        if current is None:
+            raise PlatformNotImportedError
+
+        # Get the latest errata state, increment if the source has been built.
+        if group.hasBinaryVersion():
+            group.errataState += 1
+        updateId = group.errataState
 
         # remove packages from config
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
@@ -492,8 +577,8 @@ class Bot(BotSuperClass):
         # FIXME: NEED A FIX for this... since group and pkgs are built seperate
         # once the new package is built it should be added to the group...
         # however if the group build fails and the pkg is not replacement 
-        # package is not added it wouldn't be added again until a new new version
-        # comes around... bad
+        # package is not added it wouldn't be added again until a new new
+        # version comes around... bad
         removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
 
         # take the union of the three lists to get a unique list of packages
@@ -510,74 +595,6 @@ class Bot(BotSuperClass):
 
         # Get the list of package that are allowed to be downgraded.
         allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
-
-        updates = set()
-        
-        # Create the update set to pass to the updater
-        if srcUpdate:
-            updates.update(srcUpdate)    
-        
-        # If recovering from a failure, restore the pkgMap from disk.
-        pkgMap = {}
-        if restoreFile:
-            pkgMap = self._restorePackages(restoreFile)
-            restoreFile = None
-
-        # Filter out anything that has already been built from the list
-        # of updates.
-        upMap = dict([ (x.name, x) for x in updates ])
-        for n, v, f in pkgMap:
-            if n in upMap:
-                updates.remove(upMap[n])
-
-        # Update package set.
-        if updates:
-            fltr = kwargs.pop('fltr', None)
-            if fltr:
-                updates = fltr(updates)
-
-            # FIXME: For testing Only build one pkg. 
-            # Might add a config option to try and take human bites
-            upDates = set()
-            upDates.add([ x for x in updates ][0])
-            # This is to check what we are building before we build it
-            
-
-            # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-            #print "REMOVE LINE AFTER ALTERNATE REPO SETUP"
-            #import epdb; epdb.st()
-            
-            # FIXME: For testing purpose we are taking human bites
-            pkgMap.update(self._update(*args, updatePkgs=upDates,
-                expectedRemovals=expectedRemovals,
-                allowPackageDowngrades=allowDowngrades, **kwargs))
-
-            #pkgMap.update(self._update(*args, updatePkgs=updates,
-            #    expectedRemovals=expectedRemovals,
-            #    allowPackageDowngrades=allowDowngrades, **kwargs))
-
-        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-        #print "REMOVE LINE AFTER TESTING"
-        #import epdb; epdb.st()
-
-        # Save package map in case we run into trouble later.
-        self._savePackages(pkgMap)
-
-        # Start Group Build
-
-        # Get current group
-        group = self._groupmgr.getGroup()
-
-        # Check to see if there is a binary version if the current group.
-        # This handles restarts where the group failed to build, but we don't
-        # want to rebuild all of the packages again.
-        if not group.hasBinaryVersion():
-            group.build()
-
-        # Get current timestamp
-        current = group.errataState
-        if current is None:
-            raise PlatformNotImportedError        
 
         # Generate grpPkgMap
 
@@ -620,11 +637,9 @@ class Bot(BotSuperClass):
 
         # Get timestamp version.
         # Changing the group version to be more granular than just day
-        # This is to avoid building the same group over and over on the 
-        # same day... to change back groupId == updateId
-        version = time.strftime('%Y.%m.%d_%H%M.%S',time.gmtime(groupId))
-        if not version:
-            version = 'unknown.%s' % groupId
+        # This is to avoid building the same group over and over on the
+        # same day...
+        version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(time.time()))
 
         # Build groups.
         log.info('setting version %s' % version)
@@ -637,7 +652,6 @@ class Bot(BotSuperClass):
         if grpTrvMap:
             log.info('promoting group %s ' % group.version)
             # Add promote code here
-
 
         updateSet.update(pkgMap)
 
@@ -652,12 +666,10 @@ class Bot(BotSuperClass):
         # already-built job id's.  (See long comment above.)
         #import epdb ; epdb.st()
 
-
-
         # TESTING
         print "need to check updates set"
-        import epdb ; epdb.st() 
- 
+        import epdb ; epdb.st()
+
         # BELOW THIS LINE WILL BE REMOVED
 
         # FIXME: remove errata crap
@@ -668,361 +680,6 @@ class Bot(BotSuperClass):
             % (count, time.time() - startime))
 
         return updateSet
-
-    def promote(self, enforceAllExpected=True, checkMissingPackages=True):
-        """
-        Promote binary groups from the devel label to the production lable in
-        the order that they were built.
-        """
-
-        # Get current timestamp
-        current = self._groupmgr.latest.errataState
-        if current is None:
-            raise PlatformNotImportedError
-
-        # laod package source
-        self._pkgSource.load()
-
-        if checkMissingPackages:
-            # Ensure no packages are missing from repository.
-            self._errata.sanityCheckOrder()
-            missingPackages, missingOrder = self._checkMissingPackages()
-            if len(missingPackages):
-                raise UnhandledUpdateError(why='missing %s ordered source packages from repository' % len(missingPackages))
-
-        log.info('querying repository for all group versions')
-        sourceLatest = self._updater.getUpstreamVersionMap(self._cfg.topGroup)
-
-        log.info('querying target label for all group versions')
-        targetLatest = self._updater.getUpstreamVersionMap(
-            (self._cfg.topGroup[0], self._cfg.targetLabel, None))
-
-        log.info('querying target label for cloned from information')
-        # The targetSpec list tells us if the latest version of each group has
-        # been promoted to the target label.
-        sourceSpecs = [ x for x in itertools.chain(*sourceLatest.itervalues()) ]
-        targetSpecs, failed = self._updater.getTargetVersions(sourceSpecs,
-            logErrors=False)
-        targetSpecMap = {}
-        for spec in targetSpecs:
-            ver = spec[1].trailingRevision().getVersion()
-            targetSpecMap.setdefault(ver, set()).add(spec)
-
-        log.info('starting promote')
-
-        count = 0
-        startime = time.time()
-
-        # Get all updates after the first bucket.
-        missing = False
-        for updateId, bucket in self._errata.iterByIssueDate(current=-1):
-            upver = self._errata.getBucketVersion(updateId)
-
-            if updateId <= self._cfg.errataPromoteAfter:
-                log.info('version %s (%s) at or below promotion timestamp threshold (%s), skipping' % (upver, updateId, self._cfg.errataPromoteAfter))
-                continue
-            # FOR SLES FIX 
-            #if upver == '2011.07.13_0800.00': 
-            #    import epdb; epdb.st()    
-            #if upver >= '2011.07.18_0400.00': 
-              #  import epdb; epdb.st()    
-            # Don't try to promote buckets that have already been promoted.
-            if upver in targetLatest and upver in targetSpecMap:
-                log.info('%s found on target label, skipping' % upver)
-                continue
-            elif upver not in targetSpecMap:
-                # FIXME: This log message is confusing.
-                log.info('%s found on target label, but newer version '
-                         'available on source, will repromote' % upver)
-
-            # Make sure version has been imported.
-            if upver not in sourceLatest:
-                missing = upver
-                continue
-
-            # If we find a missing version and then find a version in the
-            # repository report an error.
-            if missing:
-                log.critical('found missing version %s' % missing)
-                raise PromoteMissingVersionError(missing=missing, next=upver)
-
-            log.info('starting promote of %s' % upver)
-
-            # Get conary versions to promote
-            toPromote = sourceLatest[upver]
-
-            # Make sure we have the expected number of flavors
-            if len(set(x[2] for x in toPromote)) != len(self._cfg.groupFlavors):
-                log.error('did not find expected number of flavors')
-                raise PromoteFlavorMismatchError(
-                    cfgFlavors=self._cfg.groupFlavors, troves=toPromote,
-                    version=toPromote[0][1])
-
-            # Find excepted promote packages.
-            srcPkgMap = self._updater.getBinaryVersionsFromSourcePackages(
-                bucket)
-            exceptions = dict([ (x[0], x[1]) for x in itertools.chain(
-                *self._getOldVersionExceptions(updateId).itervalues()) ])
-
-
-            advisories = [ x['name'] for x in
-                           self._errata.getUpdateDetail(updateId) ]
-
-            for advisory in advisories:
-                # Handle attaching an update that was caused by changes that we
-                # made outside of the normal update stream to an existing
-                # advisory.
-                for nvf in self._cfg.extendAdvisory.get(advisory, ()):
-                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
-                        nvf, labels=self._cfg.platformSearchPath,
-                        latest=False, includeBuildLabel=True)
-                    assert len(srcMap) == 1
-                    srcPkgMap.update(srcMap)
-
-            # These are the binary trove specs that we expect to be promoted.
-            expected = self._filterBinPkgSet(
-                itertools.chain(*srcPkgMap.itervalues()), exceptions)
-
-            # Get list of extra troves from the config
-            extra = self._cfg.extraExpectedPromoteTroves.get(updateId, [])
-
-            def promote():
-                # Create and validate promote changeset
-                packageList = self._updater.publish(toPromote, expected,
-                    self._cfg.targetLabel, extraExpectedPromoteTroves=extra,
-                    enforceAllExpected=enforceAllExpected)
-                return 0
-
-            rc = watchdog.waitOnce(promote)
-            if rc:
-                break
-            count += 1
-
-        log.info('promote complete')
-        log.info('promoted %s groups in %s seconds'
-            % (count, time.time() - startime))
-
-    def createErrataGroups(self, rebuildGroups=False):
-        """
-        Create groups for each advisory that only contain the versions of
-        packages that were included in that advisory. Once created, promote
-        to production branch.
-        """
-
-        # Get current timestamp
-        current = self._groupmgr.latest.errataState
-        if current is None:
-            raise PlatformNotImportedError
-
-        # Load package source.
-        self._pkgSource.load()
-
-        # Get latest errataState from the targetLabel so that we can
-        # fence group building based on the target label state.
-        targetGroup = groupmgr.GroupManager(self._cfg, self._ui,
-                                            targetGroup=True)
-        targetErrataState = targetGroup.latest.errataState
-
-        log.info('starting errata group processing')
-
-        count = 0
-        startime = time.time()
-
-        for updateId, updates in self._errata.iterByIssueDate(current=0):
-            # Stop if the updateId is greater than the state of the
-            # latest group on the production label.
-            if updateId > targetErrataState:
-                log.info('current updateId (%s) is newer than target label '
-                    'contents' % updateId)
-                break
-
-            # Make sure the group representing the current updateId has been
-            # imported and promoted to the production label.
-            version = self._errata.getBucketVersion(updateId)
-            if not targetGroup.hasBinaryVersion(sourceVersion=version):
-                raise TargetVersionNotFoundError(version=version,
-                                                 updateId=updateId)
-
-            log.info('%s: looking up version exceptions' % updateId)
-            # Lookup any places we need to use old versions ahead of time.
-            multiVersionExceptions = dict([
-                (x[0], x[1]) for x in itertools.chain(
-                    self._updater.getTargetVersions(itertools.chain(
-                *self._getOldVersionExceptions(updateId).itervalues()
-                    ))[0]
-                )
-            ])
-
-            # Now that we know that the packages that are part of this update
-            # should be on the target label we can separate things into
-            # advisories.
-            mgr = groupmgr.ErrataGroupManagerSet(self._cfg, self._ui)
-            groupNames = self._errata.getNames(updateId)
-            for advInfo in self._errata.getUpdateDetail(updateId):
-                advisory = advInfo['name']
-                log.info('%s: processing' % advisory)
-
-                srcPkgs = self._errata.getAdvisoryPackages(advisory)
-                if advisory in self._cfg.brokenErrata:
-                    # We expect srcPkgs to be empty for known-broken errata.
-                    log.warning('%s: skipping broken advisory' % advisory)
-                    continue
-                else:
-                    assert srcPkgs
-
-                targetGrp = groupmgr.SingleGroupManager(groupNames[advisory],
-                    self._cfg, self._ui, targetGroup=True)
-
-                if targetGrp.hasBinaryVersion() and not rebuildGroups:
-                    log.info('%s: found existing version, skipping' % advisory)
-                    continue
-
-                grp = mgr.newGroup(groupNames[advisory]).getGroup()
-                grp.version = version
-                grp.errataState = updateId
-
-                log.info('%s: finding built packages' % advisory)
-                binTrvMap = \
-                    self._updater.getBinaryVersionsFromSourcePackages(srcPkgs)
-
-                binTrvs = set()
-                for srcPkg, binTrvSpecs in binTrvMap.iteritems():
-                    targetSpecs, failed = self._updater.getTargetVersions(
-                        binTrvSpecs)
-                    binTrvs.update(set(targetSpecs))
-
-                # Handle attaching an update that was caused by changes that we
-                # made outside of the normal update stream to an existing
-                # advisory.
-                for nvf in self._cfg.extendAdvisory.get(advisory, ()):
-                    srcMap = self._updater.getSourceVersionMapFromBinaryVersion(
-                        nvf, labels=self._cfg.platformSearchPath,
-                        latest=False, includeBuildLabel=True)
-                    assert len(srcMap) == 1
-                    targetVersions = self._updater.getTargetVersions(
-                        srcMap.values()[0])[0]
-                    binTrvs.update(set(targetVersions))
-
-                # Group unique versions by flavor
-                nvfMap = {}
-                for n, v, f in self._filterBinPkgSet(binTrvs, multiVersionExceptions):
-                    # Taghandler components were moved to common label
-                    # and packages were rebuilt, so omit them here to
-                    # prevent older versions of packages being pulled in
-                    # (raising exceptions during commit) due solely to
-                    # their taghandler components (which are missing in
-                    # the newer versions).
-                    if n.endswith(':tagdescription') or n.endswith(':taghandler'):
-                        continue
-                    n = n.split(':')[0]
-                    nvfMap.setdefault((n, v), set()).add(f)
-
-                if rebuildGroups and targetGrp.hasBinaryVersion():
-                    # For comparing with rebuilt group model.
-                    oldGrp = {}
-                    for x in grp.iterpackages():
-                        if x.flavor != None:
-                            log.info('%s: found flavoring for %s=%s: %s' % (advisory, x.name, x.version, x.flavor))
-                        oldGrp.setdefault(x.name,set()).add((x.version,
-                                                             x.flavor))
-
-                    packagesToRemove = set()
-                    for packageToRemove in grp.iterpackages():
-                        packagesToRemove.add(packageToRemove.name)
-                    for packageToRemove in packagesToRemove:
-                        grp.removePackage(packageToRemove)
-
-                    # Should be empty:
-                    if len([ x for x in grp.iterpackages() ]):
-                        log.error('%s: group model not empty after pre-rebuild package removal' % advisory)
-                        # Change to assertion?
-                        import epdb ; epdb.st()
-
-                # Add packages to group model.
-                for (n, v), flvs in nvfMap.iteritems():
-                    log.info('%s: adding package %s=%s' % (advisory, n, v))
-                    for f in flvs:
-                        log.info('%s: %s' % (advisory, f))
-                    grp.addPackage(n, v, flvs)
-
-                if rebuildGroups and targetGrp.hasBinaryVersion():
-                    # Sanity-checking craziness, could use a haircut, perhaps
-                    # a move to its own function.
-                    newGrp = {}
-                    for x in grp.iterpackages():
-                        newGrp.setdefault(x.name,set()).add((x.version,
-                                                             x.flavor))
-
-                    # Compare old & new.
-                    for oldPkg, oldVF in oldGrp.iteritems():
-                        for oldV, oldF in oldVF:
-                            try:
-                                if not newGrp[oldPkg]:
-                                    raise KeyError
-                            except KeyError:
-                                log.error('%s: missing package %s in new group model' % (advisory, oldPkg))
-                                import epdb ; epdb.st()
-                                continue
-                            found = False
-                            oldVt = versions.ThawVersion(oldV).trailingRevision().getVersion()
-                            for newVF in newGrp[oldPkg]:
-                                if not oldF:
-                                    newVt = versions.ThawVersion(newVF[0]).trailingRevision().getVersion()
-                                    if oldVt == newVt:
-                                        log.info('%s: found matching version %s for %s in new group model' % (advisory, newVt, oldPkg))
-                                        if oldV != newVF[0]:
-                                            log.warning('%s: note difference in %s source/build versions due to rebuilt package: %s != %s' % (advisory, oldPkg, oldV, newVF[0]))
-                                        found = True
-                                        del newGrp[oldPkg]
-                                        break
-                                else:
-                                    newVt = versions.ThawVersion(newVF[0]).trailingRevision().getVersion()
-                                    if oldVt == newVt and oldF == newVF[1]:
-                                        log.info('%s: found matching version ' % advisory + '%s and flavor %s ' % (newVt, newVF[1]) + 'for %s in new group model' % oldPkg)
-                                        if oldV != newVF[0]:
-                                            log.warning('%s: note difference in %s source/build versions due to rebuilt package: %s != %s' % (advisory, oldPkg, oldV, newVF[0]))
-                                        found = True
-                                        newGrp[oldPkg].remove((newVF[0], oldF))
-                                        if not len(newGrp[oldPkg]):
-                                            log.info('%s: all versions/flavors matched for %s' % (advisory, oldPkg))
-                                            del newGrp[oldPkg]
-                                        break
-                            if not found:
-                                log.error('%s: cannot find %s for %s in new group model' % (advisory, oldV, oldPkg))
-                                import epdb ; epdb.st()
-                    
-                    if len(newGrp):
-                        log.error('%s: new group model has extra packages: %s' % (advisory, newGrp))
-                        import epdb ; epdb.st()
-                    else:
-                        log.info('%s: new group model package versions verified to match old group model' % advisory)
-                        log.info('%s: (note flavor match between old and new models may have been left unchecked for some packages)' % advisory)
-                    
-            # Make sure there are groups to build.
-            if not mgr.hasGroups():
-                log.info('%s: groups already built and promoted' % updateId)
-                continue
-
-            log.info('%s: committing group sources' % updateId)
-
-            mgr.commit()
-
-            log.info('%s: building groups' % updateId)
-            trvMap = mgr.build()
-
-            log.info('%s: promoting groups' % updateId)
-            # Setting expected to an empty tuple since we don't expect anything
-            # other than groups to be promoted.
-            expected = tuple()
-            toPromote = self._flattenSetDict(trvMap)
-            promoted = self._updater.publish(toPromote, expected,
-                                             self._cfg.targetLabel)
-
-            count += 1
-
-        log.info('completed errata group processing')
-        log.info('processed %s errata groups in %s seconds'
-            % (count, time.time() - startime))
 
     def _getOldVersionExceptions(self, updateId):
         versionExceptions = {}
