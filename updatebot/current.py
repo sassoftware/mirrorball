@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2010 rPath, Inc.
+# Copyright (c) 2009-2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -13,16 +13,12 @@
 #
 
 """
-Module for doing updates ordered by errata information.
+Module for doing updates by importing all of the available packages and then
+building groups of the latest versions by nevra.
 """
 
 import time
-import pickle
 import logging
-import tempfile
-
-from conary import versions
-from conary.deps import deps
 
 from updatebot import groupmgr
 from updatebot.lib import util
@@ -361,6 +357,7 @@ class Bot(BotSuperClass):
         sourceNevras = helper.getNevrasForLabel(helper._ccfg.buildLabel)
 
         # Massage nevra maps into nevra -> latest package nvf
+        log.info('building latest nevra maps')
         targetLatest = self._getLatestNevraPackageMap(targetNevras)
         sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
 
@@ -388,6 +385,8 @@ class Bot(BotSuperClass):
         Compare the upstream yum repository and the conary repository to figure
         out what sources need to be updated.
         """
+
+        log.info('finding updates')
 
         # Get a mapping of nvf -> nevra
         sourceNevras = self._updater._conaryhelper.getNevrasForLabel(
@@ -519,7 +518,7 @@ class Bot(BotSuperClass):
                 self._updater._conaryhelper.clearCache()
 
         log.info('completed package update of %s packages in %s seconds'
-            % (len(updatePkgs), starttime-time.time()))
+            % (len(updatePkgs), time.time()-starttime))
 
     def buildgroups(self):
         """
@@ -658,30 +657,3 @@ class Bot(BotSuperClass):
                 versionExceptions.update(srcMap)
 
         return versionExceptions
-
-    def _filterBinPkgSet(self, binSet, exceptions):
-        binPkgs = {}
-        for n, v, f in binSet:
-            binPkgs.setdefault(n, dict()).setdefault(v, set()).add(f)
-
-        uniqueSet = set()
-        for n, vMap in binPkgs.iteritems():
-            # Handle the case where a package has been rebuilt for some
-            # reason, but we need to use the old version of the package.
-            pkgName = n.split(':')[0]
-            if len(vMap) > 1:
-                if pkgName in exceptions:
-                    log.info('using old version of %s' % n)
-                    vMap = dict((x, y) for x, y in vMap.iteritems()
-                                if x == exceptions[pkgName])
-                else:
-                    log.info('found multiple versions of %s, using latest' % n)
-                    v = sorted(vMap)[-1]
-                    vMap = { v: vMap[v], }
-
-            assert len(vMap) == 1
-
-            for v, flvs in vMap.iteritems():
-                uniqueSet.update(set((n, v, f) for f in flvs))
-
-        return uniqueSet
