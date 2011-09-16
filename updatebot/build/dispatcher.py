@@ -56,7 +56,9 @@ class AbstractDispatcher(object):
         Check if all jobs are complete.
         """
 
-        log.info('waiting for the following jobs: %s' % ','.join(map(str, self._jobs.keys())))
+        log.info('waiting for the following jobs: %s' %
+            ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
+            if self._jobs[x][1] not in self._completed]))
 
         if not len(self._jobs):
             return False
@@ -433,11 +435,6 @@ class PromoteDispatcher(Dispatcher):
         JobStatus.ERROR_PROMOTE_FAILURE,
         buildjob.JOB_STATE_FAILED,
         JobStatus.JOB_PROMOTED,
-    )
-
-    _slotdone = (
-        buildjob.JOB_STATE_FAILED,
-        buildjob.JOB_STATE_BUILT
     )
 
     _promoterClass = JobPromoter
