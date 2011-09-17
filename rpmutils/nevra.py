@@ -26,6 +26,9 @@ class NEVRA(namedtuple('nevra', 'name epoch version release arch')):
     """
 
     def __cmp__(self, other):
+        if isinstance(other, tuple):
+            other = self.__class__(*other)
+
         nameCmp = cmp(self.name, other.name)
         if nameCmp != 0:
             return nameCmp
