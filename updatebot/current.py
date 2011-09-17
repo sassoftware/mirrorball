@@ -19,9 +19,13 @@ building groups of the latest versions by nevra.
 
 import time
 import logging
+import itertools
+
+from conary.trovetup import TroveTuple
+
+from rpmutils import NEVRA
 
 from updatebot import groupmgr
-from updatebot.lib import util
 from updatebot.bot import Bot as BotSuperClass
 
 from updatebot.errors import UnknownRemoveSourceError
@@ -139,6 +143,8 @@ class Bot(BotSuperClass):
         Handle initial import case.
         """
 
+        raise NotImplementedError
+
         group = self._groupmgr.getGroup()
         if group.errataState == 'None':
             group.errataState = None
@@ -176,77 +182,6 @@ class Bot(BotSuperClass):
             group.build()
 
         return pkgMap, failures
-
-    def _addNewPackages(self, allNevrasOnLabel, pkgMap, group):
-        """
-        Add pkgMap to group.
-        """
-        from repomd.packagexml import _Package as SrcPkg
-        def mkNevraObj(nevra):
-            # positive this code is somewhere in the mess... 
-            # no time to look for it  
-            nvr = SrcPkg()
-            nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch = nevra
-            if nvr.epoch is None:
-                nvr.epoch = ''
-            elif not isinstance(nvr.epoch, str):
-                nvr.epoch = str(nvr.epoch)
-            return nvr
-
-        for binSet in pkgMap.itervalues():
-            pkgs = {}
-
-            addGroup = False
-            if not binSet:
-                log.warn('Empty bin set. BAD.')
-                import epdb; epdb.st()
-
-            nevraMap = self._conaryhelper.getNevras(binSet)
-
-            for conaryVer, nevra in nevraMap.iteritems():
-                if nevra:
-                    curPkg = mkNevraObj(nevra)
-                    labelNevra = [ mkNevraObj(labelNevra) for labelVer, 
-                                    labelNevra in allNevrasOnLabel.iteritems() 
-                                        if labelVer[0] == conaryVer[0] ] 
-                    labelNevra.sort(util.packagevercmp)
-                    labelPkg = labelNevra[-1]
-                    if group.hasPackage(curPkg.name):
-                        if util.packagevercmp(curPkg, labelPkg) == 1:
-                            log.info('%s newer than what was on label' % 
-                                    "_".join([curPkg.name,curPkg.version,curPkg.release]))
-                            addGroup = True
-                        else:
-                            log.info('later version found on label')
-                    else:
-                        log.info('new package adding to group')
-                        addGroup = True
-
-            if addGroup:
-
-                for n, v, f in binSet:
-                    if ':' in n:
-                        continue
-                    elif n not in pkgs:
-                        pkgs[n] = {v: set([f, ])}
-                    elif v not in pkgs[n]:
-                        pkgs[n][v] = set([f, ])
-                    else:
-                        pkgs[n][v].add(f)
-
-                for name, vf in pkgs.iteritems():
-                    assert len(vf) == 1
-                    version = vf.keys()[0]
-                    flavors = list(vf[version])
-                    log.info('adding %s=%s' % (name, version))
-                    for f in flavors:
-                        log.info('\t%s' % f)
-                    group.addPackage(name, version, flavors)
-
-
-        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-        print "REMOVE LINE AFTER TESTING"
-        import epdb; epdb.st()
 
     def _removeSource(self, updateId, group):
         # Handle the case of entire source being obsoleted, this causes all
@@ -311,20 +246,23 @@ class Bot(BotSuperClass):
 
         return pkgMap
 
-    def _getLatestNevraPackageMap(self, nevraMap):
+    def _getNevrasForLabel(self, label):
         """
-        Take a mapping of nvf to nevra and transform it into nevra to latest
-        package nvf.
+        Get a mapping of pkg nvf -> nevra for a given label. Use this method
+        instead of the conary helper directly so that we are using NEVRA objects
+        and already map epochs of None to 0 to match yum metadata.
         """
 
-        nevras = {}
-        for (n, v, f), nevra in nevraMap.iteritems():
+        nevraMap = self._updater._conaryhelper.getNevrasForLabel(label)
+
+        newMap = {}
+        for nvf, nevra in nevraMap.iteritems():
             # Skip nvfs that don't have a nevra
             if not nevra:
                 continue
 
-            # Skip sources
-            if v.isSourceVersion():
+            # Skip sources.
+            if nvf[1].isSourceVersion():
                 continue
 
             # Repack nevra subbing '0' for '', since yum metadata doesn't
@@ -332,8 +270,20 @@ class Bot(BotSuperClass):
             if nevra[1] == '':
                 nevra = (nevra[0], '0', nevra[2], nevra[3], nevra[4])
 
-            pkgNvf = (n.split(':')[0], v, f)
-            nevras.setdefault(nevra, set()).add(pkgNvf)
+            pkgNvf = (nvf[0].split(':')[0], nvf[1], nvf[2])
+            newMap[pkgNvf] = NEVRA(*nevra)
+
+        return newMap
+
+    def _getLatestNevraPackageMap(self, nevraMap):
+        """
+        Take a mapping of nvf to nevra and transform it into nevra to latest
+        package nvf.
+        """
+
+        nevras = {}
+        for nvf, nevra in nevraMap.iteritems():
+            nevras.setdefault(nevra, set()).add(nvf)
 
         ret = {}
         for nevra, pkgs in nevras.iteritems():
@@ -352,9 +302,9 @@ class Bot(BotSuperClass):
 
         # Get all of the nevras for the target and source labels.
         log.info('querying target nevras')
-        targetNevras = helper.getNevrasForLabel(self._cfg.targetLabel)
+        targetNevras = self._getNevrasForLabel(self._cfg.targetLabel)
         log.info('querying source nevras')
-        sourceNevras = helper.getNevrasForLabel(helper._ccfg.buildLabel)
+        sourceNevras = self._getNevrasForLabel(helper._ccfg.buildLabel)
 
         # Massage nevra maps into nevra -> latest package nvf
         log.info('building latest nevra maps')
@@ -389,7 +339,7 @@ class Bot(BotSuperClass):
         log.info('finding updates')
 
         # Get a mapping of nvf -> nevra
-        sourceNevras = self._updater._conaryhelper.getNevrasForLabel(
+        sourceNevras = self._getNevrasForLabel(
             self._updater._conaryhelper._ccfg.buildLabel)
 
         # Reverse the map and filter out old conary versions.
@@ -419,7 +369,7 @@ class Bot(BotSuperClass):
         #        avoid multiple repository calls.
 
         # Get a mapping of nvf -> nevra
-        sourceNevras = self._updater._conaryhelper.getNevrasForLabel(
+        sourceNevras = self._getNevrasForLabel(
             self._updater._conaryhelper._ccfg.buildLabel)
 
         # Reverse the map and filter out old conary versions.
@@ -429,21 +379,31 @@ class Bot(BotSuperClass):
         srcPkgs = sorted(self._pkgSource.srcNameMap.get(srcPkg.name))
         idx = srcPkgs.index(srcPkg) - 1
 
+        while idx > 0:
+            binPkgs = [ x for x in self._pkgSource.srcPkgMap[srcPkgs[idx]]
+                if x.arch != 'src' ]
+
+            # Apparently we have managed to not import (or maybe just build)
+            # some sub packages, so let's iterate over all of the until we find
+            # one that matches.
+            for binPkg in binPkgs:
+                if binPkg not in sourceLatest:
+                    continue
+
+                binNVF = sourceLatest[binPkg.getNevra()]
+                sourceVersions = self._updater._conaryhelper.getSourceVersions(
+                    [binNVF, ]).keys()
+
+                assert len(sourceVersions) == 1
+                return sourceVersions[0]
+
+            # Apparently we managed to skip importing a source package, or maybe
+            # it just didn't get built. Fall back to the previous source.
+            idx -= 1
+
         # This is a new package
         if idx < 0:
             return (srcPkg.name, None, None)
-
-        binPkgs = [ x for x in self._pkgSource.srcPkgMap[srcPkgs[idx]]
-            if x.arch != 'src' ]
-
-        binPkg = binPkgs[0]
-
-        binNVF = sourceLatest[binPkg.getNevra()]
-        sourceVersions = self._updater._conaryhelper.getSourceVersions(
-            [binNVF, ]).keys()
-
-        assert len(sourceVersions) == 1
-        return sourceVersions[0]
 
     def update(self, *args, **kwargs):
         """
@@ -500,6 +460,7 @@ class Bot(BotSuperClass):
                             set(removeReplaced))
 
         # Update package set.
+        pkgMap = {}
         if updatePkgs:
             updatePkgs.filterPkgs(kwargs.pop('fltr', None))
 
@@ -509,8 +470,9 @@ class Bot(BotSuperClass):
                     for x in updateSet])
 
                 log.info('running update')
-                self._update(*args, updateTroves=updateTroves, updatePkgs=True,
-                    expectedRemovals=expectedRemovals, **kwargs)
+                pkgMap.update(self._update(*args, updateTroves=updateTroves,
+                    updatePkgs=True, expectedRemovals=expectedRemovals,
+                    **kwargs))
 
                 # The NEVRA maps will be changing every time through. Make sure
                 # the clear the cache.
@@ -520,12 +482,76 @@ class Bot(BotSuperClass):
         log.info('completed package update of %s packages in %s seconds'
             % (len(updatePkgs), time.time()-starttime))
 
+        return pkgMap
+
+    def _addNewPackages(self, group):
+        """
+        Find all of the packages from the buildLabel that are newer that those
+        in the group. Handle any obsoletes along the way.
+        """
+
+        # FIXME: Right now we are going to deal with the buildLabel, we probably
+        #        want to switch to the target label once a script has been
+        #        written to rewrite existing group models to map them onto
+        #        target label versions.
+
+        # Make sure nothing is cached before we get started.
+        self._updater._conaryhelper.clearCache()
+
+        # Get a mapping of nvf -> nevra
+        nevraMap = self._getNevrasForLabel(
+             self._updater._conaryhelper._ccfg.buildLabel)
+
+        # Reverse the map and filter out old conary versions.
+        latest = self._getLatestNevraPackageMap(nevraMap)
+
+        # index by name, will need this later
+        names = {}
+        for nevra, nvf in latest.iteritems():
+            names.setdefault(nevra[0], dict())[nevra] = nvf
+
+        toAdd = {}
+        for pkg in group.iterpackages():
+            nvf = TroveTuple(pkg.name, pkg.version, pkg.flavor)
+
+            assert nvf in nevraMap
+
+            # Get the current nevra
+            nevra = nevraMap[nvf]
+
+            # Now we need to find all versions of this package that
+            # are equal to or newer than the current nevra.
+            pkgs = names.get(nevra.name)
+            nevras = sorted(pkgs)
+            idx = nevras.index(nevra)
+
+            updates = {}
+            while idx < len(nevras):
+                updates[nevras[idx]] = pkgs[nevras[idx]]
+                idx += 1
+
+            ##
+            # FIXME: Obsolete handling goes here
+            #
+            # For each new verison figure out if there are any obsoletes that
+            # need to be handled, then handle them.
+            ##
+
+            # For now just pick the latest one and add it to the group.
+            foo = updates[sorted(updates)[-1]]
+            toAdd.setdefault((foo.name, foo.version), set()).add(foo.flavor)
+
+        for (name, version), flavors in toAdd.iteritems():
+            group.addPackages(name, version, flavors)
+
     def buildgroups(self):
         """
         Find the latest packages on the production label by nevra and build a
         group, taking into account any packages that would have been obsoleted
         along the way.
         """
+
+        starttime = time.time()
 
         # Get current group
         group = self._groupmgr.getGroup()
@@ -563,12 +589,6 @@ class Bot(BotSuperClass):
 
         # Generate grpPkgMap
 
-        #grpPkgNameMap = [ (x.name, x.version, x.flavor) for x in group.iterpackages() ]
-        # FIXME: should take the list of troves in the group and 
-        # query the label to see if newer nevra versions exist 
-        # Then add them to the group
-
-        # FIXME: Not implemented yet
         # Keep Obsoleted
         keepObsolete = set(self._cfg.keepObsolete)
         keepObsoleteSource = set(self._cfg.keepObsoleteSource)
@@ -588,14 +608,8 @@ class Bot(BotSuperClass):
             for pkg in removeObsoleted:
                 group.removePackage(pkg, missingOk=True)
 
-        pkgMap = self._useOldVersions(updateId, pkgMap)
-
-        # Make sure built troves are part of the group.
-        self._addNewPackages(allNevrasOnLabel, pkgMap, group)
-
-        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
-        print "Check the pkgMap now"
-        import epdb; epdb.st()
+        # Find and add new packages
+        self._addNewPackages(group)
 
         # Modify any extra groups to match config.
         self._modifyGroups(updateId, group)
@@ -613,38 +627,19 @@ class Bot(BotSuperClass):
         group = group.commit()
         grpTrvMap = group.build()
 
-        # Add promote for group if success
-        if grpTrvMap:
-            log.info('promoting group %s ' % group.version)
-            # Add promote code here
-
-        updateSet.update(pkgMap)
+        # Promote groups
+        log.info('promoting group %s ' % group.version)
+        toPromote = [ x for x in itertools.chain(grpTrvMap.itervalues()) ]
+        promoted = self._updater.publish(toPromote, toPromote)
 
         # Report timings
         advTime = time.strftime('%m-%d-%Y %H:%M:%S',
                                     time.localtime(updateId))
-        totalTime = time.time() - startime
-        log.info('published update %s in %s seconds' % (advTime, totalTime))
-        count += 1
+        totalTime = time.time() - starttime
+        log.info('published group update %s in %s seconds'
+            % (advTime, totalTime))
 
-        # Set this breakpoint when you're committing a list of
-        # already-built job id's.  (See long comment above.)
-        #import epdb ; epdb.st()
-
-        # TESTING
-        print "need to check updates set"
-        import epdb ; epdb.st()
-
-        # BELOW THIS LINE WILL BE REMOVED
-
-        # FIXME: remove errata crap
-
-
-        log.info('update completed')
-        log.info('applied %s updates in %s seconds'
-            % (count, time.time() - startime))
-
-        return updateSet
+        return promoted
 
     def _getOldVersionExceptions(self, updateId):
         versionExceptions = {}
