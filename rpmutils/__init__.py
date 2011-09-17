@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) 2008-2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -16,7 +16,8 @@
 Module that provides common utility functions for interacting with rpms.
 """
 
-__ALL__ = ('rpmvercmp', 'readHeader', )
+__ALL__ = ('rpmvercmp', 'readHeader', 'NEVRA')
 
 from rpmutils.vercmp import rpmvercmp
 from rpmutils.header import readHeader
+from rpmutils.nevra import NEVRA
