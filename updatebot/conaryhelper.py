@@ -1080,28 +1080,27 @@ class ConaryHelper(object):
 
         return verMap
 
-    @staticmethod
-    def _iterPromoteJobList(trvLst):
+    def _iterPromoteJobList(self, trvLst):
         """
         Filter trove list into separate jobs when attempting to promote two
         versions of the same package.
         """
 
+        # Get sources for all of the troves so that we can avoid promoting
+        # binaries built from different versions of the same source in the
+        # same job.
+        sources = self.getSourceVersions(trvLst)
+
         data = {}
-        for n, v, f in trvLst:
-            # Skip sources, they come along for free with the underlying
-            # conary promote code.
-            if n.endswith(':source'):
-                continue
-            data.setdefault(n.split(':')[0], dict()).setdefault(v, set()).add(f)
+        for (n, v, f), binTrvs in sources.iteritems():
+            data.setdefault(n.split(':')[0], dict())[v] = binTrvs
 
         while data:
             job = []
             toRemove = []
             for n, vs in data.iteritems():
                 v = sorted(vs)[0]
-                for f in vs.pop(v):
-                    job.append((n, v, f))
+                job.extend(vs.pop(v))
 
                 if not vs:
                     toRemove.append(n)
