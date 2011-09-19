@@ -579,6 +579,9 @@ class Bot(BotSuperClass):
 
         starttime = time.time()
 
+        # Load the pkg src
+        self._pkgSource.load()
+
         # Get current group
         group = self._groupmgr.getGroup()
 
