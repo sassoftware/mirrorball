@@ -515,7 +515,8 @@ class Bot(BotSuperClass):
 
         toAdd = {}
         for pkg in group.iterpackages():
-            nvf = TroveTuple(pkg.name, pkg.version, ThawFlavor(pkg.flavor))
+            flavor = ThawFlavor(str(pkg.flavor))
+            nvf = TroveTuple(pkg.name, pkg.version, flavor)
 
             assert nvf in nevraMap
 
