@@ -379,15 +379,15 @@ class Bot(BotSuperClass):
         srcPkgs = sorted(self._pkgSource.srcNameMap.get(srcPkg.name))
         idx = srcPkgs.index(srcPkg) - 1
 
-        while idx > 0:
+        while idx >= 0:
             binPkgs = [ x for x in self._pkgSource.srcPkgMap[srcPkgs[idx]]
                 if x.arch != 'src' ]
 
             # Apparently we have managed to not import (or maybe just build)
-            # some sub packages, so let's iterate over all of the until we find
+            # some sub packages, so let's iterate over all of them until we find
             # one that matches.
             for binPkg in binPkgs:
-                if binPkg not in sourceLatest:
+                if binPkg.getNevra() not in sourceLatest:
                     continue
 
                 binNVF = sourceLatest[binPkg.getNevra()]
@@ -404,6 +404,8 @@ class Bot(BotSuperClass):
         # This is a new package
         if idx < 0:
             return (srcPkg.name, None, None)
+
+        assert False, 'How did we get here?'
 
     def update(self, *args, **kwargs):
         """
@@ -571,12 +573,6 @@ class Bot(BotSuperClass):
         removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
         removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
 
-        # take the union of the three lists to get a unique list of packages
-        # to remove.
-        expectedRemovals = (set(removePackages) |
-                            set(removeObsoleted) |
-                            set(removeReplaced))
-
         # The following packages are expected to exist and must be removed
         # (removeObsoleted may be mentioned for buckets where the package
         # is not in the model, in order to support later adding the ability
@@ -586,8 +582,6 @@ class Bot(BotSuperClass):
 
         # Get the list of package that are allowed to be downgraded.
         allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
-
-        # Generate grpPkgMap
 
         # Keep Obsoleted
         keepObsolete = set(self._cfg.keepObsolete)
