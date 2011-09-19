@@ -495,7 +495,7 @@ class PromoteDispatcher(Dispatcher):
         # If anything has been promoting for more than 10 minutes, let us poke
         # around and figure out why.
         for jobId, startTime in self._status.iteritems():
-            if time.time() - startTime > (60 * 10):
+            if time.time() - startTime > (60 * 20):
                 import epdb; epdb.st()
 
         # Gather results
@@ -504,7 +504,7 @@ class PromoteDispatcher(Dispatcher):
             for jobId, promoted in result:
                 self._jobs[jobId][2] = promoted
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTED
-                self._status.pop(jobId)
+                self._status.pop(jobId, None)
 
         # Gather errors
         for jobs, error in self._promoter.getErrors():
@@ -512,4 +512,4 @@ class PromoteDispatcher(Dispatcher):
             for jobId in jobs:
                 self._jobs[jobId][1] = JobStatus.ERROR_PROMOTE_FAILURE
                 self._failures.append((jobId, error))
-                self._status.pop(jobId)
+                self._status.pop(jobId, None)
