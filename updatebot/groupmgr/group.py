@@ -360,7 +360,8 @@ class Group(object):
 
         group = self._groups[self._pkgGroupName]
 
-        if flavor:
+        #if flavor:
+        if isinstance(flavor, deps.deps.Flavor):
             group.removePackageFlavor(name, flavor.freeze())
         else:
             group.remove(name, missingOk=missingOk)
