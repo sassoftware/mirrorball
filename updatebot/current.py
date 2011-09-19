@@ -462,6 +462,9 @@ class Bot(BotSuperClass):
                             set(removeObsoleted) |
                             set(removeReplaced))
 
+        # Packages that would otherwise be removed
+        keepRemoved = self._cfg.keepRemoved.get(updateId, [])
+
         # Update package set.
         pkgMap = {}
         if updatePkgs:
@@ -475,6 +478,7 @@ class Bot(BotSuperClass):
                 log.info('running update')
                 pkgMap.update(self._update(*args, updateTroves=updateTroves,
                     updatePkgs=True, expectedRemovals=expectedRemovals,
+                    keepRemovedPackages=keepRemoved,
                     **kwargs))
 
                 # The NEVRA maps will be changing every time through. Make sure

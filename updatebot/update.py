@@ -56,7 +56,7 @@ class Updater(object):
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
     def getUpdates(self, updateTroves=None, expectedRemovals=None,
-        allowPackageDowngrades=None):
+        allowPackageDowngrades=None, keepRemovedPackages=None):
         """
         Find all packages that need updates and/or advisories from a top level
         binary group.
@@ -68,6 +68,10 @@ class Updater(object):
         @param allowPackageDowngrades: list of source nevra tuples to downgrade
                                        from/to.
         @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
+        @param keepRemovedPackages: list of package nevras to keep even though
+                                    they have been removed in the latest version
+                                    of the source.
+        @type keepRemovedPackages: list(nevra, nevra, ...)
         @return list of packages to send advisories for and list of packages
                 to update
         """
@@ -88,7 +92,8 @@ class Updater(object):
             # Will raise exception if any errors are found, halting execution.
             if self._sanitizeTrove(nvf, srpm,
                     expectedRemovals=expectedRemovals,
-                    allowPackageDowngrades=allowPackageDowngrades):
+                    allowPackageDowngrades=allowPackageDowngrades,
+                    keepRemovedPackages=keepRemovedPackages):
                 toUpdate.append((nvf, srpm))
                 toAdvise.append((nvf, srpm))
 

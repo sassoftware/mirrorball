@@ -179,7 +179,8 @@ class Bot(object):
         return trvMap, failed
 
     def update(self, force=None, updatePkgs=None, expectedRemovals=None,
-        allowPackageDowngrades=None, updateTroves=None):
+        allowPackageDowngrades=None, updateTroves=None,
+        keepRemovedPackages=None):
         """
         Update the conary repository from the yum repositories.
         @param force: list of packages to update without exception
@@ -195,6 +196,10 @@ class Bot(object):
         @param updateTroves: overrides the value of updatePkgs. Set of (n, v, f)
             tuple to update from and source package to update to.
         @type updateTroves: set(((n, v, f), srcPkg))
+        @param keepRemovedPackages: list of package nevras to keep even though
+                                    they have been removed in the latest version
+                                    of the source.
+        @type keepRemovedPackages: list(nevra, nevra, ...)
         """
 
         if force is not None:
@@ -214,7 +219,8 @@ class Bot(object):
         toAdvise, toUpdate = self._updater.getUpdates(
             updateTroves=updateTroves,
             expectedRemovals=expectedRemovals,
-            allowPackageDowngrades=allowPackageDowngrades)
+            allowPackageDowngrades=allowPackageDowngrades,
+            keepRemovedPackages=keepRemovedPackages)
 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.
