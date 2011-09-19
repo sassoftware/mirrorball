@@ -22,6 +22,7 @@ import logging
 import itertools
 
 from conary.trovetup import TroveTuple
+from conary.deps.deps import ThawFlavor
 
 from rpmutils import NEVRA
 
@@ -514,7 +515,7 @@ class Bot(BotSuperClass):
 
         toAdd = {}
         for pkg in group.iterpackages():
-            nvf = TroveTuple(pkg.name, pkg.version, pkg.flavor)
+            nvf = TroveTuple(pkg.name, pkg.version, ThawFlavor(pkg.flavor))
 
             assert nvf in nevraMap
 
