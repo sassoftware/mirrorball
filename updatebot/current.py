@@ -441,7 +441,7 @@ class Bot(BotSuperClass):
 
         # Figure out what packages still need to be promoted.
         promotePkgs = self._getPromotePackages()
-        
+
         # Go ahead and promote any packages that didn't get promoted during the
         # last run or have been rebuilt since then.
         log.info('found %s packages that need to be promoted' %
@@ -477,8 +477,6 @@ class Bot(BotSuperClass):
 
                 log.info('running update')
 
-                #import epdb ; epdb.st()
-                
                 pkgMap.update(self._update(*args, updateTroves=updateTroves,
                     updatePkgs=True, expectedRemovals=expectedRemovals,
                     keepRemovedPackages=keepRemoved,
@@ -557,8 +555,13 @@ class Bot(BotSuperClass):
             # need to be handled, then handle them.
             ##
 
-            # For now just pick the latest one and add it to the group.
             foo = updates[sorted(updates)[-1]]
+            # If the only available package is the one that is already in the
+            # group, skip it and move on.
+            if foo == nvf:
+                continue
+
+            # For now just pick the latest one and add it to the group.
             toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])
 
         for nvf in toRemove:
@@ -638,9 +641,7 @@ class Bot(BotSuperClass):
         # Build groups.
         log.info('setting version %s' % version)
         group.version = version
-        
-        import epdb ; epdb.st()
-        
+
         group = group.commit()
         grpTrvMap = group.build()
 
