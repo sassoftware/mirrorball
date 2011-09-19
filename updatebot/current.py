@@ -514,9 +514,18 @@ class Bot(BotSuperClass):
             names.setdefault(nevra[0], dict())[nevra] = nvf
 
         toAdd = {}
+        toRemove = set()
         for pkg in group.iterpackages():
             flavor = ThawFlavor(str(pkg.flavor))
             nvf = TroveTuple(pkg.name, pkg.version, flavor)
+
+            # Older groups contain packages that do not reference any
+            # capsules. This was a side affect of how groups are managed in
+            # ordered mode. Since we don't need to do that anymore, just
+            # remove the package. Hopefully they won't creep back in.
+            if nvf not in nevraMap:
+                toRemove.add(nvf)
+                continue
 
             assert nvf in nevraMap
 
@@ -544,6 +553,9 @@ class Bot(BotSuperClass):
             # For now just pick the latest one and add it to the group.
             foo = updates[sorted(updates)[-1]]
             toAdd.setdefault((foo.name, foo.version), set()).add(foo.flavor)
+
+        for nvf in toRemove:
+            group.removePackages(nvf.name, flavor=nvf.flavor)
 
         for (name, version), flavors in toAdd.iteritems():
             group.addPackages(name, version, flavors)
