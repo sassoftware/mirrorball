@@ -40,40 +40,8 @@ cfg.read(confDir + '/updatebotrc')
 
 fltr = None
 
-# FIXME: Once update finished 
-# Most of this not needed
-if cfg.platformName == 'rhel':
-    #import rhnmirror
-
-    #mcfg = rhnmirror.MirrorConfig()
-    #mcfg.read(confDir + '/erratarc')
-
-    #errata = rhnmirror.Errata(mcfg)
-    bot = current.Bot(cfg)
-
-    checkMissingPackages = False
-
-else:
-    bot = current.Bot(cfg)
-
-    #if cfg.platformName == 'sles':
-    #    from errata.sles import AdvisoryManager as Errata
-
-    #elif cfg.platformName in ('sles11', 'sles11sp1hae'):
-    #    from errata.sles11 import AdvisoryManager11 as Errata
-
-    #elif cfg.platformName == 'centos':
-    #    from errata.centos import AdvisoryManager as Errata
-
-    #else:
-    #    raise RuntimeError, 'no errata source found for %s' % cfg.platformName
-
-    #errata = Errata(bot._pkgSource)
-    #bot._errata._errata = errata
-
-    checkMissingPackages = True
-
-pkgMap = bot.update(fltr=fltr, restoreFile=restoreFile,
-                    checkMissingPackages=checkMissingPackages)
+bot = current.Bot(cfg)
+pkgMap = bot.update(fltr=fltr)
+#bot.buildgroups()
 
 import epdb; epdb.st()
