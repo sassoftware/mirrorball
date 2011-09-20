@@ -494,9 +494,13 @@ class PromoteDispatcher(Dispatcher):
 
         # If anything has been promoting for more than 10 minutes, let us poke
         # around and figure out why.
+        toRemove = set()
         for jobId, startTime in self._status.iteritems():
             if time.time() - startTime > (60 * 20):
                 import epdb; epdb.st()
+                toRemove.add(jobId)
+        for jobId in toRemove:
+            self._status.pop(jobId, None)
 
         # Gather results
         for result in self._promoter.getStatus():
