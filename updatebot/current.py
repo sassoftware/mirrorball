@@ -519,10 +519,27 @@ class Bot(BotSuperClass):
         for nevra, nvf in latest.iteritems():
             names.setdefault((nevra.name, nevra.arch), dict())[nevra] = nvf
 
-        import epdb; epdb.st()
-
         toAdd = {}
         toRemove = set()
+        
+        groupPkgMap = [ (str(pkg.name), ThawFlavor(str(pkg.flavor))) for pkg in group.iterpackages() ]
+        
+
+        #[[(y[0], y[2]) for y in names[x[0]].itervalues()] for x in names.iteritems() ][0][-1] in groupPkgMap
+
+        for xPkg in names.iteritems():
+            for lPkg in names[xPkg[0]].itervalues():
+                if (lPkg[0],lPkg[2]) not in groupPkgMap:
+                    log.info('adding  %s to add' % lPkg[0])
+                    #toAdd.add(latest)
+
+        nevras = {}
+        for nvf, nevra in nevraMap.iteritems():
+                nevras.setdefault(nevra, set()).add(nvf)
+
+            
+        import epdb; epdb.st()
+
         for pkg in group.iterpackages():
             flavor = ThawFlavor(str(pkg.flavor))
             nvf = TroveTuple(pkg.name, pkg.version, flavor)
@@ -577,6 +594,8 @@ class Bot(BotSuperClass):
 
         for (name, version), flavors in toAdd.iteritems():
             group.addPackage(name, version, flavors)
+
+        import epdb; epdb.st()
 
     def buildgroups(self):
         """
