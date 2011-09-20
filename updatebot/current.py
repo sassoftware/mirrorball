@@ -507,6 +507,7 @@ class Bot(BotSuperClass):
         self._updater._conaryhelper.clearCache()
 
         # Get a mapping of nvf -> nevra
+        log.info('retrieving nevras for build label')
         nevraMap = self._getNevrasForLabel(
              self._updater._conaryhelper._ccfg.buildLabel)
 
@@ -516,7 +517,9 @@ class Bot(BotSuperClass):
         # index by name, will need this later
         names = {}
         for nevra, nvf in latest.iteritems():
-            names.setdefault(nevra[0], dict())[nevra] = nvf
+            names.setdefault((nevra.name, nevra.arch), dict())[nevra] = nvf
+
+        import epdb; epdb.st()
 
         toAdd = {}
         toRemove = set()
@@ -539,7 +542,7 @@ class Bot(BotSuperClass):
 
             # Now we need to find all versions of this package that
             # are equal to or newer than the current nevra.
-            pkgs = names.get(nevra.name)
+            pkgs = names.get((nevra.name, nevra.arch))
             nevras = sorted(pkgs)
             idx = nevras.index(nevra)
 
@@ -559,6 +562,11 @@ class Bot(BotSuperClass):
             # If the only available package is the one that is already in the
             # group, skip it and move on.
             if foo == nvf:
+                continue
+
+            if [ x for x in group.iterpackages()
+                 if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
+                    (x.name, x.version, x.flavor) ]:
                 continue
 
             # For now just pick the latest one and add it to the group.
