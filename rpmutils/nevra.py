@@ -25,6 +25,8 @@ class NEVRA(namedtuple('nevra', 'name epoch version release arch')):
     Class to represent an RPM NEVRA.
     """
 
+    __slots__ = ()
+
     def __cmp__(self, other):
         if isinstance(other, tuple):
             other = self.__class__(*other)
@@ -51,3 +53,8 @@ class NEVRA(namedtuple('nevra', 'name epoch version release arch')):
 
         return 0
 
+    def __lt__(self, other):
+        c = self.__cmp__(other)
+        if c == -1:
+            return True
+        return False
