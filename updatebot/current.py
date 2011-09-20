@@ -529,9 +529,15 @@ class Bot(BotSuperClass):
 
         for xPkg in names.iteritems():
             for lPkg in names[xPkg[0]].itervalues():
-                if (lPkg[0],lPkg[2]) not in groupPkgMap:
+                if (lPkg[0],lPkg[2]) in groupPkgMap:
+                    continue
+                else:         
+                    if [ x for x in group.iterpackages()
+                        if (lPkg[0], lPkg[1].freeze(), lPkg[2].freeze()) ==
+                            (x.name, x.version, x.flavor) ]:
+                        continue
                     log.info('adding  %s to add' % lPkg[0])
-                    #toAdd.add(latest)
+                    toAdd.setdefault((lPkg[0], lPkg[1]), set()).add(lPkg[2])
 
         nevras = {}
         for nvf, nevra in nevraMap.iteritems():
