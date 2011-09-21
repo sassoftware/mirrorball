@@ -522,28 +522,44 @@ class Bot(BotSuperClass):
         toAdd = {}
         toRemove = set()
         
-        groupPkgMap = [ (str(pkg.name), ThawFlavor(str(pkg.flavor))) for pkg in group.iterpackages() ]
+        groupPkgMap = [ (str(pkg.name), ThawFlavor(str(pkg.flavor))) 
+                            for pkg in group.iterpackages() ]
         
-
-        #[[(y[0], y[2]) for y in names[x[0]].itervalues()] for x in names.iteritems() ][0][-1] in groupPkgMap
-
-        for xPkg in names.iteritems():
-            for lPkg in names[xPkg[0]].itervalues():
-                if (lPkg[0],lPkg[2]) in groupPkgMap:
-                    continue
-                else:         
-                    if [ x for x in group.iterpackages()
-                        if (lPkg[0], lPkg[1].freeze(), lPkg[2].freeze()) ==
-                            (x.name, x.version, x.flavor) ]:
-                        continue
-                    log.info('adding  %s to add' % lPkg[0])
-                    toAdd.setdefault((lPkg[0], lPkg[1]), set()).add(lPkg[2])
-
         nevras = {}
         for nvf, nevra in nevraMap.iteritems():
                 nevras.setdefault(nevra, set()).add(nvf)
+                
 
-            
+        for xPkg in names.iteritems():
+            for nvf, lPkg in names[xPkg[0]].iteritems():
+                if (lPkg[0],lPkg[2]) in groupPkgMap:
+                    continue
+                else: 
+                    if not nevraMap.has_key(lPkg):
+                        toRemove.add(nvf)
+                        continue   
+ 
+                    # Get the current nevra
+                    nevra = nevraMap[nvf]
+
+                    pkgs = names.get((nevra.name, nevra.arch))
+                    nevras = sorted(pkgs)
+                    idx = nevras.index(nevra)
+
+                    updates = {}
+                    while idx < len(nevras):
+                        updates[nevras[idx]] = pkgs[nevras[idx]]
+                        idx += 1
+
+                    foo = updates[sorted(updates)[-1]]
+
+                    if [ x for x in group.iterpackages()
+                        if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
+                            (x.name, x.version, x.flavor) ]:
+                        continue
+                    log.info('adding  %s to add' % lPkg[0])
+                    toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
+                           
         import epdb; epdb.st()
 
         for pkg in group.iterpackages():
