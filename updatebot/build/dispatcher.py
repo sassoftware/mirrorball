@@ -497,8 +497,9 @@ class PromoteDispatcher(Dispatcher):
         toRemove = set()
         for jobId, startTime in self._status.iteritems():
             if time.time() - startTime > (60 * 20):
-                import epdb; epdb.st()
-                toRemove.add(jobId)
+                log.info('Completely silly promote times have been reached')
+                #import epdb; epdb.st()
+                #toRemove.add(jobId)
         for jobId in toRemove:
             self._status.pop(jobId, None)
 

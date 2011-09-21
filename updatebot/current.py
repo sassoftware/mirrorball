@@ -529,6 +529,7 @@ class Bot(BotSuperClass):
         for nvf, nevra in nevraMap.iteritems():
                 nevras.setdefault(nevra, set()).add(nvf)
                 
+        #import epdb; epdb.st()
         for xPkg in names.iteritems():
             for nvf, lPkg in names[xPkg[0]].iteritems():
                 if (lPkg[0],lPkg[2]) in groupPkgMap:
@@ -556,7 +557,7 @@ class Bot(BotSuperClass):
                         if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
                             (x.name, x.version, x.flavor) ]:
                         continue
-                    log.info('adding  %s to add' % lPkg[0])
+                    log.info('adding  %s to the group' % lPkg[0])
                     toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
                            
         for pkg in group.iterpackages():
@@ -606,6 +607,7 @@ class Bot(BotSuperClass):
                 continue
 
             # For now just pick the latest one and add it to the group.
+            log.info('updating %s to version %s in group' % (foo[0], foo[1]))
             toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])
 
         for nvf in toRemove:
@@ -614,7 +616,7 @@ class Bot(BotSuperClass):
         for (name, version), flavors in toAdd.iteritems():
             group.addPackage(name, version, flavors)
 
-        import epdb; epdb.st()
+        #import epdb; epdb.st()
 
     def buildgroups(self):
         """
