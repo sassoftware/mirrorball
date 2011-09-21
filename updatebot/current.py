@@ -529,7 +529,6 @@ class Bot(BotSuperClass):
         for nvf, nevra in nevraMap.iteritems():
                 nevras.setdefault(nevra, set()).add(nvf)
                 
-        #import epdb; epdb.st()
         for xPkg in names.iteritems():
             for nvf, lPkg in names[xPkg[0]].iteritems():
                 if (lPkg[0],lPkg[2]) in groupPkgMap:
@@ -541,7 +540,8 @@ class Bot(BotSuperClass):
  
                     # Get the current nevra
                     nevra = nevraMap[lPkg]
-
+                    #if lPkg[0] == 'kernel':
+                    #    import epdb; epdb.st()
                     pkgs = names.get((nevra.name, nevra.arch))
                     nevras = sorted(pkgs)
                     idx = nevras.index(nevra)
@@ -557,7 +557,7 @@ class Bot(BotSuperClass):
                         if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
                             (x.name, x.version, x.flavor) ]:
                         continue
-                    log.info('adding  %s to the group' % lPkg[0])
+                    log.info('adding %s %s to the group' % (foo[0], foo[1]))
                     toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
                            
         for pkg in group.iterpackages():
@@ -693,7 +693,7 @@ class Bot(BotSuperClass):
         # Build groups.
         log.info('setting version %s' % version)
         group.version = version
-
+        import epdb; epdb.st()
         group = group.commit()
         grpTrvMap = group.build()
 
