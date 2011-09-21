@@ -529,7 +529,6 @@ class Bot(BotSuperClass):
         for nvf, nevra in nevraMap.iteritems():
                 nevras.setdefault(nevra, set()).add(nvf)
                 
-
         for xPkg in names.iteritems():
             for nvf, lPkg in names[xPkg[0]].iteritems():
                 if (lPkg[0],lPkg[2]) in groupPkgMap:
@@ -540,7 +539,7 @@ class Bot(BotSuperClass):
                         continue   
  
                     # Get the current nevra
-                    nevra = nevraMap[nvf]
+                    nevra = nevraMap[lPkg]
 
                     pkgs = names.get((nevra.name, nevra.arch))
                     nevras = sorted(pkgs)
@@ -560,8 +559,6 @@ class Bot(BotSuperClass):
                     log.info('adding  %s to add' % lPkg[0])
                     toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
                            
-        import epdb; epdb.st()
-
         for pkg in group.iterpackages():
             flavor = ThawFlavor(str(pkg.flavor))
             nvf = TroveTuple(pkg.name, pkg.version, flavor)
@@ -644,6 +641,9 @@ class Bot(BotSuperClass):
             group.errataState += 1
         updateId = group.errataState
 
+        # Find and add new packages
+        self._addNewPackages(group)
+
         # remove packages from config
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
         removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
@@ -678,8 +678,6 @@ class Bot(BotSuperClass):
             for pkg in removeObsoleted:
                 group.removePackage(pkg, missingOk=True)
 
-        # Find and add new packages
-        self._addNewPackages(group)
 
         # Modify any extra groups to match config.
         self._modifyGroups(updateId, group)
