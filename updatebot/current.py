@@ -556,9 +556,24 @@ class Bot(BotSuperClass):
                         import epdb; epdb.st()
 
 
-        import epdb; epdb.st()
-
+        #import epdb; epdb.st()
+        # All the latest versions of the binaries maped by source.
         srcSpecMap = self._updater._conaryhelper.getSourceVersions(binSpecMap.values())
+
+        #import epdb; epdb.st()
+
+        mylist = [ (x[0], x) for x,y in srcSpecMap.iteritems() ]
+        mylist.sort()
+
+        idx = 0
+        while idx < len(mylist):
+            if mylist[idx][0] == mylist[idx + 1][0]:
+                log.info('DUPE: %s --> %s' % (mylist[idx], mylist[idx + 1]))
+
+                idx += 1
+                import epdb; epdb.st()
+            else:
+                idx += 1
 
         import epdb; epdb.st()
 
