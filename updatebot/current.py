@@ -522,33 +522,39 @@ class Bot(BotSuperClass):
         toAdd = {}
         toRemove = set()
         
-        groupPkgMap = [ (str(pkg.name), ThawFlavor(str(pkg.flavor))) 
-                            for pkg in group.iterpackages() ]
+        #groupPkgMap = [ (str(pkg.name), ThawFlavor(str(pkg.flavor))) 
+        #                    for pkg in group.iterpackages() ]
         
         nevras = {}
         for nvf, nevra in nevraMap.iteritems():
                 nevras.setdefault(nevra, set()).add(nvf)
-                
+        
+        from updatebot.lib.util import packagevercmp
+
+        import epdb; epdb.st()
         for xPkg in names.iteritems():
             for nvf, lPkg in names[xPkg[0]].iteritems():
-                if (lPkg[0],lPkg[2]) in groupPkgMap:
-                    continue
-                else: 
-                    if not nevraMap.has_key(lPkg):
+                myup = [ x for x,y in latest.iteritems() if x.name == nvf.name]
+                myup.sort(packagevercmp)
+                mylatest = myup[-1]
+                allup = [ x for x,y in latest.iteritems() 
+                        if (x.name, x.epoch, x.version, x.release) 
+                        == (mylatest.name, mylatest.epoch, 
+                            mylatest.version, mylatest.release) ]
+                for nevra in allup:
+
+                    if not nevras.has_key(nevra):
                         toRemove.add(nvf)
                         continue   
  
                     # Get the current nevra
-                    nevra = nevraMap[lPkg]
-                    #if lPkg[0] == 'kernel':
-                    #    import epdb; epdb.st()
                     pkgs = names.get((nevra.name, nevra.arch))
-                    nevras = sorted(pkgs)
-                    idx = nevras.index(nevra)
+                    mynevras = sorted(pkgs)
+                    idx = mynevras.index(nevra)
 
                     updates = {}
-                    while idx < len(nevras):
-                        updates[nevras[idx]] = pkgs[nevras[idx]]
+                    while idx < len(mynevras):
+                        updates[mynevras[idx]] = pkgs[mynevras[idx]]
                         idx += 1
 
                     foo = updates[sorted(updates)[-1]]
@@ -557,9 +563,12 @@ class Bot(BotSuperClass):
                         if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
                             (x.name, x.version, x.flavor) ]:
                         continue
-                    log.info('adding %s %s to the group' % (foo[0], foo[1]))
+                    log.info('adding %s %s %s to the group' % (foo[0], foo[1], foo[2]))
                     toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
                            
+        import epdb; epdb.st()
+
+
         for pkg in group.iterpackages():
             flavor = ThawFlavor(str(pkg.flavor))
             nvf = TroveTuple(pkg.name, pkg.version, flavor)
