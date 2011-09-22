@@ -559,6 +559,8 @@ class Bot(BotSuperClass):
         #import epdb; epdb.st()
         # All the latest versions of the binaries maped by source.
         srcSpecMap = self._updater._conaryhelper.getSourceVersions(binSpecMap.values())
+        
+        nevraSrcSpecMap = self._updater._conaryhelper.getSourceVersions(nevraMap.keys())
 
         #import epdb; epdb.st()
 
