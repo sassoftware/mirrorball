@@ -529,95 +529,68 @@ class Bot(BotSuperClass):
         for nvf, nevra in nevraMap.iteritems():
                 nevras.setdefault(nevra, set()).add(nvf)
         
-        from updatebot.lib.util import packagevercmp
 
-        import epdb; epdb.st()
+        #import epdb; epdb.st()
+        
+        binSpecMap = {}
+
         for xPkg in names.iteritems():
             for nvf, lPkg in names[xPkg[0]].iteritems():
                 myup = [ x for x,y in latest.iteritems() if x.name == nvf.name]
-                myup.sort(packagevercmp)
+                myup.sort()
                 mylatest = myup[-1]
                 allup = [ x for x,y in latest.iteritems() 
                         if (x.name, x.epoch, x.version, x.release) 
                         == (mylatest.name, mylatest.epoch, 
                             mylatest.version, mylatest.release) ]
                 for nevra in allup:
+                    
+                    log.info('working %s %s  %s %s %s' 
+                            % (nevra.name, nevra.epoch, 
+                                nevra.version, nevra.release, nevra.arch))
+                    
+                    if latest.has_key(nevra):
+                        binSpecMap.setdefault(nevra, latest[nevra])
+                    else:
+                        log.error('WTF?')
+                        import epdb; epdb.st()
 
-                    if not nevras.has_key(nevra):
-                        toRemove.add(nvf)
-                        continue   
- 
+
+        import epdb; epdb.st()
+
+        srcSpecMap = self._updater._conaryhelper.getSourceVersions(binSpecMap.values())
+
+        import epdb; epdb.st()
+
                     # Get the current nevra
-                    pkgs = names.get((nevra.name, nevra.arch))
-                    mynevras = sorted(pkgs)
-                    idx = mynevras.index(nevra)
+                    #pkgs = names.get((nevra.name, nevra.arch))
+                    #mynevras = sorted(pkgs)
+                    #idx = mynevras.index(nevra)
 
-                    updates = {}
-                    while idx < len(mynevras):
-                        updates[mynevras[idx]] = pkgs[mynevras[idx]]
-                        idx += 1
+                    #updates = {}
+                    #while idx < len(mynevras):
+                    #    updates[mynevras[idx]] = pkgs[mynevras[idx]]
+                    #    idx += 1
 
-                    foo = updates[sorted(updates)[-1]]
+                    #foo = updates[sorted(updates)[-1]]
+                    
+                    #if foo[0] == 'kernel':
+                    #    import epdb; epdb.st()
+                    
+                    # FIXME: Maybe a packagevercmp here to make sure we are putting the
+                    # newest in the group??? and not going down.
+                    #if [ x for x in group.iterpackages()
+                    #    if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
+                    #        (x.name, x.version, x.flavor) ]:
+                    #    log.info('found %s %s %s in the group skipping...' % 
+                    #            (foo[0], foo[1], foo[2]))
+                    #    continue
 
-                    if [ x for x in group.iterpackages()
-                        if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
-                            (x.name, x.version, x.flavor) ]:
-                        continue
-                    log.info('adding %s %s %s to the group' % (foo[0], foo[1], foo[2]))
-                    toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
+                    #log.info('adding %s %s %s to the group' % (foo[0], foo[1], foo[2]))
+                    #toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
                            
         import epdb; epdb.st()
 
-
-        for pkg in group.iterpackages():
-            flavor = ThawFlavor(str(pkg.flavor))
-            nvf = TroveTuple(pkg.name, pkg.version, flavor)
-
-            # Older groups contain packages that do not reference any
-            # capsules. This was a side affect of how groups are managed in
-            # ordered mode. Since we don't need to do that anymore, just
-            # remove the package. Hopefully they won't creep back in.
-            if nvf not in nevraMap:
-                toRemove.add(nvf)
-                continue
-
-            assert nvf in nevraMap
-
-            # Get the current nevra
-            nevra = nevraMap[nvf]
-
-            # Now we need to find all versions of this package that
-            # are equal to or newer than the current nevra.
-            pkgs = names.get((nevra.name, nevra.arch))
-            nevras = sorted(pkgs)
-            idx = nevras.index(nevra)
-
-            updates = {}
-            while idx < len(nevras):
-                updates[nevras[idx]] = pkgs[nevras[idx]]
-                idx += 1
-
-            ##
-            # FIXME: Obsolete handling goes here
-            #
-            # For each new version figure out if there are any obsoletes that
-            # need to be handled, then handle them.
-            ##
-
-            foo = updates[sorted(updates)[-1]]
-            # If the only available package is the one that is already in the
-            # group, skip it and move on.
-            if foo == nvf:
-                continue
-
-            if [ x for x in group.iterpackages()
-                 if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
-                    (x.name, x.version, x.flavor) ]:
-                continue
-
-            # For now just pick the latest one and add it to the group.
-            log.info('updating %s to version %s in group' % (foo[0], foo[1]))
-            toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])
 
         for nvf in toRemove:
             group.removePackage(nvf.name, flavor=nvf.flavor)
@@ -625,7 +598,7 @@ class Bot(BotSuperClass):
         for (name, version), flavors in toAdd.iteritems():
             group.addPackage(name, version, flavors)
 
-        #import epdb; epdb.st()
+        import epdb; epdb.st()
 
     def buildgroups(self):
         """
