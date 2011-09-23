@@ -583,11 +583,11 @@ class Bot(BotSuperClass):
                                     ((d_two[x].epoch, d_two[x].version, d_two[x].release), binNvfs_)])
                         l_one = d.keys()
                         l_one.sort()
-                        for rem in d[l_one[-1]]:
+                        for rem in d[l_one[0]]:
                             toRemove.add(rem)
                         break
 
-                import epdb; epdb.st()
+                #import epdb; epdb.st()
                 idx += 1
             else:
                 idx += 1
