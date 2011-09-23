@@ -447,8 +447,6 @@ class PromoteDispatcher(Dispatcher):
         self._promoter = self._promoterClass((self._builder._conaryhelper,
             self._builder._cfg.targetLabel))
 
-        self._status = {}
-
     def _jobDone(self):
         # Override the job done method from the parent to hook into the
         # build loop. This is kinda dirty, but I don't really have a
@@ -484,24 +482,13 @@ class PromoteDispatcher(Dispatcher):
                 res = tuple([ (x, tuple(y)) for x, y in result.iteritems() ])
 
                 toPromote.append((jobId, res))
-                self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
-
-                self._status[jobId] = time.time()
 
             if toPromote:
+                for jobId, res in toPromote:
+                    self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
+
                 self._promoteSlots -= 1
                 self._promoter.promoteJob(toPromote)
-
-        # If anything has been promoting for more than 10 minutes, let us poke
-        # around and figure out why.
-        toRemove = set()
-        for jobId, startTime in self._status.iteritems():
-            if time.time() - startTime > (60 * 20):
-                log.info('Completely silly promote times have been reached')
-                #import epdb; epdb.st()
-                #toRemove.add(jobId)
-        for jobId in toRemove:
-            self._status.pop(jobId, None)
 
         # Gather results
         for result in self._promoter.getStatus():
@@ -509,7 +496,6 @@ class PromoteDispatcher(Dispatcher):
             for jobId, promoted in result:
                 self._jobs[jobId][2] = promoted
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTED
-                self._status.pop(jobId, None)
 
         # Gather errors
         for jobs, error in self._promoter.getErrors():
@@ -517,4 +503,3 @@ class PromoteDispatcher(Dispatcher):
             for jobId in jobs:
                 self._jobs[jobId][1] = JobStatus.ERROR_PROMOTE_FAILURE
                 self._failures.append((jobId, error))
-                self._status.pop(jobId, None)
