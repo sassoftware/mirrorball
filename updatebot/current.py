@@ -533,7 +533,7 @@ class Bot(BotSuperClass):
         #import epdb; epdb.st()
         
         binSpecMap = {}
-
+        removed = {}
         for xPkg in names.iteritems():
             for nvf, lPkg in names[xPkg[0]].iteritems():
                 myup = [ x for x,y in latest.iteritems() if x.name == nvf.name]
@@ -568,7 +568,7 @@ class Bot(BotSuperClass):
         mylist.sort()
 
         idx = 0
-        while idx < len(mylist):
+        while idx + 1 < len(mylist):
             if mylist[idx][0] == mylist[idx + 1][0]:
                 log.info('DUPE: %s --> %s' % (mylist[idx], mylist[idx + 1]))
                 srcnvf = mylist[idx][1]
@@ -579,47 +579,31 @@ class Bot(BotSuperClass):
                 d_two =  dict([ ((x[0], nevraMap[x].arch), nevraMap[x]) for x in binNvfs_ ])
                 for x in d_one.keys():
                     if x in d_two.keys():
-                        d = dict([((d_one[x].epoch, d_one[x].version, d_one[x].release), binNvfs), 
-                                    ((d_two[x].epoch, d_two[x].version, d_two[x].release), binNvfs_)])
+                        d = dict([((d_one[x].epoch, d_one[x].version, d_one[x].release), srcnvf), 
+                                    ((d_two[x].epoch, d_two[x].version, d_two[x].release), srcnvf_)])
                         l_one = d.keys()
                         l_one.sort()
                         for rem in d[l_one[0]]:
-                            toRemove.add(rem)
+                            removed.add(rem)
+                            srcSpecMap.remove(rem)
                         break
 
                 #import epdb; epdb.st()
-                idx += 1
-            else:
-                idx += 1
+            idx += 1
 
         import epdb; epdb.st()
 
-                    # Get the current nevra
-                    #pkgs = names.get((nevra.name, nevra.arch))
-                    #mynevras = sorted(pkgs)
-                    #idx = mynevras.index(nevra)
+        for src in srcSpecMap:
+            for foo in srcSpecMap[src]:
+                if [ x for x in group.iterpackages()
+                        if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
+                            (x.name, x.version, x.flavor) ]:
+                    log.info('found %s %s %s in the group skipping...' %
+                                (foo[0], foo[1], foo[2]))
+                    continue
 
-                    #updates = {}
-                    #while idx < len(mynevras):
-                    #    updates[mynevras[idx]] = pkgs[mynevras[idx]]
-                    #    idx += 1
-
-                    #foo = updates[sorted(updates)[-1]]
-                    
-                    #if foo[0] == 'kernel':
-                    #    import epdb; epdb.st()
-                    
-                    # FIXME: Maybe a packagevercmp here to make sure we are putting the
-                    # newest in the group??? and not going down.
-                    #if [ x for x in group.iterpackages()
-                    #    if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
-                    #        (x.name, x.version, x.flavor) ]:
-                    #    log.info('found %s %s %s in the group skipping...' % 
-                    #            (foo[0], foo[1], foo[2]))
-                    #    continue
-
-                    #log.info('adding %s %s %s to the group' % (foo[0], foo[1], foo[2]))
-                    #toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])                       
+                log.info('adding %s %s %s to the group' % (foo[0], foo[1], foo[2]))
+                toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])
                            
         import epdb; epdb.st()
 
