@@ -579,12 +579,12 @@ class Bot(BotSuperClass):
                 d_two =  dict([ ((x[0], nevraMap[x].arch), nevraMap[x]) for x in binNvfs_ ])
                 for x in d_one.keys():
                     if x in d_two.keys():
-                        d = dict([((d_one[x].epoch, d_one[x].version, d_one[x].release), srcnvf), 
+                        d_three = dict([((d_one[x].epoch, d_one[x].version, d_one[x].release), srcnvf), 
                                     ((d_two[x].epoch, d_two[x].version, d_two[x].release), srcnvf_)])
-                        l_one = d.keys()
+                        l_one = d_three.keys()
                         l_one.sort()
-                        for rem in d[l_one[0]]:
-                            removed.add(rem)
+                        for rem in d_three[l_one[0]]:
+                            removed.setdefault(rem)
                             srcSpecMap.remove(rem)
                         break
 
