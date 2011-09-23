@@ -168,7 +168,7 @@ class PromoteWorker(AbstractWorker):
         # Build mapping of nvf tuple to jobId
         jobMap = {}
         for jobId, built in self.jobs:
-            for srcTrv, binTrvs in dict(built).iteritems():
+            for srcTrv, binTrvs in built:
                 for binTrv in binTrvs:
                     jobMap[binTrv] = (jobId, srcTrv)
 
