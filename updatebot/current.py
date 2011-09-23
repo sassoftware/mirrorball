@@ -583,9 +583,9 @@ class Bot(BotSuperClass):
                                     ((d_two[x].epoch, d_two[x].version, d_two[x].release), srcnvf_)])
                         l_one = d_three.keys()
                         l_one.sort()
-                        for rem in d_three[l_one[0]]:
-                            removed.setdefault(rem)
-                            srcSpecMap.remove(rem)
+                        rem = d_three[l_one[0]]
+                        removed.setdefault((rem[0], rem[1]), set()).add(rem[2])
+                        srcSpecMap.pop(rem)
                         break
 
                 #import epdb; epdb.st()
