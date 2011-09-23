@@ -21,11 +21,12 @@ import time
 import logging
 import itertools
 
-from conary.trovetup import TroveTuple
 from conary.deps.deps import ThawFlavor
+from conary.versions import ThawVersion
 
 from rpmutils import NEVRA
 
+from updatebot.lib import util
 from updatebot import groupmgr
 from updatebot.bot import Bot as BotSuperClass
 
@@ -512,109 +513,156 @@ class Bot(BotSuperClass):
              self._updater._conaryhelper._ccfg.buildLabel)
 
         # Reverse the map and filter out old conary versions.
+        log.info('getting latest nevra packages')
         latest = self._getLatestNevraPackageMap(nevraMap)
 
-        # index by name, will need this later
-        names = {}
-        for nevra, nvf in latest.iteritems():
-            names.setdefault((nevra.name, nevra.arch), dict())[nevra] = nvf
+        # Get all of the sources for the possible packages
+        log.info('getting source versions for all packages')
+        allSources = self._updater._conaryhelper.getSourceVersions(
+            nevraMap.keys())
+
+        # The above gets us every binary version that was ever built from a
+        # source, we need the latest version of each package that was
+        # generated from a given source.
+        srcPkgs = {}
+        for src, bins in allSources.iteritems():
+            nameMap = {}
+            for n, v, f in bins:
+                nameMap.setdefault(n, dict()).setdefault(v, set()).add(f)
+            reduced = set()
+            for n, vs in nameMap.iteritems():
+                v = sorted(vs)[-1]
+                for f in vs[v]:
+                    reduced.add((n, v, f))
+            srcPkgs[src] = reduced
 
         toAdd = {}
-        toRemove = set()
-        
-        #groupPkgMap = [ (str(pkg.name), ThawFlavor(str(pkg.flavor))) 
-        #                    for pkg in group.iterpackages() ]
-        
-        nevras = {}
-        for nvf, nevra in nevraMap.iteritems():
-                nevras.setdefault(nevra, set()).add(nvf)
-        
 
-        #import epdb; epdb.st()
-        
-        binSpecMap = {}
-        removed = {}
-        for xPkg in names.iteritems():
-            for nvf, lPkg in names[xPkg[0]].iteritems():
-                myup = [ x for x,y in latest.iteritems() if x.name == nvf.name]
-                myup.sort()
-                mylatest = myup[-1]
-                allup = [ x for x,y in latest.iteritems() 
-                        if (x.name, x.epoch, x.version, x.release) 
-                        == (mylatest.name, mylatest.epoch, 
-                            mylatest.version, mylatest.release) ]
-                for nevra in allup:
-                    
-                    log.info('working %s %s  %s %s %s' 
-                            % (nevra.name, nevra.epoch, 
-                                nevra.version, nevra.release, nevra.arch))
-                    
-                    if latest.has_key(nevra):
-                        binSpecMap.setdefault(nevra, latest[nevra])
-                    else:
-                        log.error('WTF?')
-                        import epdb; epdb.st()
+        ##
+        # Find the latest NEVRAs available.
+        ##
 
+        # index nevras by name/arch so that we can find the latest version
+        names = {}
+        for nevra, nvf in latest.iteritems():
+            names.setdefault(nevra.name, dict()).setdefault(nevra.evr,
+                dict())[nevra] = nvf
 
-        #import epdb; epdb.st()
-        # All the latest versions of the binaries maped by source.
-        srcSpecMap = self._updater._conaryhelper.getSourceVersions(binSpecMap.values())
-        
-        #nevraSrcSpecMap = self._updater._conaryhelper.getSourceVersions(nevraMap.keys())
+        # Find the latest nevras.
+        actualLatest = {}
+        for name, vercmpd in names.iteritems():
+            lt = sorted(vercmpd.keys(), cmp=util.packagevercmp)[-1]
+            for nevra, nvf in vercmpd[lt].iteritems():
+                actualLatest[nvf] = nevra
 
-        #import epdb; epdb.st()
+        ##
+        # Add latest NEVRAs by source to make sure we don't add NEVRAs that
+        # reference more than one source version.
+        ##
 
-        mylist = [ (x[0], x) for x,y in srcSpecMap.iteritems() ]
-        mylist.sort()
+        # Map the latest nevra nvfs to conary sources.
+        latestSources = self._updater._conaryhelper.getSourceVersions(
+            actualLatest.keys())
 
-        idx = 0
-        while idx + 1 < len(mylist):
-            if mylist[idx][0] == mylist[idx + 1][0]:
-                log.info('DUPE: %s --> %s' % (mylist[idx], mylist[idx + 1]))
-                srcnvf = mylist[idx][1]
-                srcnvf_ =  mylist[idx + 1][1]
-                binNvfs = srcSpecMap[srcnvf]
-                binNvfs_ = srcSpecMap[srcnvf_]
-                d_one = dict([ ((x[0], nevraMap[x].arch), nevraMap[x]) for x in binNvfs ])
-                d_two =  dict([ ((x[0], nevraMap[x].arch), nevraMap[x]) for x in binNvfs_ ])
-                for x in d_one.keys():
-                    if x in d_two.keys():
-                        d_three = dict([((d_one[x].epoch, d_one[x].version, d_one[x].release), srcnvf), 
-                                    ((d_two[x].epoch, d_two[x].version, d_two[x].release), srcnvf_)])
-                        l_one = d_three.keys()
-                        l_one.sort()
-                        rem = d_three[l_one[0]]
-                        removed.setdefault((rem[0], rem[1]), set()).add(rem[2])
-                        srcSpecMap.pop(rem)
-                        break
+        # Map by name so that we can find duplicate versions
+        srcMap = {}
+        for src, bins in latestSources.iteritems():
+            srcMap.setdefault(src[0], set()).add(src)
 
-                #import epdb; epdb.st()
-            idx += 1
+        for name, srcs in srcMap.iteritems():
+            # Take the easy way out if there is only one source version of
+            # this name.
+            if len(srcs) == 1:
+                for bin in srcPkgs[list(srcs)[0]]:
+                    toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
+                continue
 
-        import epdb; epdb.st()
+            # Now we have to work reasonably hard to find a nevra that we can
+            # use to sort source versions since we don't know what source nevra
+            # maps to a particular conary source version.
+            #
+            # FIXME: This is probably a good place for a conary feature to
+            #        source source nevras in trove info in the binary packages.
+            #        We would probably need to fall back to the manifest in the
+            #        source if the trove info wasn't there.
 
-        for src in srcSpecMap:
-            for foo in srcSpecMap[src]:
-                if [ x for x in group.iterpackages()
-                        if (foo[0], foo[1].freeze(), foo[2].freeze()) ==
-                            (x.name, x.version, x.flavor) ]:
-                    log.info('found %s %s %s in the group skipping...' %
-                                (foo[0], foo[1], foo[2]))
+            # find the latest source by nevra
+            fullSrcs = dict([ (x, srcPkgs[x]) for x in srcs ])
+            # find a common binary across all source versions
+            binnames = {}
+            for src, bins in fullSrcs.iteritems():
+                # only consider the sources that we are concerned with.
+                if src not in srcs:
                     continue
+                for bin in bins:
+                    binnames.setdefault((bin[0], bin[2]), dict())[bin] = src
+            common = None
+            for binname, bind in binnames.iteritems():
+                if len(bind) == len(srcs):
+                    common = bind
+                    break
 
-                log.info('adding %s %s %s to the group' % (foo[0], foo[1], foo[2]))
-                toAdd.setdefault((foo[0], foo[1]), set()).add(foo[2])
-                           
-        import epdb; epdb.st()
+            # If we get here and common is None, that means that there were no
+            # common pacakges between the source versions. This happens in RHEL
+            # with some of the kmod packages. I guess assume that the conary
+            # source version is good enough for sorting?
+            if common is None:
+                lts = sorted(srcs)[-1]
 
+            else:
+                # now lookup the nevras for the versions of this binary so
+                # that we can determine which source is latest.
+                nvmap = {}
+                for bin, src in common.iteritems():
+                    nvmap[nevraMap[bin]] = src
 
-        for nvf in toRemove:
-            group.removePackage(nvf.name, flavor=nvf.flavor)
+                lts = nvmap[sorted(nvmap)[-1]]
+
+            for bin in fullSrcs.get(lts):
+                toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
+
+        ##
+        # Now to remove all of the things that are already in the group from
+        # the toAdd dict.
+        ##
+
+        grpPkgs = {}
+        for pkg in group.iterpackages():
+            name = str(pkg.name)
+            version = ThawVersion(str(pkg.version))
+            flavor = ThawFlavor(str(pkg.flavor))
+
+            grpPkgs.setdefault((name, version), set()).add(flavor)
+
+        for nv, fs in grpPkgs.iteritems():
+            if nv in toAdd and toAdd[nv] == fs:
+                toAdd.pop(nv)
+
+        ##
+        # Check to make sure we aren't adding back a package that was previously
+        # removed.
+        ##
+
+        newPkgs = dict([ (x[0], x) for x in toAdd
+            if x[0] not in [ y[0] for y in grpPkgs ] ])
+
+        removeObsoleted = set([ x for x in
+            itertools.chain(*self._cfg.removeObsoleted.values()) ])
+        updateRemovesPackage = set([ x for x in
+            itertools.chain(*self._cfg.updateRemovesPackages.values()) ])
+
+        removed = removeObsoleted | updateRemovesPackage
+
+        for name in removed:
+            if name in newPkgs:
+                toAdd.pop(newPkgs[name])
+
+        ##
+        # Actually add the packages to the group model.
+        ##
 
         for (name, version), flavors in toAdd.iteritems():
             group.addPackage(name, version, flavors)
-
-        import epdb; epdb.st()
 
     def buildgroups(self):
         """
@@ -691,7 +739,6 @@ class Bot(BotSuperClass):
         # Build groups.
         log.info('setting version %s' % version)
         group.version = version
-        import epdb; epdb.st()
         group = group.commit()
         grpTrvMap = group.build()
 
