@@ -560,7 +560,7 @@ class Bot(BotSuperClass):
         # All the latest versions of the binaries maped by source.
         srcSpecMap = self._updater._conaryhelper.getSourceVersions(binSpecMap.values())
         
-        nevraSrcSpecMap = self._updater._conaryhelper.getSourceVersions(nevraMap.keys())
+        #nevraSrcSpecMap = self._updater._conaryhelper.getSourceVersions(nevraMap.keys())
 
         #import epdb; epdb.st()
 
@@ -571,9 +571,24 @@ class Bot(BotSuperClass):
         while idx < len(mylist):
             if mylist[idx][0] == mylist[idx + 1][0]:
                 log.info('DUPE: %s --> %s' % (mylist[idx], mylist[idx + 1]))
+                srcnvf = mylist[idx][1]
+                srcnvf_ =  mylist[idx + 1][1]
+                binNvfs = srcSpecMap[srcnvf]
+                binNvfs_ = srcSpecMap[srcnvf_]
+                d_one = dict([ ((x[0], nevraMap[x].arch), nevraMap[x]) for x in binNvfs ])
+                d_two =  dict([ ((x[0], nevraMap[x].arch), nevraMap[x]) for x in binNvfs_ ])
+                for x in d_one.keys():
+                    if x in d_two.keys():
+                        d = dict([((d_one[x].epoch, d_one[x].version, d_one[x].release), binNvfs), 
+                                    ((d_two[x].epoch, d_two[x].version, d_two[x].release), binNvfs_)])
+                        l_one = d.keys()
+                        l_one.sort()
+                        for rem in d[l_one[-1]]:
+                            toRemove.add(rem)
+                        break
 
-                idx += 1
                 import epdb; epdb.st()
+                idx += 1
             else:
                 idx += 1
 
