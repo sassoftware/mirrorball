@@ -20,6 +20,13 @@ from collections import namedtuple
 
 from rpmutils import rpmvercmp
 
+class EVR(namedtuple('evr', 'epoch version release')):
+    """
+    Class for storing just epoch, version, and release for comparison purposes.
+    """
+    __slots__ = ()
+
+
 class NEVRA(namedtuple('nevra', 'name epoch version release arch')):
     """
     Class to represent an RPM NEVRA.
@@ -58,3 +65,7 @@ class NEVRA(namedtuple('nevra', 'name epoch version release arch')):
         if c == -1:
             return True
         return False
+
+    @property
+    def evr(self):
+        return EVR(self.epoch, self.version, self.release)
