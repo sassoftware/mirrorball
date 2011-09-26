@@ -537,6 +537,7 @@ class Bot(BotSuperClass):
             srcPkgs[src] = reduced
 
         toAdd = {}
+        toRemove = set()
 
         ##
         # Find the latest NEVRAs available.
@@ -614,9 +615,9 @@ class Bot(BotSuperClass):
                 # that we can determine which source is latest.
                 nvmap = {}
                 for bin, src in common.iteritems():
-                    nvmap[nevraMap[bin]] = src
+                    nvmap.setdefault(nevraMap[bin], set()).add(src)
 
-                lts = nvmap[sorted(nvmap)[-1]]
+                lts = sorted(nvmap[sorted(nvmap)[-1]])[-1]
 
             for bin in fullSrcs.get(lts):
                 toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
@@ -639,6 +640,36 @@ class Bot(BotSuperClass):
                 toAdd.pop(nv)
 
         ##
+        # Iterate over the group contents, looking for any packages that may
+        # have been rebuilt, but the nevra stayed the same.
+        ##
+
+        for (n, v), fs in grpPkgs.iteritems():
+            for f in fs:
+                # Get the nevra for this name, version, and flavor
+                nevra = nevraMap.get((n, v, f))
+
+                # If the package is already in the toAdd map, skip over it.
+                if [ x for x in toAdd
+                    if x[0] == n and f in toAdd[(x[0], x[1])] ]:
+                    continue
+
+                # Found a package that isn't actually attached to a nevra,
+                # remove it.
+                if nevra is None and not [ x for x in nevraMap
+                    if x[0] == n and x[2] == f ]:
+                    toRemove.add((n, v, f))
+                    continue
+
+                # Now find the latest nvf for this nevra.
+                n2, v2, f2 = latest.get(nevra)
+
+                # If the latest nevra nvf is newer than what is in the
+                # group, replace it.
+                if v < lt[1]:
+                    toAdd.setdefault((n2, v2), set()).add(f2)
+
+        ##
         # Check to make sure we aren't adding back a package that was previously
         # removed.
         ##
@@ -658,10 +689,20 @@ class Bot(BotSuperClass):
                 toAdd.pop(newPkgs[name])
 
         ##
+        # Remove any packages that were flagged for removal.
+        ##
+
+        for n, v, f in toRemove:
+            log.info('removing %s[%s]' % (n, f))
+            group.removePackage(n, flavor=f)
+
+        ##
         # Actually add the packages to the group model.
         ##
 
         for (name, version), flavors in toAdd.iteritems():
+            for f in flavors:
+                log.info('adding %s=%s[%s]' % (name, version, f))
             group.addPackage(name, version, flavors)
 
     def buildgroups(self):
