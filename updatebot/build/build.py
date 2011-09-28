@@ -527,6 +527,9 @@ class Builder(object):
             # the deps modules in conary.
             name = name.encode()
 
+            # Make sure name is not a component, like a source component.
+            name = name.split(':')[0]
+
             # Build groups in all of the defined flavors. We don't need a
             # context here since groups are all built in a single job.
             if name.startswith('group-'):
