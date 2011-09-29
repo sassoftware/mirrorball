@@ -610,7 +610,7 @@ class Bot(BotSuperClass):
             # source version is good enough for sorting?
             if common is None:
                 lts = sorted(srcs)[-1]
-                import epdb;epdb.st()
+                #import epdb;epdb.st()
 
             else:
                 # now lookup the nevras for the versions of this binary so
