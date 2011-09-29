@@ -138,6 +138,7 @@ class Bot(BotSuperClass):
 
         # Don't taint group model unless something has actually changed.
         if addPackages or removePackages:
+            log.info('modifying group model')
             group.modifyContents(additions=addPackages, removals=removePackages)
 
     def create(self, *args, **kwargs):
@@ -609,6 +610,7 @@ class Bot(BotSuperClass):
             # source version is good enough for sorting?
             if common is None:
                 lts = sorted(srcs)[-1]
+                import epdb;epdb.st()
 
             else:
                 # now lookup the nevras for the versions of this binary so
@@ -622,6 +624,7 @@ class Bot(BotSuperClass):
             for bin in fullSrcs.get(lts):
                 toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
 
+        #import epdb;epdb.st()
         ##
         # Now to remove all of the things that are already in the group from
         # the toAdd dict.
@@ -638,6 +641,7 @@ class Bot(BotSuperClass):
         for nv, fs in grpPkgs.iteritems():
             if nv in toAdd and toAdd[nv] == fs:
                 toAdd.pop(nv)
+
 
         ##
         # Iterate over the group contents, looking for any packages that may
@@ -668,7 +672,7 @@ class Bot(BotSuperClass):
                 # group, replace it.
                 if v < lt[1]:
                     toAdd.setdefault((n2, v2), set()).add(f2)
-
+        
         ##
         # Check to make sure we aren't adding back a package that was previously
         # removed.
@@ -687,7 +691,9 @@ class Bot(BotSuperClass):
         for name in removed:
             if name in newPkgs:
                 toAdd.pop(newPkgs[name])
-
+        # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
+        #print "REMOVE LINE AFTER TESTING"
+        #import epdb; epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##

@@ -203,6 +203,12 @@ class GroupSanityChecker(object):
             # pair can occure more than once.
             current = sorted(set(pkgs[name]))
 
+            # FIXME: HACK to filter found for the versions in current.
+            # Do to some issues early on with building pkgs with missing
+            # flavors findTroves is returning some extra cruft.
+            current_versions = [ currentnvf[1] for currentnvf in current ]
+            found = [ nvf for nvf in found if nvf[1] in current_versions ]
+            
             if len(current) > len(found):
                 log.warn('found more packages in the model than in the '
                     'repository, assuming that multiversion policy will '
