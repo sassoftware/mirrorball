@@ -260,13 +260,45 @@ class Bot(BotSuperClass):
 
         newMap = {}
         for nvf, nevra in nevraMap.iteritems():
+            log.info('working on %s %s %s' % nvf)
+            # Skip sources.
+            if nvf[1].isSourceVersion():
+                continue
+
+            # Need for debugging purposes
+            # Normally this would be caught by if not nevra
+            if nvf[0] in [ 'group-standard', 'group-packages' ]:
+                continue
+            
+            # Skip debuginfo pkgs
+            if nvf[0].endswith('debuginfo'):
+                continue
+
+            # FIXME
+            # Probably should skip anything with a ':' in it...
+
+            # If we don't have a nevra lets work harder to find one
+            if not nevra:
+                log.warn('%s %s %s  missing nevra in nevraMap... looking up another way' % nvf)
+                if self._pkgSource.binNameMap.has_key(nvf[0]):
+                    for nvr in self._pkgSource.binNameMap[nvf[0]]:
+                        log.info('working on %s' % nvr)
+                        #if util.srpmToConaryVersion(nvr) in str(nvf[1]):
+                        #    nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
+                        if nvr.release in str(nvf[1]):
+                            log.info('found release %s' % nvr.release) 
+                            nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
+                elif self._pkgSource.srcNameMap.has_key(nvf[0]):
+                    for nvr in self._pkgSource.srcNameMap[nvf[0]]:
+                        if nvr.release in str(nvf[1]):
+                            log.info('found release %s' % nvr.release)
+                            nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
+
+
             # Skip nvfs that don't have a nevra
             if not nevra:
                 continue
 
-            # Skip sources.
-            if nvf[1].isSourceVersion():
-                continue
 
             # Repack nevra subbing '0' for '', since yum metadata doesn't
             # represent epochs of None.
@@ -603,14 +635,12 @@ class Bot(BotSuperClass):
                 if len(bind) == len(srcs):
                     common = bind
                     break
-
             # If we get here and common is None, that means that there were no
             # common pacakges between the source versions. This happens in RHEL
             # with some of the kmod packages. I guess assume that the conary
             # source version is good enough for sorting?
             if common is None:
                 lts = sorted(srcs)[-1]
-                #import epdb;epdb.st()
 
             else:
                 # now lookup the nevras for the versions of this binary so
@@ -631,6 +661,8 @@ class Bot(BotSuperClass):
         ##
 
         grpPkgs = {}
+        removedPkgs = []
+
         for pkg in group.iterpackages():
             name = str(pkg.name)
             version = ThawVersion(str(pkg.version))
@@ -640,7 +672,9 @@ class Bot(BotSuperClass):
 
         for nv, fs in grpPkgs.iteritems():
             if nv in toAdd and toAdd[nv] == fs:
-                toAdd.pop(nv)
+                log.warn('REMOVING %s %s from toAdd' % (nv, fs))
+                rem = toAdd.pop(nv)
+                removedPkgs.append(rem)
 
 
         ##
@@ -656,21 +690,25 @@ class Bot(BotSuperClass):
                 # If the package is already in the toAdd map, skip over it.
                 if [ x for x in toAdd
                     if x[0] == n and f in toAdd[(x[0], x[1])] ]:
+                    log.warn('%s %s is already in the toAdd map' % (n,f))
                     continue
 
                 # Found a package that isn't actually attached to a nevra,
                 # remove it.
                 if nevra is None and not [ x for x in nevraMap
                     if x[0] == n and x[2] == f ]:
+                    log.warn('%s %s isnt actually attached to a nevra' % (n,f))
                     toRemove.add((n, v, f))
+                    #import epdb; epdb.st()
                     continue
 
                 # Now find the latest nvf for this nevra.
                 n2, v2, f2 = latest.get(nevra)
-
+                log.info('%s %s %s is the latest nevra' % (n2, v2, f2))
                 # If the latest nevra nvf is newer than what is in the
                 # group, replace it.
-                if v < lt[1]:
+                #if v < lt[1]:
+                if v < v2:
                     toAdd.setdefault((n2, v2), set()).add(f2)
         
         ##
@@ -693,7 +731,7 @@ class Bot(BotSuperClass):
                 toAdd.pop(newPkgs[name])
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         #print "REMOVE LINE AFTER TESTING"
-        #import epdb; epdb.st()
+        import epdb; epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##
