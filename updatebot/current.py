@@ -318,11 +318,11 @@ class Bot(BotSuperClass):
 
         nevras = {}
         for nvf, nevra in nevraMap.iteritems():
-            nevras.setdefault(nevra, set()).add(nvf)
+            nevras.setdefault(nevra, dict()).setdefault(nvf[1], set()).add(nvf)
 
         ret = {}
-        for nevra, pkgs in nevras.iteritems():
-            ret[nevra] = sorted(pkgs)[-1]
+        for nevra, vs in nevras.iteritems():
+            ret[nevra] = vs[sorted(vs)[-1]]
 
         return ret
 
@@ -355,13 +355,15 @@ class Bot(BotSuperClass):
         # updated on the source label, that have not made it to the target
         # label.
         toPromote = set()
-        for nevra, nvf in sourceLatest.iteritems():
+        for nevra, nvfs in sourceLatest.iteritems():
             # nevra has not been promoted.
             if nevra not in targetLatest:
-                toPromote.add(nvf)
+                toPromote.union(nvfs)
             # the conary package containing this nevra has been rebuilt.
-            elif nvf not in targetClonedFrom:
-                toPromote.add(nvf)
+            else:
+                for nvf in nvfs:
+                    if nvf not in targetClonedFrom:
+                        toPromote.add(nvf)
 
         return toPromote
 
@@ -425,11 +427,11 @@ class Bot(BotSuperClass):
                 if binPkg.getNevra() not in sourceLatest:
                     continue
 
-                binNVF = sourceLatest[binPkg.getNevra()]
+                binNVFs = sourceLatest[binPkg.getNevra()]
                 sourceVersions = self._updater._conaryhelper.getSourceVersions(
-                    [binNVF, ]).keys()
+                    binNVFs).keys()
 
-                assert len(sourceVersions) == 1
+                assert len(set(sourceVersions)) == 1
                 return sourceVersions[0]
 
             # Apparently we managed to skip importing a source package, or maybe
@@ -578,16 +580,17 @@ class Bot(BotSuperClass):
 
         # index nevras by name/arch so that we can find the latest version
         names = {}
-        for nevra, nvf in latest.iteritems():
+        for nevra, nvfs in latest.iteritems():
             names.setdefault(nevra.name, dict()).setdefault(nevra.evr,
-                dict())[nevra] = nvf
+                dict())[nevra] = nvfs
 
         # Find the latest nevras.
         actualLatest = {}
         for name, vercmpd in names.iteritems():
             lt = sorted(vercmpd.keys(), cmp=util.packagevercmp)[-1]
-            for nevra, nvf in vercmpd[lt].iteritems():
-                actualLatest[nvf] = nevra
+            for nevra, nvfs in vercmpd[lt].iteritems():
+                for nvf in nvfs:
+                    actualLatest[nvf] = nevra
 
         ##
         # Add latest NEVRAs by source to make sure we don't add NEVRAs that
@@ -606,7 +609,6 @@ class Bot(BotSuperClass):
         for name, srcs in srcMap.iteritems():
             # Take the easy way out if there is only one source version of
             # this name.
-            
             if len(srcs) == 1:
                 for bin in srcPkgs[list(srcs)[0]]:
                     toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
@@ -631,16 +633,17 @@ class Bot(BotSuperClass):
                     continue
                 for bin in bins:
                     binnames.setdefault((bin[0], bin[2]), dict())[bin] = src
+
             common = None
             for binname, bind in binnames.iteritems():
                 if len(bind) == len(srcs):
                     common = bind
                     break
+
             # If we get here and common is None, that means that there were no
             # common pacakges between the source versions. This happens in RHEL
             # with some of the kmod packages. I guess assume that the conary
             # source version is good enough for sorting?
-
             if common is None:
                 # Need better sorting here as on some nevra we were coming up with wrong ver 
                 # and we end up with lower version that is already in the group
@@ -649,14 +652,16 @@ class Bot(BotSuperClass):
                 # group to begin with so we end up with a set of older pkgs and a few new ones
                 # This causes us to freak out during sanity check with conflict sources
 
+                pkgName = name.split(':')[0]
+
                 # Check to see if we can find the name in the list of srcrpms
-                if self._pkgSource.srcNameMap.has_key(name.split(':')[0]):
+                if pkgName in self._pkgSource.srcNameMap:
                     # lets get the latest srcrpm so we can do a rpmcmp
-                    ltsnevra = sorted([ x for x in self._pkgSource.srcNameMap[name.split(':')[0]] ], 
-                            cmp=util.packagevercmp)[-1]
-                    # now look up a conary version for this 
-                    ltsnvf = [ x for x,y in nevraMap.iteritems() 
-                            if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
+                    ltsnevra = sorted(self._pkgSource.srcNameMap.get(pkgName))[-1]
+
+                    # now look up a conary version for this
+                    ltsnvf = [ x for x,y in nevraMap.iteritems()
+                            if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) ==
                             (y.name,y.epoch,y.version,y.release) ][-1]
                     # now get the source for the conary verison
                     lts = [ x for x,y in allSources.iteritems() if ltsnvf in y][-1]
@@ -729,16 +734,14 @@ class Bot(BotSuperClass):
                     continue
 
                 # Now find the latest nvf for this nevra.
-                n2, v2, f2 = latest.get(nevra)
-                log.info('%s %s %s is the latest nevra' % (n2, v2, f2))
+                nvfs = latest.get(nevra)
                 # If the latest nevra nvf is newer than what is in the
                 # group, replace it.
                 #if v < lt[1]:
-                if v < v2:
-                    # FIXME: Not sure I have to remove anything here... 
-                    # toRemove.add((n, v, f))
-                    toAdd.setdefault((n2, v2), set()).add(f2)
-        
+                if v < list(nvfs)[0][1]:
+                    for n2, v2, f2 in nvfs:
+                        toAdd.setdefault((n2, v2), set()).add(f2)
+
         import epdb;epdb.st()
         ##
         # Check to make sure we aren't adding back a package that was previously
