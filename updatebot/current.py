@@ -606,6 +606,7 @@ class Bot(BotSuperClass):
         for name, srcs in srcMap.iteritems():
             # Take the easy way out if there is only one source version of
             # this name.
+            
             if len(srcs) == 1:
                 for bin in srcPkgs[list(srcs)[0]]:
                     toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
@@ -639,8 +640,30 @@ class Bot(BotSuperClass):
             # common pacakges between the source versions. This happens in RHEL
             # with some of the kmod packages. I guess assume that the conary
             # source version is good enough for sorting?
+
             if common is None:
-                lts = sorted(srcs)[-1]
+                # Need better sorting here as on some nevra we were coming up with wrong ver 
+                # and we end up with lower version that is already in the group
+                # of course this causes us to pop it from the toAdd list... well
+                # we have some new pkgs with the latest version slip in because they were not in the 
+                # group to begin with so we end up with a set of older pkgs and a few new ones
+                # This causes us to freak out during sanity check with conflict sources
+
+                # Check to see if we can find the name in the list of srcrpms
+                if self._pkgSource.srcNameMap.has_key(name.split(':')[0]):
+                    # lets get the latest srcrpm so we can do a rpmcmp
+                    ltsnevra = sorted([ x for x in self._pkgSource.srcNameMap[name.split(':')[0]] ], 
+                            cmp=util.packagevercmp)[-1]
+                    # now look up a conary version for this 
+                    ltsnvf = [ x for x,y in nevraMap.iteritems() 
+                            if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
+                            (y.name,y.epoch,y.version,y.release) ][-1]
+                    # now get the source for the conary verison
+                    lts = [ x for x,y in allSources.iteritems() if ltsnvf in y][-1]
+                else:
+                    # I give up
+                    # this is last resort
+                    lts = sorted(srcs)[-1]
 
             else:
                 # now lookup the nevras for the versions of this binary so
@@ -654,13 +677,14 @@ class Bot(BotSuperClass):
             for bin in fullSrcs.get(lts):
                 toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
 
-        #import epdb;epdb.st()
+        import epdb;epdb.st()
         ##
         # Now to remove all of the things that are already in the group from
         # the toAdd dict.
         ##
 
         grpPkgs = {}
+        # This list is for debugging process.
         removedPkgs = []
 
         for pkg in group.iterpackages():
@@ -674,7 +698,7 @@ class Bot(BotSuperClass):
             if nv in toAdd and toAdd[nv] == fs:
                 log.warn('REMOVING %s %s from toAdd' % (nv, fs))
                 rem = toAdd.pop(nv)
-                removedPkgs.append(rem)
+                removedPkgs.append((nv,rem))
 
 
         ##
@@ -709,6 +733,8 @@ class Bot(BotSuperClass):
                 # group, replace it.
                 #if v < lt[1]:
                 if v < v2:
+                    # FIXME: Not sure I have to remove anything here... 
+                    toRemove.add((n, v, f))
                     toAdd.setdefault((n2, v2), set()).add(f2)
         
         ##
@@ -729,6 +755,8 @@ class Bot(BotSuperClass):
         for name in removed:
             if name in newPkgs:
                 toAdd.pop(newPkgs[name])
+
+
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         #print "REMOVE LINE AFTER TESTING"
         import epdb; epdb.st()
@@ -748,6 +776,8 @@ class Bot(BotSuperClass):
             for f in flavors:
                 log.info('adding %s=%s[%s]' % (name, version, f))
             group.addPackage(name, version, flavors)
+
+
 
     def buildgroups(self):
         """
