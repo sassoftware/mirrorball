@@ -672,7 +672,9 @@ class Bot(BotSuperClass):
                 for bin, src in common.iteritems():
                     nvmap.setdefault(nevraMap[bin], set()).add(src)
 
-                lts = sorted(nvmap[sorted(nvmap)[-1]])[-1]
+                lts = sorted(nvmap[sorted(nvmap, cmp=util.packagevercmp)[-1]])[-1]
+                if name == 'poppler:source':
+                    import epdb;epdb.st()
 
             for bin in fullSrcs.get(lts):
                 toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
@@ -734,9 +736,10 @@ class Bot(BotSuperClass):
                 #if v < lt[1]:
                 if v < v2:
                     # FIXME: Not sure I have to remove anything here... 
-                    toRemove.add((n, v, f))
+                    # toRemove.add((n, v, f))
                     toAdd.setdefault((n2, v2), set()).add(f2)
         
+        import epdb;epdb.st()
         ##
         # Check to make sure we aren't adding back a package that was previously
         # removed.
@@ -754,7 +757,8 @@ class Bot(BotSuperClass):
 
         for name in removed:
             if name in newPkgs:
-                toAdd.pop(newPkgs[name])
+                rem = toAdd.pop(newPkgs[name])
+                removedPkgs.append((name, rem))
 
 
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
