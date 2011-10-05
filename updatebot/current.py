@@ -260,45 +260,13 @@ class Bot(BotSuperClass):
 
         newMap = {}
         for nvf, nevra in nevraMap.iteritems():
-            log.info('working on %s %s %s' % nvf)
             # Skip sources.
             if nvf[1].isSourceVersion():
                 continue
 
-            # Need for debugging purposes
-            # Normally this would be caught by if not nevra
-            if nvf[0] in [ 'group-standard', 'group-packages' ]:
-                continue
-            
-            # Skip debuginfo pkgs
-            if nvf[0].endswith('debuginfo'):
-                continue
-
-            # FIXME
-            # Probably should skip anything with a ':' in it...
-
-            # If we don't have a nevra lets work harder to find one
-            if not nevra:
-                log.warn('%s %s %s  missing nevra in nevraMap... looking up another way' % nvf)
-                if self._pkgSource.binNameMap.has_key(nvf[0]):
-                    for nvr in self._pkgSource.binNameMap[nvf[0]]:
-                        log.info('working on %s' % nvr)
-                        #if util.srpmToConaryVersion(nvr) in str(nvf[1]):
-                        #    nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
-                        if nvr.release in str(nvf[1]):
-                            log.info('found release %s' % nvr.release) 
-                            nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
-                elif self._pkgSource.srcNameMap.has_key(nvf[0]):
-                    for nvr in self._pkgSource.srcNameMap[nvf[0]]:
-                        if nvr.release in str(nvf[1]):
-                            log.info('found release %s' % nvr.release)
-                            nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
-
-
             # Skip nvfs that don't have a nevra
             if not nevra:
                 continue
-
 
             # Repack nevra subbing '0' for '', since yum metadata doesn't
             # represent epochs of None.
