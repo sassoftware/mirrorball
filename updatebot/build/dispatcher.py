@@ -442,7 +442,7 @@ class PromoteDispatcher(Dispatcher):
     def __init__(self, builder, maxSlots):
         Dispatcher.__init__(self, builder, maxSlots)
 
-        self._promoteSlots = util.BoundedCounter(0, 2, 2)
+        self._promoteSlots = util.BoundedCounter(0, 1, 1)
 
         self._promoter = self._promoterClass((self._builder._conaryhelper,
             self._builder._cfg.targetLabel))
