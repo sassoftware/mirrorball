@@ -261,34 +261,6 @@ class Bot(BotSuperClass):
             if nvf[1].isSourceVersion():
                 continue
 
-            # Need for debugging purposes
-            # Normally this would be caught by if not nevra
-            if nvf[0] in [ 'group-standard', 'group-packages' ]:
-                continue
-
-            # Skip debuginfo pkgs
-            if nvf[0].endswith(':debuginfo'):
-                continue
-
-            # FIXME
-            # Probably should skip anything with a ':' in it...
-
-            # If we don't have a nevra lets work harder to find one
-            if not nevra:
-                log.warn('%s %s %s  missing nevra in nevraMap... looking up another way' % nvf)
-                if self._pkgSource.binNameMap.has_key(nvf[0]):
-                    for nvr in self._pkgSource.binNameMap[nvf[0]]:
-                        nvrCV = util.srpmToConaryVersion(nvr)
-                        nvfCV = str(nvf[1]).split('/')[-1].split('-')[0]
-                        if nvrCV == nvfCV:
-                            nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
-                elif self._pkgSource.srcNameMap.has_key(nvf[0]):
-                    for nvr in self._pkgSource.srcNameMap[nvf[0]]:
-                        nvrCV = util.srpmToConaryVersion(nvr)
-                        nvfCV = str(nvf[1]).split('/')[-1].split('-')[0]
-                        if nvrCV == nvfCV:
-                            nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
-
             # Skip nvfs that don't have a nevra
             if not nevra:
                 continue
@@ -751,6 +723,7 @@ class Bot(BotSuperClass):
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
 
+        import epdb;epdb.st()
 
         ##
         # Remove any packages that were flagged for removal.
