@@ -258,9 +258,10 @@ class Bot(BotSuperClass):
 
         nevraMap = self._updater._conaryhelper.getNevrasForLabel(label)
 
+        #import epdb; epdb.st()
         newMap = {}
         for nvf, nevra in nevraMap.iteritems():
-            log.info('working on %s %s %s' % nvf)
+            #log.info('working on %s %s %s' % nvf)
             # Skip sources.
             if nvf[1].isSourceVersion():
                 continue
@@ -269,9 +270,9 @@ class Bot(BotSuperClass):
             # Normally this would be caught by if not nevra
             if nvf[0] in [ 'group-standard', 'group-packages' ]:
                 continue
-            
+
             # Skip debuginfo pkgs
-            if nvf[0].endswith('debuginfo'):
+            if nvf[0].endswith(':debuginfo'):
                 continue
 
             # FIXME
@@ -282,16 +283,19 @@ class Bot(BotSuperClass):
                 log.warn('%s %s %s  missing nevra in nevraMap... looking up another way' % nvf)
                 if self._pkgSource.binNameMap.has_key(nvf[0]):
                     for nvr in self._pkgSource.binNameMap[nvf[0]]:
-                        log.info('working on %s' % nvr)
-                        #if util.srpmToConaryVersion(nvr) in str(nvf[1]):
-                        #    nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
-                        if nvr.release in str(nvf[1]):
-                            log.info('found release %s' % nvr.release) 
+                        #log.info('working on %s' % nvr)
+                        nvrCV = util.srpmToConaryVersion(nvr)
+                        nvfCV = str(nvf[1]).split('/')[-1].split('-')[0]
+                        if nvrCV == nvfCV:
+                            #log.info('found release %s' % nvrCV) 
                             nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
                 elif self._pkgSource.srcNameMap.has_key(nvf[0]):
                     for nvr in self._pkgSource.srcNameMap[nvf[0]]:
-                        if nvr.release in str(nvf[1]):
-                            log.info('found release %s' % nvr.release)
+                        #log.info('working on %s' % nvr)
+                        nvrCV = util.srpmToConaryVersion(nvr)
+                        nvfCV = str(nvf[1]).split('/')[-1].split('-')[0]
+                        if nvrCV == nvfCV:
+                            #log.info('found release %s' % nvrCV)
                             nevra = (nvr.name, nvr.epoch, nvr.version, nvr.release, nvr.arch)
 
 
@@ -678,13 +682,11 @@ class Bot(BotSuperClass):
                     nvmap.setdefault(nevraMap[bin], set()).add(src)
 
                 lts = sorted(nvmap[sorted(nvmap, cmp=util.packagevercmp)[-1]])[-1]
-                if name == 'poppler:source':
-                    import epdb;epdb.st()
 
             for bin in fullSrcs.get(lts):
                 toAdd.setdefault((bin[0], bin[1]), set()).add(bin[2])
 
-        import epdb;epdb.st()
+        #import epdb;epdb.st()
         ##
         # Now to remove all of the things that are already in the group from
         # the toAdd dict.
@@ -742,7 +744,7 @@ class Bot(BotSuperClass):
                     for n2, v2, f2 in nvfs:
                         toAdd.setdefault((n2, v2), set()).add(f2)
 
-        import epdb;epdb.st()
+        #import epdb;epdb.st()
         ##
         # Check to make sure we aren't adding back a package that was previously
         # removed.
@@ -766,7 +768,7 @@ class Bot(BotSuperClass):
 
         # FOR TESTING WE SHOULD INSPECT THE PKGMAP HERE
         #print "REMOVE LINE AFTER TESTING"
-        import epdb; epdb.st()
+        #import epdb; epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##
@@ -866,8 +868,12 @@ class Bot(BotSuperClass):
 
         # Promote groups
         log.info('promoting group %s ' % group.version)
-        toPromote = [ x for x in itertools.chain(grpTrvMap.itervalues()) ]
-        promoted = self._updater.publish(toPromote, toPromote)
+        toPromote = []
+        for grpPkgs in grpTrvMap.itervalues():
+            for grpPkg in grpPkgs:
+                toPromote.append((grpPkg[0],grpPkg[1],grpPkg[2]))
+
+        promoted = self._updater.publish(toPromote, toPromote, self._cfg.targetLabel)
 
         # Report timings
         advTime = time.strftime('%m-%d-%Y %H:%M:%S',
