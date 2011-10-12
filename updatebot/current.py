@@ -136,6 +136,25 @@ class Bot(BotSuperClass):
         addPackages = self._cfg.addPackage.get(updateId, None)
         removePackages = self._cfg.removePackage.get(updateId, None)
 
+        # Oh what a lovely hack this is...
+
+        if 9999999999 in self._cfg.addPackage.keys():
+            if not addPackages:
+                addPackages = {}
+            addPkgs = self._cfg.addPackage.get(9999999999, None)
+            for pkg in addPkgs:
+                for pkgs in addPkgs[pkg]:
+                    addPackages.setdefault(pkg, []).append(pkgs)
+        if 9999999999 in self._cfg.removePackage.keys():
+            if not removePackages:
+                removePackages = {}
+            remPkgs = self._cfg.removePackage.get(9999999999, None)
+            for pkg in remPkgs:
+                for pkgs in remPkgs[pkg]:
+                    removePackages.setdefault(pkg, []).append(pkgs)
+
+        import epdb;epdb.st()
+
         # Don't taint group model unless something has actually changed.
         if addPackages or removePackages:
             log.info('modifying group model')
@@ -624,12 +643,25 @@ class Bot(BotSuperClass):
                     # lets get the latest srcrpm so we can do a rpmcmp
                     ltsnevra = sorted(self._pkgSource.srcNameMap.get(pkgName))[-1]
 
+                    ltsnvf = None
                     # now look up a conary version for this
-                    ltsnvf = [ x for x,y in nevraMap.iteritems()
-                            if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) ==
-                            (y.name,y.epoch,y.version,y.release) ][-1]
-                    # now get the source for the conary verison
-                    lts = [ x for x,y in allSources.iteritems() if ltsnvf in y][-1]
+                    if ltsnevra.name in nevraMap:
+                        ltsnvf = [ x for x,y in nevraMap.iteritems()
+                                if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) ==
+                                (y.name,y.epoch,y.version,y.release) ][-1]
+                    else:
+                        # Sometimes they don't match up at so we will try another method
+                        ltsnvf = [ x for x,y in nevraMap.iteritems() 
+                                if y.name.startswith(ltsnevra.name) and 
+                                (ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
+                                (y.epoch,y.version,y.release)][-1]
+                    # now get the source for the conary verison if ltsnvf
+                    if ltsnvf:
+                        lts = [ x for x,y in allSources.iteritems() if ltsnvf in y][-1]
+                    else:
+                        # I give up
+                        # this is last resort
+                        lts = sorted(srcs)[-1]
                 else:
                     # I give up
                     # this is last resort
@@ -723,7 +755,6 @@ class Bot(BotSuperClass):
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
 
-        import epdb;epdb.st()
 
         ##
         # Remove any packages that were flagged for removal.
