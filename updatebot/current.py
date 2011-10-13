@@ -136,7 +136,9 @@ class Bot(BotSuperClass):
         addPackages = self._cfg.addPackage.get(updateId, None)
         removePackages = self._cfg.removePackage.get(updateId, None)
 
-        # Oh what a lovely hack this is...
+        # Oh what a lovely hack this is...it allows persistent add removal
+        # from the group-model for current mode
+        # not sure what happens when we hit 9999999999 timestamp though
 
         if 9999999999 in self._cfg.addPackage.keys():
             if not addPackages:
@@ -153,7 +155,6 @@ class Bot(BotSuperClass):
                 for pkgs in remPkgs[pkg]:
                     removePackages.setdefault(pkg, []).append(pkgs)
 
-        import epdb;epdb.st()
 
         # Don't taint group model unless something has actually changed.
         if addPackages or removePackages:
