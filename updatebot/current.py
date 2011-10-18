@@ -345,10 +345,11 @@ class Bot(BotSuperClass):
             if nevra not in targetLatest:
                 toPromote.union(nvfs)
             # the conary package containing this nevra has been rebuilt.
-            else:
-                for nvf in nvfs:
-                    if nvf not in targetClonedFrom:
-                        toPromote.add(nvf)
+            for nvf in nvfs:
+                if nvf not in targetClonedFrom:
+                    toPromote.add(nvf)
+
+        import epdb;epdb.st()
 
         return toPromote
 
@@ -776,6 +777,74 @@ class Bot(BotSuperClass):
 
 
 
+    def _mangleGroups(self, group):
+        """
+        Map all packages in the group to packages on the prod label
+        using the clonedFrom information
+        """
+
+        log.info('mangling the group model')
+
+        grpPkgs = {}
+
+        toProd = {}
+
+        toRemove = set()
+
+
+        clonedFromMap = dict(self._updater._conaryhelper.getClonedFromForLabel(self._cfg.targetLabel))
+
+        for pkg in group.iterpackages():
+            if not pkg.version:
+                continue
+            name = str(pkg.name)
+            version = ThawVersion(str(pkg.version))
+            flavor = ThawFlavor(str(pkg.flavor))
+
+            grpPkgs.setdefault((name, version), set()).add(flavor)
+
+        #import epdb;epdb.st()
+
+        for (n, v), fs in grpPkgs.iteritems():
+            for f in fs:
+                # Get the nevra for this name, version, and flavor
+                nevra = clonedFromMap.get((n, v, f))
+
+                # If the package is already in the toAdd map, skip over it.
+                if [ x for x in toProd
+                    if x[0] == n and f in toProd[(x[0], x[1])] ]:
+                    log.warn('%s %s is already in the toAdd map' % (n,f))
+                    continue
+
+                toRemove.add((n, v, f))
+
+                n2, v2, f2 = nevra
+                toProd.setdefault((n2, v2), set()).add(f2)
+
+        import epdb;epdb.st()
+
+        ##
+        # Remove any packages that were flagged for removal.
+        ##
+
+        for n, v, f in toRemove:
+            log.info('removing %s[%s]' % (n, f))
+            group.removePackage(n, flavor=f)
+
+        ##
+        # Actually add the packages to the group model.
+        ##
+
+        for (name, version), flavors in toProd.iteritems():
+            for f in flavors:
+                log.info('adding %s=%s[%s]' % (name, version, f))
+            group.addPackage(name, version, flavors)
+
+        import epdb;epdb.st()
+
+        return group
+
+
     def buildgroups(self):
         """
         Find the latest packages on the production label by nevra and build a
@@ -847,6 +916,10 @@ class Bot(BotSuperClass):
         # This is to avoid building the same group over and over on the
         # same day...
         version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(time.time()))
+
+        self._mangleGroups(group)
+
+        import epdb;epdb.st()
 
         # Build groups.
         log.info('setting version %s' % version)
