@@ -349,11 +349,9 @@ class Bot(BotSuperClass):
                 if nvf not in targetClonedFrom:
                     toPromote.add(nvf)
 
-        import epdb;epdb.st()
-
         return toPromote
 
-    def _getUpdatePackages(self):
+    def _getUpdledatePackages(self):
         """
         Compare the upstream yum repository and the conary repository to figure
         out what sources need to be updated.
@@ -803,7 +801,6 @@ class Bot(BotSuperClass):
 
             grpPkgs.setdefault((name, version), set()).add(flavor)
 
-        #import epdb;epdb.st()
 
         for (n, v), fs in grpPkgs.iteritems():
             for f in fs:
@@ -813,7 +810,7 @@ class Bot(BotSuperClass):
                 # If the package is already in the toAdd map, skip over it.
                 if [ x for x in toProd
                     if x[0] == n and f in toProd[(x[0], x[1])] ]:
-                    log.warn('%s %s is already in the toAdd map' % (n,f))
+                    log.warn('%s %s is already in the toProd map' % (n,f))
                     continue
 
                 toRemove.add((n, v, f))
@@ -821,7 +818,6 @@ class Bot(BotSuperClass):
                 n2, v2, f2 = nevra
                 toProd.setdefault((n2, v2), set()).add(f2)
 
-        import epdb;epdb.st()
 
         ##
         # Remove any packages that were flagged for removal.
@@ -839,8 +835,6 @@ class Bot(BotSuperClass):
             for f in flavors:
                 log.info('adding %s=%s[%s]' % (name, version, f))
             group.addPackage(name, version, flavors)
-
-        import epdb;epdb.st()
 
         return group
 
@@ -869,6 +863,16 @@ class Bot(BotSuperClass):
         if group.hasBinaryVersion():
             group.errataState += 1
         updateId = group.errataState
+
+        # Figure out what packages still need to be promoted.
+        promotePkgs = self._getPromotePackages()
+
+        # Go ahead and promote any packages that didn't get promoted during the
+        # last run or have been rebuilt since then.
+        if promotePkgs:
+            log.info('found %s packages that need to be promoted' %
+                len(promotePkgs))
+            self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
         # Find and add new packages
         self._addNewPackages(group)
@@ -908,6 +912,11 @@ class Bot(BotSuperClass):
                 group.removePackage(pkg, missingOk=True)
 
 
+        # Mangle the devel group to ref packages on the prod label
+        # so we can promote...
+
+        self._mangleGroups(group)
+
         # Modify any extra groups to match config.
         self._modifyGroups(updateId, group)
 
@@ -916,10 +925,6 @@ class Bot(BotSuperClass):
         # This is to avoid building the same group over and over on the
         # same day...
         version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(time.time()))
-
-        self._mangleGroups(group)
-
-        import epdb;epdb.st()
 
         # Build groups.
         log.info('setting version %s' % version)
