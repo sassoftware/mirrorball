@@ -366,11 +366,20 @@ class Bot(BotSuperClass):
         # Reverse the map and filter out old conary versions.
         sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
 
+        explicitIgnoreSources = set([ x for x in 
+            itertools.chain(*self._cfg.ignoreSourceUpdate.values()) ])
+
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
         toUpdate = set()
         toUpdateMap = {}
         for binPkg, srcPkg in self._pkgSource.binPkgMap.iteritems():
+
+            # Skip updating pkg if explicitly ignored
+            if srcPkg.getNevra() in explicitIgnoreSources:
+                log.warn('explicitly ignoring %s in %s' % (binPkg, srcPkg))
+                continue
+
             # Skip over source packages
             if binPkg.arch == 'src':
                 continue
