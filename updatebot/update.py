@@ -456,6 +456,13 @@ class Updater(object):
                     assert latestPkgs
                     pkg = latestPkgs[0]
 
+                elif self._cfg.updateMode == 'current':
+                    # for current mode we are using this method
+                    # get the correct arch
+                    latestPkgs = self._getLatestOfAvailableArches(pkgs)
+                    assert latestPkgs
+                    pkg = latestPkgs[0]
+
                 elif self._cfg.updateMode == 'ordered':
                     idx = pkgs.index(binPkg)
                     if len(pkgs) - 1 > idx:

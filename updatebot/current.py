@@ -351,7 +351,7 @@ class Bot(BotSuperClass):
 
         return toPromote
 
-    def _getUpdledatePackages(self):
+    def _getUpdatePackages(self):
         """
         Compare the upstream yum repository and the conary repository to figure
         out what sources need to be updated.
@@ -703,11 +703,29 @@ class Bot(BotSuperClass):
 
 
         ##
+        # We are going to put together a list of all the removed pkgs
+        # it is needed to check the group for stuff we want out
+        ## 
+
+        removeObsoleted = set([ x for x in
+            itertools.chain(*self._cfg.removeObsoleted.values()) ])
+        updateRemovesPackage = set([ x for x in
+            itertools.chain(*self._cfg.updateRemovesPackages.values()) ])
+
+        removed = removeObsoleted | updateRemovesPackage
+
+        ##
         # Iterate over the group contents, looking for any packages that may
         # have been rebuilt, but the nevra stayed the same.
         ##
 
         for (n, v), fs in grpPkgs.iteritems():
+
+            # Make sure we still want the package
+            if n in removed:
+                toRemove.add((n, v, f))
+                continue
+
             for f in fs:
                 # Get the nevra for this name, version, and flavor
                 nevra = nevraMap.get((n, v, f))
@@ -726,6 +744,18 @@ class Bot(BotSuperClass):
                     toRemove.add((n, v, f))
                     continue
 
+                # FIXME: This is a hack to skip packages in the group from the 
+                # devel label. We could load the clonedFromMap and do all kinds 
+                # of checks but I think this section should be refactored 
+                # instead of adding code
+
+                if nevra is None and [ x for x in nevraMap 
+                    if x[0] == n and x[2] == f ]:
+                    continue
+
+                # if we get here and are still none blow up
+                assert nevra
+
                 # Now find the latest nvf for this nevra.
                 nvfs = latest.get(nevra)
                 # If the latest nevra nvf is newer than what is in the
@@ -743,18 +773,15 @@ class Bot(BotSuperClass):
         newPkgs = dict([ (x[0], x) for x in toAdd
             if x[0] not in [ y[0] for y in grpPkgs ] ])
 
-        removeObsoleted = set([ x for x in
-            itertools.chain(*self._cfg.removeObsoleted.values()) ])
-        updateRemovesPackage = set([ x for x in
-            itertools.chain(*self._cfg.updateRemovesPackages.values()) ])
-
-        removed = removeObsoleted | updateRemovesPackage
+        # Here we use the removed that we put together earlier
+        #
 
         for name in removed:
             if name in newPkgs:
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
 
+        import epdb;epdb.st()
 
         ##
         # Remove any packages that were flagged for removal.
