@@ -790,7 +790,6 @@ class Bot(BotSuperClass):
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
 
-        import epdb;epdb.st()
 
         ##
         # Remove any packages that were flagged for removal.
