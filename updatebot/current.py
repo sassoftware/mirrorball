@@ -349,6 +349,8 @@ class Bot(BotSuperClass):
                 if nvf not in targetClonedFrom:
                     toPromote.add(nvf)
 
+        #import epdb;epdb.st()
+
         return toPromote
 
     def _getUpdatePackages(self):
@@ -387,6 +389,8 @@ class Bot(BotSuperClass):
             if binPkg.getNevra() not in sourceLatest:
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
+
+        import epdb;epdb.st()
 
         return UpdateSet(toUpdate)
 
@@ -461,6 +465,10 @@ class Bot(BotSuperClass):
             group.errataState += 1
         updateId = group.errataState
 
+        # For debuging
+        self._updateId = updateId
+
+        log.info('UpdateID is %s' % self._updateId)
         # Load package source.
         self._pkgSource.load()
 
@@ -660,10 +668,14 @@ class Bot(BotSuperClass):
                                 (y.name,y.epoch,y.version,y.release) ][-1]
                     else:
                         # Sometimes they don't match up at so we will try another method
-                        ltsnvf = [ x for x,y in nevraMap.iteritems() 
+                        # This can fail sometimes so we break out the steps...
+                        ltsnvfs = [ x for x,y in nevraMap.iteritems() 
                                 if y.name.startswith(ltsnevra.name) and 
                                 (ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
-                                (y.epoch,y.version,y.release)][-1]
+                                (y.epoch,y.version,y.release)]
+                        if ltsnvfs:
+                            ltsnvf = ltsnvfs[-1]
+
                     # now get the source for the conary verison if ltsnvf
                     if ltsnvf:
                         lts = [ x for x,y in allSources.iteritems() if ltsnvf in y][-1]
@@ -791,9 +803,12 @@ class Bot(BotSuperClass):
                 removedPkgs.append((name, rem))
 
 
+        import epdb;epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##
+
+        log.info('removing pkgs flagged for removal')
 
         for n, v, f in toRemove:
             log.info('removing %s[%s]' % (n, f))
@@ -803,9 +818,11 @@ class Bot(BotSuperClass):
         # Actually add the packages to the group model.
         ##
 
+        log.info('adding newer versions of pkgs to the group model')
+
         for (name, version), flavors in toAdd.iteritems():
-            for f in flavors:
-                log.info('adding %s=%s[%s]' % (name, version, f))
+            #for f in flavors:
+            #    log.info('adding %s=%s[%s]' % (name, version, f))
             group.addPackage(name, version, flavors)
 
 
@@ -837,23 +854,34 @@ class Bot(BotSuperClass):
             grpPkgs.setdefault((name, version), set()).add(flavor)
 
 
-        for (n, v), fs in grpPkgs.iteritems():
-            for f in fs:
+        for (name, version), flavors in grpPkgs.iteritems():
+            for flavor in flavors:
                 # Get the nevra for this name, version, and flavor
-                nevra = clonedFromMap.get((n, v, f))
+                nevra = clonedFromMap.get((name, version, flavor))
 
                 # If the package is already in the toAdd map, skip over it.
                 if [ x for x in toProd
-                    if x[0] == n and f in toProd[(x[0], x[1])] ]:
-                    log.warn('%s %s is already in the toProd map' % (n,f))
+                    if x[0] == name and flavor in toProd[(x[0], x[1])] ]:
+                    log.warn('%s %s is already in the toProd map' % (name,flavor))
                     continue
 
-                toRemove.add((n, v, f))
+
+                # Package didn't change not sure this should happen
+                if not nevra and (name,version,flavor) in clonedFromMap.values():
+                    continue
+
+                # Feels like a hack for RHEL4AS... might revisit this later
+                if not flavor.thaw():
+                    log.warn('No flavor for %s %s %s removing from group' % (name, version, flavor))
+                    toRemove.add((name, version, flavor))
+                    continue
+
+                toRemove.add((name, version, flavor))
 
                 n2, v2, f2 = nevra
                 toProd.setdefault((n2, v2), set()).add(f2)
 
-
+        import epdb; epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##
@@ -899,15 +927,18 @@ class Bot(BotSuperClass):
             group.errataState += 1
         updateId = group.errataState
 
+        # For debuging
+        self._updateId = updateId
+        log.info('UpdateID is %s' % self._updateId)
         # Figure out what packages still need to be promoted.
-        promotePkgs = self._getPromotePackages()
+        #promotePkgs = self._getPromotePackages()
 
         # Go ahead and promote any packages that didn't get promoted during the
         # last run or have been rebuilt since then.
-        if promotePkgs:
-            log.info('found %s packages that need to be promoted' %
-                len(promotePkgs))
-            self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+        #if promotePkgs:
+        #    log.info('found %s packages that need to be promoted' %
+        #        len(promotePkgs))
+        #    self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
         # Find and add new packages
         self._addNewPackages(group)

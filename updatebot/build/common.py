@@ -172,6 +172,8 @@ class AbstractStatusMonitor(object):
         while True:
             try:
                 msg = self._status.get_nowait()
+                # DEBUG
+                log.debug('I got this from _status.get_nowait() %s' % str(msg))
             except Empty:
                 break
 
@@ -195,15 +197,25 @@ class AbstractStatusMonitor(object):
 
         data = []
         mtype, payload = msg
-
+        # DEBUG
+        log.warn('mtype is %s' % str(mtype))
         if mtype == MessageTypes.LOG:
+            # mtype == 0 in this situation
+            log.info('MessageTypes.LOG')
             log.info(payload)
         elif mtype == MessageTypes.DATA:
+            # mytpe == 1 in this situation
+            log.warn('DATA recieved: %s ' % str(payload))
             data.append(payload)
         elif mtype == MessageTypes.THREAD_DONE:
+            # mtype == 2 in this situation
+            log.warn('Job done -- I should delete the worker')
+            log.warn('Job done payload is %s' % str(payload))
             job = payload
             #assert not self._workers[job].isAlive()
             if job in self._workers:
+                log.warn('Worker I am looking to del %s' % str(self._workers[job]))
+                log.warn('WORKERS: %s' % str(self._workers))
                 del self._workers[job]
             else:
                 log.critical('JOB NOT FOUND %s' % (job, ))

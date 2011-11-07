@@ -56,9 +56,9 @@ class AbstractDispatcher(object):
         Check if all jobs are complete.
         """
 
-        log.info('waiting for the following jobs: %s' %
-            ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
-            if self._jobs[x][1] not in self._completed]))
+        #log.info('waiting for the following jobs: %s' %
+        #    ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
+        #    if self._jobs[x][1] not in self._completed]))
 
         if not len(self._jobs):
             return False
@@ -498,14 +498,18 @@ class PromoteDispatcher(Dispatcher):
         toRemove = set()
         for jobId, startTime in self._status.iteritems():
             if time.time() - startTime > (60 * 20):
-                log.info('Completely silly promote times have been reached')
-                #import epdb; epdb.st()
-                #toRemove.add(jobId)
+                #log.info('Completely silly promote times have been reached')
+                if time.time() - startTime > (60 * 40):
+                    log.info('Ok ludicrous promote times reached...time to debug')
+                    #import epdb; epdb.st()
+                    #if self._jobs[jobId][1] == -11 and jobId not in toRemove:
+                        #toRemove.add(jobId)
         for jobId in toRemove:
             self._status.pop(jobId, None)
 
         # Gather results
         for result in self._promoter.getStatus():
+            log.warn('RESULTS: %s ' % str(result))
             self._promoteSlots += 1
             for jobId, promoted in result:
                 self._jobs[jobId][2] = promoted
