@@ -371,6 +371,7 @@ class Bot(BotSuperClass):
         explicitIgnoreSources = set([ x for x in 
             itertools.chain(*self._cfg.ignoreSourceUpdate.values()) ])
 
+
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
         toUpdate = set()
@@ -389,6 +390,23 @@ class Bot(BotSuperClass):
             if binPkg.getNevra() not in sourceLatest:
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
+
+        # add a source to a specific bucket, used to "promote" newer versions
+        # forward.
+        nevras = dict([ (x.getNevra(), x)
+                         for x in self._pkgSource.srcPkgMap ])
+
+        for srcNevras in self._cfg.addSource[self._updateId]:
+            sources = set(nevras[x] for x in srcNevras)
+            for sPkg in sources:
+                if sPkg in self._pkgSource.srcPkgMap:
+                    for bPkg in self._pkgSource.srcPkgMap[sPkg]:
+                        if bPkg.arch == 'src':
+                            continue
+                        toUpdateMap.setdefault(sPkg, set()).add(bPkg)
+                        toUpdate.add(sPkg)
+                else:
+                    log.warn('addSource failed for %s' % str(sPkg))
 
         import epdb;epdb.st()
 
@@ -761,7 +779,7 @@ class Bot(BotSuperClass):
                 # remove it.
                 if nevra is None and not [ x for x in nevraMap
                     if x[0] == n and x[2] == f ]:
-                    log.warn('%s %s isnt actually attached to a nevra' % (n,f))
+                    #log.warn('%s %s isnt actually attached to a nevra' % (n,f))
                     toRemove.add((n, v, f))
                     continue
 
@@ -870,9 +888,30 @@ class Bot(BotSuperClass):
                 if not nevra and (name,version,flavor) in clonedFromMap.values():
                     continue
 
+                # Another hack for rhel 5 client workstation
+                if self._cfg.topParentSourceGroup != self._cfg.topSourceGroup:
+                    parent = True
+
+                if not nevra and parent:
+                    log.warn('Child platform')
+                    for original, clone in clonedFromMap.iteritems(): 
+                        if (name == original[0] and 
+                            version.trailingRevision() == original[1].trailingRevision() 
+                            and flavor == original[2]):
+                            log.warn('adding %s' % str(clone))
+                            n2, v2, f2 = clone
+                            toProd.setdefault((n2, v2), set()).add(f2)
+                            toRemove.add((name, version, flavor))
+                            break
+                    continue
+
                 # Feels like a hack for RHEL4AS... might revisit this later
                 if not flavor.thaw():
-                    log.warn('No flavor for %s %s %s removing from group' % (name, version, flavor))
+                    log.warn('No flavor for %s %s %s' % (name, version, flavor))
+                    for original, clone in clonedFromMap.iteritems(): 
+                        if original[0] == name and original[1] == version:
+                            n2, v2, f2 = clone
+                            toProd.setdefault((n2, v2), set()).add(f2)
                     toRemove.add((name, version, flavor))
                     continue
 
@@ -931,14 +970,14 @@ class Bot(BotSuperClass):
         self._updateId = updateId
         log.info('UpdateID is %s' % self._updateId)
         # Figure out what packages still need to be promoted.
-        #promotePkgs = self._getPromotePackages()
+        promotePkgs = self._getPromotePackages()
 
         # Go ahead and promote any packages that didn't get promoted during the
         # last run or have been rebuilt since then.
-        #if promotePkgs:
-        #    log.info('found %s packages that need to be promoted' %
-        #        len(promotePkgs))
-        #    self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+        if promotePkgs:
+            log.info('found %s packages that need to be promoted' %
+                len(promotePkgs))
+            self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
         # Find and add new packages
         self._addNewPackages(group)

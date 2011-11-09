@@ -478,6 +478,7 @@ class PromoteDispatcher(Dispatcher):
                 # It might take a few iterations through the loop for the
                 # result to show up.
                 if not result:
+                    log.info('No results state is %s' % str(state))
                     continue
 
                 # Make result hashable
@@ -498,10 +499,17 @@ class PromoteDispatcher(Dispatcher):
         toRemove = set()
         for jobId, startTime in self._status.iteritems():
             if time.time() - startTime > (60 * 20):
+                log.info('JobId ID: %s' % jobId)
                 #log.info('Completely silly promote times have been reached')
                 if time.time() - startTime > (60 * 40):
-                    log.info('Ok ludicrous promote times reached...time to debug')
-                    #import epdb; epdb.st()
+                    log.info('Ok ludicrous promote times reached %s' % jobId)
+                    log.warn('JobId info: %s' % str(self._jobs[jobId]))
+                    for job in self._jobs:
+                        if self._jobs[job][1] != -11:
+                            log.warn('Waiting on job status for  %s : %s ' % 
+                                        (job,self._jobs[job][1])) 
+                            if time.time() - startTime > (60 * 80):
+                                import epdb; epdb.st()
                     #if self._jobs[jobId][1] == -11 and jobId not in toRemove:
                         #toRemove.add(jobId)
         for jobId in toRemove:
