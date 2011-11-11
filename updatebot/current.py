@@ -224,12 +224,19 @@ class Bot(BotSuperClass):
                 if nevra not in nevraMap:
                     raise UnknownRemoveSourceError(nevra=nevra)
 
-                # remove all binary names from the group.
+                # remove all binary names from the group if they match
+                # the version of the src pkg
+
                 binNames = set([ x.name for x in nevraMap[nevra] ])
+
                 for name in binNames:
-                    group.removePackage(name)
+                    if name in [ x.name for x in group.iterpackages() ]:
+                        group.removePackage(name)
+
+        import epdb;epdb.st()
 
         return group 
+
 
     def _useOldVersions(self, updateId, pkgMap):
         # When deriving from an upstream platform sometimes we don't want
@@ -393,18 +400,18 @@ class Bot(BotSuperClass):
 
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
-        nevras = dict([ (x.getNevra(), x)
+        if self._updateId in self._cfg.addSource:
+            nevras = dict([ (x.getNevra(), x)
                          for x in self._pkgSource.srcPkgMap ])
 
-        for srcNevras in self._cfg.addSource[self._updateId]:
-            sources = set(nevras[x] for x in srcNevras)
+            sources = set([nevras[x] for x in self._cfg.addSource[self._updateId]])
             for sPkg in sources:
                 if sPkg in self._pkgSource.srcPkgMap:
                     for bPkg in self._pkgSource.srcPkgMap[sPkg]:
                         if bPkg.arch == 'src':
                             continue
                         toUpdateMap.setdefault(sPkg, set()).add(bPkg)
-                        toUpdate.add(sPkg)
+                    toUpdate.add(sPkg)
                 else:
                     log.warn('addSource failed for %s' % str(sPkg))
 
@@ -889,7 +896,7 @@ class Bot(BotSuperClass):
                     continue
 
                 # Another hack for rhel 5 client workstation
-                if self._cfg.topParentSourceGroup != self._cfg.topSourceGroup:
+                if self._cfg.topParentSourceGroup:
                     parent = True
 
                 if not nevra and parent:
@@ -906,14 +913,14 @@ class Bot(BotSuperClass):
                     continue
 
                 # Feels like a hack for RHEL4AS... might revisit this later
-                if not flavor.thaw():
-                    log.warn('No flavor for %s %s %s' % (name, version, flavor))
-                    for original, clone in clonedFromMap.iteritems(): 
-                        if original[0] == name and original[1] == version:
-                            n2, v2, f2 = clone
-                            toProd.setdefault((n2, v2), set()).add(f2)
-                    toRemove.add((name, version, flavor))
-                    continue
+                #if not flavor.thaw():
+                #    log.warn('No flavor for %s %s %s' % (name, version, flavor))
+                #    for original, clone in clonedFromMap.iteritems(): 
+                #        if original[0] == name and original[1] == version:
+                #            n2, v2, f2 = clone
+                #            toProd.setdefault((n2, v2), set()).add(f2)
+                #    toRemove.add((name, version, flavor))
+                #    continue
 
                 toRemove.add((name, version, flavor))
 
@@ -977,7 +984,13 @@ class Bot(BotSuperClass):
         if promotePkgs:
             log.info('found %s packages that need to be promoted' %
                 len(promotePkgs))
-            self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+            if not self._cfg.topParentSourceGroup:
+                self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+
+        # Remove any undesired sources from the group model
+        # Particularly handy with SLES where suddenly a src rpm is now 
+        # built by another src rpm and it is obsolete
+        self._removeSource(updateId, group)
 
         # Find and add new packages
         self._addNewPackages(group)
