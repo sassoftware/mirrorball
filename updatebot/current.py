@@ -233,10 +233,80 @@ class Bot(BotSuperClass):
                     if name in [ x.name for x in group.iterpackages() ]:
                         group.removePackage(name)
 
+        return group
+
+
+    def _removeObsoletedSource(self, updateId, group):
+        # Handle the case of a pkg source being obsoleted and combined into
+        # another src rpm (thank you SLES) so we remove all the
+        # binaries from that source from the group model
+        # _addNewPackages will handle adding the new changes
+        # as long as we do this function before it
+        if updateId in self._cfg.removeObsoletedSource:
+            # get nevras from the config
+            nevras = self._cfg.removeObsoletedSource[updateId]
+
+            # get a map of source nevra to binary package list.
+            nevraMap = dict((x.getNevra(), y) for x, y in
+                            self._pkgSource.srcPkgMap.iteritems()
+                            if x.getNevra() in nevras)
+
+            for nevra in nevras:
+                # if for some reason the nevra from the config is not in
+                # the pkgSource, raise an error.
+                if nevra not in nevraMap:
+                    raise UnknownRemoveSourceError(nevra=nevra)
+
+                # remove all binary names from the group if they match
+                # the version of the src pkg
+
+                binNames = set([ x.name for x in nevraMap[nevra] ])
+
+                for name in binNames:
+                    if name in [ x.name for x in group.iterpackages() ]:
+                        group.removePackage(name)
+
         import epdb;epdb.st()
 
-        return group 
+        return group
 
+    def _requiredRemovals(self, updateId, group):
+        # remove packages from config
+        removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
+        removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
+        removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
+
+        # The following packages are expected to exist and must be removed
+        # (removeObsoleted may be mentioned for buckets where the package
+        # is not in the model, in order to support later adding the ability
+        # for a package to re-appear if an RPM obsoletes entry disappears.)
+        requiredRemovals = (set(removePackages) |
+                            set(removeReplaced))
+
+        # Remove any packages that are scheduled for removal.
+        # NOTE: This should always be done before adding packages so that
+        #       any packages that move between sources will be removed and
+        #       then readded.
+        if requiredRemovals:
+            log.info('removing the following packages from the managed '
+                'group: %s' % ', '.join(requiredRemovals))
+            for pkg in requiredRemovals:
+                group.removePackage(pkg, missingOk=True)
+        if removeObsoleted:
+            log.info('removing any of obsoleted packages from the managed '
+                'group: %s' % ', '.join(removeObsoleted))
+            for pkg in removeObsoleted:
+                group.removePackage(pkg, missingOk=True)
+
+        return group
+
+    def _keepObsolete(self, updateId, group):
+
+        # Keep Obsoleted
+        keepObsolete = set(self._cfg.keepObsolete)
+        keepObsoleteSource = set(self._cfg.keepObsoleteSource)
+
+        return group
 
     def _useOldVersions(self, updateId, pkgMap):
         # When deriving from an upstream platform sometimes we don't want
@@ -494,6 +564,7 @@ class Bot(BotSuperClass):
         self._updateId = updateId
 
         log.info('UpdateID is %s' % self._updateId)
+
         # Load package source.
         self._pkgSource.load()
 
@@ -990,49 +1061,22 @@ class Bot(BotSuperClass):
         # Remove any undesired sources from the group model
         # Particularly handy with SLES where suddenly a src rpm is now 
         # built by another src rpm and it is obsolete
-        self._removeSource(updateId, group)
+        self._removeObsoletedSource(updateId, group)
 
         # Find and add new packages
         self._addNewPackages(group)
 
-        # remove packages from config
-        removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
-        removeObsoleted = self._cfg.removeObsoleted.get(updateId, [])
-        removeReplaced = self._cfg.updateReplacesPackages.get(updateId, [])
+        # Execute required removals
+        self._requiredRemovals(group)
 
-        # The following packages are expected to exist and must be removed
-        # (removeObsoleted may be mentioned for buckets where the package
-        # is not in the model, in order to support later adding the ability
-        # for a package to re-appear if an RPM obsoletes entry disappears.)
-        requiredRemovals = (set(removePackages) |
-                            set(removeReplaced))
+        # Remove source function from cfg
+        self._removeSource(updateId, group)
 
-        # Get the list of package that are allowed to be downgraded.
-        allowDowngrades = self._cfg.allowPackageDowngrades.get(updateId, [])
-
-        # Keep Obsoleted
-        keepObsolete = set(self._cfg.keepObsolete)
-        keepObsoleteSource = set(self._cfg.keepObsoleteSource)
-
-        # Remove any packages that are scheduled for removal.
-        # NOTE: This should always be done before adding packages so that
-        #       any packages that move between sources will be removed and
-        #       then readded.
-        if requiredRemovals:
-            log.info('removing the following packages from the managed '
-                'group: %s' % ', '.join(requiredRemovals))
-            for pkg in requiredRemovals:
-                group.removePackage(pkg, missingOk=True)
-        if removeObsoleted:
-            log.info('removing any of obsoleted packages from the managed '
-                'group: %s' % ', '.join(removeObsoleted))
-            for pkg in removeObsoleted:
-                group.removePackage(pkg, missingOk=True)
-
+        # Keep Obsolete
+        self._keepObsolete(updateId, group)
 
         # Mangle the devel group to ref packages on the prod label
         # so we can promote...
-
         self._mangleGroups(group)
 
         # Modify any extra groups to match config.
