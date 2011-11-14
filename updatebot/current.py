@@ -235,7 +235,6 @@ class Bot(BotSuperClass):
 
         return group
 
-
     def _removeObsoletedSource(self, updateId, group):
         # Handle the case of a pkg source being obsoleted and combined into
         # another src rpm (thank you SLES) so we remove all the
@@ -265,8 +264,6 @@ class Bot(BotSuperClass):
                 for name in binNames:
                     if name in [ x.name for x in group.iterpackages() ]:
                         group.removePackage(name)
-
-        import epdb;epdb.st()
 
         return group
 
@@ -298,6 +295,7 @@ class Bot(BotSuperClass):
             for pkg in removeObsoleted:
                 group.removePackage(pkg, missingOk=True)
 
+        import epdb;epdb.st()
         return group
 
     def _keepObsolete(self, updateId, group):
@@ -1067,7 +1065,7 @@ class Bot(BotSuperClass):
         self._addNewPackages(group)
 
         # Execute required removals
-        self._requiredRemovals(group)
+        self._requiredRemovals(updateId, group)
 
         # Remove source function from cfg
         self._removeSource(updateId, group)

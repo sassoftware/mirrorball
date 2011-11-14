@@ -517,12 +517,13 @@ class PromoteDispatcher(Dispatcher):
 
         # Gather results
         for result in self._promoter.getStatus():
-            log.warn('RESULTS: %s ' % str(result))
+            log.warn('WE GOT RESULTS FROM PROMOTER')
             self._promoteSlots += 1
             for jobId, promoted in result:
                 self._jobs[jobId][2] = promoted
                 self._jobs[jobId][1] = JobStatus.JOB_PROMOTED
-
+                log.warn('JOB STATUS: %s %s' % (str(self._jobs[jobId][1]),
+                                                    str(self._jobs[jobId][2])))
         # Gather errors
         for jobs, error in self._promoter.getErrors():
             self._promoteSlots += 1
