@@ -1226,7 +1226,7 @@ class ConaryHelper(object):
                 if version == latestVer:
                     trvLst.append((name, version, flavor))
 
-        callback = UpdateBotCloneCallback(self._ccfg, 'automated promote',
+        callback = UpdateBotCloneCallback(self._ccfg, 'Automated Promote',
             log=log)
 
         success, cs = self._client.createSiblingCloneChangeSet(

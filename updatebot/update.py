@@ -374,6 +374,12 @@ class Updater(object):
         if allowPackageDowngrades is None:
             allowPackageDowngrades = ()
 
+        # HACK HACK HACK REMOVE ME
+        if 'rhel-5-client-workstation' in self._cfg.targetLabel.asString():
+            log.warn('rhel-5-client found for %s, will create package' % nvf[0])
+            return True
+        # HACK HACK HACK END
+
         try:
             manifest = self._conaryhelper.getManifest(nvf[0], version=nvf[1])
         except NoManifestFoundError, e:
@@ -381,6 +387,7 @@ class Updater(object):
             # TODO: might want to make this a config option?
             log.info('no manifest found for %s, will create package' % nvf[0])
             return True
+
 
         for line in manifest:
             # Some manifests were created with double slashes, need to

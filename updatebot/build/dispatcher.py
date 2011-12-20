@@ -56,16 +56,21 @@ class AbstractDispatcher(object):
         Check if all jobs are complete.
         """
 
-        #log.info('waiting for the following jobs: %s' %
-        #    ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
-        #    if self._jobs[x][1] not in self._completed]))
+        log.info('waiting for the following jobs: %s' %
+            ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
+            if self._jobs[x][1] not in self._completed]))
 
         if not len(self._jobs):
+            log.warn('_jobs empty should I return true?')
+            log.warn('%s' % str(self._jobs))
             return False
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
+            log.warn('STATUS: %s' % status)
             if status not in self._completed:
+                log.warn('%s %s %s not in _completed' % (jobId, str(status), str(result)))
                 return False
+
         return True
 
     def _availableFDs(self, setMax=False):
@@ -103,7 +108,8 @@ class Dispatcher(AbstractDispatcher):
         AbstractDispatcher.__init__(self, builder, maxSlots)
 
         self._startSlots = util.BoundedCounter(0, 10, 10)
-        self._commitSlots = util.BoundedCounter(0, 2, 2)
+        #self._commitSlots = util.BoundedCounter(0, 2, 2)
+        self._commitSlots = util.BoundedCounter(0, 1, 1)
 
         self._starter = self._starterClass(self._builder)
         self._monitor = self._monitorClass(self._builder._helper.client)

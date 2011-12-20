@@ -295,7 +295,6 @@ class Bot(BotSuperClass):
             for pkg in removeObsoleted:
                 group.removePackage(pkg, missingOk=True)
 
-        import epdb;epdb.st()
         return group
 
     def _keepObsolete(self, updateId, group):
@@ -411,6 +410,7 @@ class Bot(BotSuperClass):
         log.info('querying target cloned from information')
         targetClonedFrom = helper.getClonedFromForLabel(self._cfg.targetLabel)
 
+
         # Now diff the two maps. We are looking for things that have been
         # updated on the source label, that have not made it to the target
         # label.
@@ -419,12 +419,12 @@ class Bot(BotSuperClass):
             # nevra has not been promoted.
             if nevra not in targetLatest:
                 toPromote.union(nvfs)
+
             # the conary package containing this nevra has been rebuilt.
             for nvf in nvfs:
                 if nvf not in targetClonedFrom:
                     toPromote.add(nvf)
 
-        #import epdb;epdb.st()
 
         return toPromote
 
@@ -442,6 +442,14 @@ class Bot(BotSuperClass):
 
         # Reverse the map and filter out old conary versions.
         sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+
+        # HACK FOR RHEL5CLIENT
+        # Another hack for rhel 5 client workstation
+        parent = False
+        if self._cfg.topParentSourceGroup:
+            parent = True
+            targetNevras = self._getNevrasForLabel(self._cfg.targetLabel)
+            targetLatest = self._getLatestNevraPackageMap(targetNevras)
 
         explicitIgnoreSources = set([ x for x in 
             itertools.chain(*self._cfg.ignoreSourceUpdate.values()) ])
@@ -462,10 +470,24 @@ class Bot(BotSuperClass):
             if binPkg.arch == 'src':
                 continue
 
+
+            # HACK for RHEL5CLIENT REMOVE
+            if parent:
+                if binPkg.getNevra() not in targetLatest:
+                    toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
+                    toUpdate.add(srcPkg)
+                    continue
+
+
+
             if binPkg.getNevra() not in sourceLatest:
+                log.info('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
 
+            #if binPkg.name in [ 'qcairo', 'celt051', 'qpixman', 'qcairo-devel', 
+             #                       'celt051-devel', 'qpixman-devel' ]:
+             #   import epdb;epdb.st()
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
         if self._updateId in self._cfg.addSource:
@@ -482,8 +504,6 @@ class Bot(BotSuperClass):
                     toUpdate.add(sPkg)
                 else:
                     log.warn('addSource failed for %s' % str(sPkg))
-
-        import epdb;epdb.st()
 
         return UpdateSet(toUpdate)
 
@@ -551,12 +571,14 @@ class Bot(BotSuperClass):
         # Get current timestamp
         current = group.errataState
         if current is None:
-            raise PlatformNotImportedError
+            updateId = 0
+        else:
+            updateId = group.errataState
 
         # Get the latest errata state, increment if the source has been built.
         if group.hasBinaryVersion():
             group.errataState += 1
-        updateId = group.errataState
+            updateId = group.errataState
 
         # For debuging
         self._updateId = updateId
@@ -577,7 +599,7 @@ class Bot(BotSuperClass):
         # last run or have been rebuilt since then.
         log.info('found %s packages that need to be promoted' %
             len(promotePkgs))
-        self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+        #self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
         # Figure out what packages need to be updated.
         updatePkgs = self._getUpdatePackages()
@@ -603,15 +625,38 @@ class Bot(BotSuperClass):
 
             for updateSet in updatePkgs:
                 log.info('building set of update troves')
-                updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
-                    for x in updateSet])
+
+                #updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
+                #    for x in updateSet])
 
                 log.info('running update')
 
-                pkgMap.update(self._update(*args, updateTroves=updateTroves,
-                    updatePkgs=True, expectedRemovals=expectedRemovals,
-                    keepRemovedPackages=keepRemoved,
-                    **kwargs))
+                #DEBUG RHEL5CLIENT
+                log.warn('DEBUG RHEL5CLIENT')
+                #import epdb;epdb.st()
+
+                chunks = 1
+
+                chunk = lambda ulist, step:  map(lambda i: ulist[i:i+step],
+                            xrange(0, len(ulist), step))
+
+
+                for upSet in chunk(updateSet, chunks):
+
+                    updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
+                        for x in upSet])
+
+
+                    #import epdb;epdb.st()
+
+                    pkgMap.update(self._update(*args, updateTroves=updateTroves,
+                        updatePkgs=True, expectedRemovals=expectedRemovals,
+                        keepRemovedPackages=keepRemoved,
+                        **kwargs))
+
+                    #import epdb;epdb.st()
+
+                # HACK FOR RHEL 5 CLIENT
 
                 # The NEVRA maps will be changing every time through. Make sure
                 # the clear the cache.
@@ -897,7 +942,6 @@ class Bot(BotSuperClass):
                 removedPkgs.append((name, rem))
 
 
-        import epdb;epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##
@@ -935,6 +979,7 @@ class Bot(BotSuperClass):
 
         toRemove = set()
 
+        parent = False
 
         clonedFromMap = dict(self._updater._conaryhelper.getClonedFromForLabel(self._cfg.targetLabel))
 
@@ -996,7 +1041,6 @@ class Bot(BotSuperClass):
                 n2, v2, f2 = nevra
                 toProd.setdefault((n2, v2), set()).add(f2)
 
-        import epdb; epdb.st()
         ##
         # Remove any packages that were flagged for removal.
         ##
@@ -1053,7 +1097,7 @@ class Bot(BotSuperClass):
         if promotePkgs:
             log.info('found %s packages that need to be promoted' %
                 len(promotePkgs))
-            if not self._cfg.topParentSourceGroup:
+            if 'rhel-5-client-workstation' in  self._cfg.topSourceGroup:
                 self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
         # Remove any undesired sources from the group model
@@ -1085,6 +1129,8 @@ class Bot(BotSuperClass):
         # This is to avoid building the same group over and over on the
         # same day...
         version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(time.time()))
+
+        #import epdb;epdb.st()
 
         # Build groups.
         log.info('setting version %s' % version)
