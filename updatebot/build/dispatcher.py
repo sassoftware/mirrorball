@@ -61,7 +61,7 @@ class AbstractDispatcher(object):
             if self._jobs[x][1] not in self._completed]))
 
         if not len(self._jobs):
-            log.warn('_jobs empty should I return true?')
+            log.warn('_jobs empty... guess we need to wait')
             log.warn('%s' % str(self._jobs))
             return False
 

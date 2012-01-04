@@ -425,6 +425,8 @@ class Bot(BotSuperClass):
                 if nvf not in targetClonedFrom:
                     toPromote.add(nvf)
 
+        #import epdb;epdb.st()
+
 
         return toPromote
 
@@ -631,8 +633,10 @@ class Bot(BotSuperClass):
 
                 log.info('running update')
 
+                log.info('WORKING ON %s UPDATES' % len(updateSet))
+
                 #DEBUG RHEL5CLIENT
-                log.warn('DEBUG RHEL5CLIENT')
+                log.warn('DEBUG THREADING')
                 #import epdb;epdb.st()
 
                 chunks = 1
@@ -958,6 +962,11 @@ class Bot(BotSuperClass):
 
         log.info('adding newer versions of pkgs to the group model')
 
+        ## HACK HACK
+        if not [ x for x in group.iterpackages() if x.name == 'bitmap-fonts' ]:
+            import epdb;epdb.st()
+        ## HACK HACK
+
         for (name, version), flavors in toAdd.iteritems():
             #for f in flavors:
             #    log.info('adding %s=%s[%s]' % (name, version, f))
@@ -1011,6 +1020,9 @@ class Bot(BotSuperClass):
 
                 # Another hack for rhel 5 client workstation
                 if self._cfg.topParentSourceGroup:
+                    parent = True
+
+                if 'rhel-5-client-workstation' in str(self._cfg.topSourceGroup):
                     parent = True
 
                 if not nevra and parent:
@@ -1097,7 +1109,7 @@ class Bot(BotSuperClass):
         if promotePkgs:
             log.info('found %s packages that need to be promoted' %
                 len(promotePkgs))
-            if 'rhel-5-client-workstation' in  self._cfg.topSourceGroup:
+            if 'rhel-5-client-workstation' not in str(self._cfg.topSourceGroup):
                 self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
 
         # Remove any undesired sources from the group model
