@@ -962,10 +962,6 @@ class Bot(BotSuperClass):
 
         log.info('adding newer versions of pkgs to the group model')
 
-        ## HACK HACK
-        if not [ x for x in group.iterpackages() if x.name == 'bitmap-fonts' ]:
-            import epdb;epdb.st()
-        ## HACK HACK
 
         for (name, version), flavors in toAdd.iteritems():
             #for f in flavors:
