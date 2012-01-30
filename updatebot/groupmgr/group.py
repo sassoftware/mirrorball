@@ -350,7 +350,7 @@ class Group(object):
         raise UnhandledPackageAdditionError(name=name)
 
     @require_write
-    def removePackage(self, name, missingOk=False):
+    def removePackage(self, name, flavor=None, missingOk=False):
         """
         Remove a given trove from the package group contents.
         """
@@ -358,8 +358,13 @@ class Group(object):
         if self._pkgGroupName not in self._groups:
             return
 
-        return self._groups[self._pkgGroupName].remove(name,
-             missingOk=missingOk)
+        group = self._groups[self._pkgGroupName]
+
+        #if flavor:
+        if isinstance(flavor, deps.Flavor):
+            group.removePackageFlavor(name, flavor.freeze())
+        else:
+            group.remove(name, missingOk=missingOk)
 
     def hasPackage(self, name):
         """

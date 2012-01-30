@@ -56,7 +56,7 @@ class Updater(object):
         self._conaryhelper = conaryhelper.ConaryHelper(self._cfg)
 
     def getUpdates(self, updateTroves=None, expectedRemovals=None,
-        allowPackageDowngrades=None):
+        allowPackageDowngrades=None, keepRemovedPackages=None):
         """
         Find all packages that need updates and/or advisories from a top level
         binary group.
@@ -68,6 +68,10 @@ class Updater(object):
         @param allowPackageDowngrades: list of source nevra tuples to downgrade
                                        from/to.
         @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
+        @param keepRemovedPackages: list of package nevras to keep even though
+                                    they have been removed in the latest version
+                                    of the source.
+        @type keepRemovedPackages: list(nevra, nevra, ...)
         @return list of packages to send advisories for and list of packages
                 to update
         """
@@ -88,7 +92,8 @@ class Updater(object):
             # Will raise exception if any errors are found, halting execution.
             if self._sanitizeTrove(nvf, srpm,
                     expectedRemovals=expectedRemovals,
-                    allowPackageDowngrades=allowPackageDowngrades):
+                    allowPackageDowngrades=allowPackageDowngrades,
+                    keepRemovedPackages=keepRemovedPackages):
                 toUpdate.append((nvf, srpm))
                 toAdvise.append((nvf, srpm))
 
@@ -369,6 +374,12 @@ class Updater(object):
         if allowPackageDowngrades is None:
             allowPackageDowngrades = ()
 
+        # HACK HACK HACK REMOVE ME
+        if 'rhel-5-client-workstation' in self._cfg.targetLabel.asString():
+            log.warn('rhel-5-client found for %s, will create package' % nvf[0])
+            return True
+        # HACK HACK HACK END
+
         try:
             manifest = self._conaryhelper.getManifest(nvf[0], version=nvf[1])
         except NoManifestFoundError, e:
@@ -377,6 +388,7 @@ class Updater(object):
             log.info('no manifest found for %s, will create package' % nvf[0])
             return True
 
+
         for line in manifest:
             # Some manifests were created with double slashes, need to
             # normalize the path to work around this problem.
@@ -384,7 +396,8 @@ class Updater(object):
             if line in self._pkgSource.locationMap:
                 binPkg = self._pkgSource.locationMap[line]
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
-            elif line.strip().endswith('.src.rpm') and self._cfg.synthesizeSources:
+            elif (line.strip().endswith('.src.rpm') and
+                  self._cfg.synthesizeSources):
                 # this is a fake source.  Move on.
                 continue
             else:
@@ -406,14 +419,23 @@ class Updater(object):
 
             # make sure new package is actually newer
             if util.packagevercmp(srpm, srcPkg) == -1:
-                srcTuple = (srcPkg.getNevra(), srpm.getNevra())
-                log.warn('version goes backwards %s -> %s' % srcTuple)
-                if srcTuple in allowPackageDowngrades:
-                    log.info('found version downgrade exception in '
-                             'configuration')
+                # In current mode we just need to build
+                # attempts are made in update set to keep the latest rpm
+                # the latest conary version so just let it go
+                if self._cfg.updateMode == 'current':
+                    srcTuple = (srcPkg.getNevra(), srpm.getNevra())
+                    log.warn('running in current mode ignoring')
+                    log.warn('version goes backwards %s -> %s' % srcTuple)
                     needsUpdate = True
                 else:
-                    raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
+                    srcTuple = (srcPkg.getNevra(), srpm.getNevra())
+                    log.warn('version goes backwards %s -> %s' % srcTuple)
+                    if srcTuple in allowPackageDowngrades:
+                        log.info('found version downgrade exception in '
+                             'configuration')
+                        needsUpdate = True
+                    else:
+                        raise UpdateGoesBackwardsError(why=(srcPkg, srpm))
 
             # make sure we aren't trying to remove a package
             if ((binPkg.name, binPkg.arch) not in newNames and
@@ -436,6 +458,13 @@ class Updater(object):
                 # ordered we really want the "next" version of this binary.
                 pkg = None
                 if self._cfg.updateMode == 'latest':
+                    # get the correct arch
+                    latestPkgs = self._getLatestOfAvailableArches(pkgs)
+                    assert latestPkgs
+                    pkg = latestPkgs[0]
+
+                elif self._cfg.updateMode == 'current':
+                    # for current mode we are using this method
                     # get the correct arch
                     latestPkgs = self._getLatestOfAvailableArches(pkgs)
                     assert latestPkgs
@@ -846,7 +875,8 @@ class Updater(object):
 
         # Take the basename of all paths in the manifest since the same rpm will
         # be in different repositories for each platform.
-        baseManifest = sorted([ dropArchRE.sub('', os.path.basename(x)) for x in manifest ])
+        baseManifest = sorted([ dropArchRE.sub('', os.path.basename(x))
+            for x in manifest ])
         parentBaseManifest = sorted([ dropArchRE.sub('', os.path.basename(x))
                                       for x in parentManifest ])
         # baseManifest = sorted([ os.path.basename(x) for x in manifest ])
@@ -854,21 +884,36 @@ class Updater(object):
         #                               for x in parentManifest ])
 
         if baseManifest != parentBaseManifest:
-            if srcPkg.getFileName() in self._cfg.expectParentManifestDifferences:
-                if srcPkg.getFileName() in baseManifest and srcPkg.getFileName() in parentBaseManifest:
-                    log.info('%s: found expected difference in manifests between parent and child platforms, ignoring parent platform' % srcPkg)
+            if (srcPkg.getFileName() in
+                self._cfg.expectParentManifestDifferences):
+
+                if (srcPkg.getFileName() in baseManifest and
+                    srcPkg.getFileName() in parentBaseManifest):
+
+                    log.info('%s: found expected difference in manifests '
+                        'between parent and child platforms, ignoring parent '
+                        'platform' % srcPkg)
                     return None
                 else:
                     # This is basically an assertion.
-                    log.error('%s: unexpected manifest error between parent and child platforms: %s not found in both manifests' % (srcName, srcPkg))
-                    raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg, manifest=manifest, parentManifest=parentManifest)
+                    log.error('%s: unexpected manifest error between parent '
+                        'and child platforms: %s not found in both manifests'
+                        % (srcName, srcPkg))
+                    raise ParentPlatformManifestInconsistencyError(
+                        srcPkg=srcPkg, manifest=manifest,
+                        parentManifest=parentManifest)
+
             if self._cfg.ignoreAllParentManifestDifferences:
-                log.warn('%s: found matching parent trove, but manifests differ; soldiering onward to madness--thank goodness this is a dry run...' % srcPkg)
+                log.warn('%s: found matching parent trove, but manifests '
+                    'differ; soldiering onward to madness--thank goodness this '
+                    'is a dry run...' % srcPkg)
                 import epdb ; epdb.st()
                 return None
             else:
-                log.error('%s: found matching parent trove, but manifests differ' % srcPkg)
-                raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg, manifest=manifest, parentManifest=parentManifest)
+                log.error('%s: found matching parent trove, but manifests '
+                    'differ' % srcPkg)
+                raise ParentPlatformManifestInconsistencyError(srcPkg=srcPkg,
+                    manifest=manifest, parentManifest=parentManifest)
 
         return srcVersion
 
@@ -1122,6 +1167,25 @@ class Updater(object):
         srcMap = self._conaryhelper.getBinaryVersions(filteredSrcTrvs,
             missingOk=True, labels=[filteredSrcTrvs[0][1].trailingLabel(), ])
         return srcMap
+
+    def getSourceVersionMapFromSrpms(self, srpms):
+        """
+        Generate a mapping of source trove tuple to binary trove tuple for all
+        source rpms in srpms.
+        @param srpms: collection of srpm objects.
+        @return dict((str, conary.versions.Version, None)=[(str,
+            conary.versions.Version, conary.deps.deps.Flavor), ...])
+        """
+
+        query = [ ('%s:source' % x.name, x.getConaryVersion(), None)
+            for x in srpms ]
+        results = self._conaryhelper.findTroves(query, allowMissing=True)
+        srcSpecs = [ x for x in itertools.chain(*results.itervalues()) ]
+        labels = list(set([ x[1].trailingLabel() for x in srcSpecs ]))
+        pkgMap = self._conaryhelper.getBinaryVersions(srcSpecs, missingOk=True,
+            labels=labels)
+
+        return pkgMap
 
     def remove(self, srcPkgs):
         """

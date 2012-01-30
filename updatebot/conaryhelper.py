@@ -46,6 +46,7 @@ from updatebot.errors import PromoteFailedError
 from updatebot.errors import PromoteMismatchError
 from updatebot.errors import MirrorFailedError
 from updatebot.errors import BinariesNotFoundForSourceVersion
+from updatebot.errors import CanNotPromoteGroupsAndPackagesTogetherError
 
 from updatebot.lib.findtroves import FindTrovesCache
 from updatebot.lib.conarycallbacks import UpdateBotCloneCallback
@@ -75,6 +76,9 @@ class ConaryHelperSharedCache(object):
 
         self.conaryConfigCache = {}
         self.sharedTmpDir = None
+
+        self.nevraCache = {}
+        self.labelNevraCache = {}
 
 
 class ConaryHelper(object):
@@ -297,7 +301,8 @@ class ConaryHelper(object):
 
         return self.getSourceVersions(list(troves))
 
-    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None):
+    def _cacheTroveInfo(self, troveSpecs, cache, tiType, tiFunc=None,
+        missingOk=False):
         """
         Retrieve a bit of trove info for a listed trove specs and cache the
         results.
@@ -328,11 +333,14 @@ class ConaryHelper(object):
         for i, nvf in enumerate(uncached):
             # If this trove doesn't have this piece of trove info, log a warning
             # and skip over it.
-            if tiLst[i] is None:
+            if tiLst[i] is None and not missingOk:
                 log.warn('found missing trove info for %s, skipping' % (nvf, ))
                 continue
 
-            ti = tiLst[i]()
+            ti = tiLst[i]
+            if callable(ti):
+                ti = ti()
+
             if tiFunc:
                 ti = tiFunc(ti, nvf)
             tiMap.setdefault(ti, set()).add(nvf)
@@ -342,6 +350,65 @@ class ConaryHelper(object):
             tiMap.setdefault(cache[spec], set()).add(spec)
 
         return tiMap
+
+    def getNevras(self, troveSpecs):
+        """
+        Get a mapping of nvf to nevra for all specified trove specs.
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: list((name, conary.versions.Version,
+            conary.deps.deps.Flavor), ..)
+        @return map of trove spec to nevra, map contains None if no nevra was
+            found.
+        """
+
+        def tiFunc(ti, nvf):
+            if ti is None:
+                return None
+
+            if ti.rpm.epoch() is None:
+                epoch = ''
+            else:
+                epoch = str(ti.rpm.epoch())
+
+            return (ti.rpm.name(), epoch, ti.rpm.version(),
+                ti.rpm.release(), ti.rpm.arch())
+
+        self._cacheTroveInfo(troveSpecs, self._cache.nevraCache,
+            trove._TROVEINFO_TAG_CAPSULE, tiFunc=tiFunc, missingOk=True)
+
+        results = {}
+        for spec in troveSpecs:
+            results[spec] = self._cache.nevraCache.get(spec, None)
+
+        return results
+
+    def getNevrasForLabel(self, label):
+        """
+        Query an entire label for nevra information.
+        @param label: conary label
+        @type label: conary.versions.Label
+        """
+
+        if hasattr(label, 'label'):
+            label = label.label()
+
+        if label in self._cache.labelNevraCache:
+            return self._cache.labelNevraCache[label]
+
+        req = {None: {label: None}}
+        binTrvMap = self._repos.getTroveVersionsByLabel(req)
+
+        binTrvs = set()
+        for n, vMap in binTrvMap.iteritems():
+            for v, flvs in vMap.iteritems():
+                if n.endswith(':source'):
+                    binTrvs.add((n, v, None))
+                else:
+                    binTrvs.update(set((n, v, x) for x in flvs))
+
+        nevras = self.getNevras(binTrvs)
+        self._cache.labelNevraCache[label] = nevras
+        return nevras
 
     def getClonedFrom(self, troveSpecs):
         """
@@ -1013,7 +1080,83 @@ class ConaryHelper(object):
 
         return verMap
 
-    def promote(self, trvLst, expected, sourceLabels, targetLabel,
+    def _iterPromoteJobList(self, trvLst):
+        """
+        Filter trove list into separate jobs when attempting to promote two
+        versions of the same package.
+        """
+
+        # Get sources for all of the troves so that we can avoid promoting
+        # binaries built from different versions of the same source in the
+        # same job.
+        sources = self.getSourceVersions(trvLst)
+
+        data = {}
+        for (n, v, f), binTrvs in sources.iteritems():
+            data.setdefault(n.split(':')[0], dict())[v] = binTrvs
+
+        while data:
+            job = []
+            toRemove = []
+            for n, vs in data.iteritems():
+                v = sorted(vs)[0]
+                job.extend(vs.pop(v))
+
+                if not vs:
+                    toRemove.append(n)
+
+            for n in toRemove:
+                data.pop(n)
+
+            yield job
+
+    def promote(self, trvLst, expected, *args, **kwargs):
+        """
+        Promote a group and its contents to a target label.
+        @param trvLst: list of troves to publish
+        @type trvLst: [(name, version, flavor), ... ]
+        @param expected: list of troves that are expected to be published.
+        @type expected: [(name, version, flavor), ...]
+        @param sourceLabels: list of labels that should be flattened onto the
+                             targetLabel.
+        @type sourceLabels: [labelObject, ... ]
+        @param targetLabel: table to publish to
+        @type targetLabel: conary Label object
+        @param checkPackageList: verify the list of packages being promoted or
+                                 not.
+        @type checkPackageList: boolean
+        @param extraPromoteTroves: troves to promote in addition to the troves
+                                   that have been built.
+        @type extraPromoteTroves: list of trove specs.
+        @param extraExpectedPromoteTroves: list of trove nvfs that are expected
+                                           to be promoted, but are only filtered
+                                           by name, rather than version and
+                                           flavor.
+        @type extraExpectedPromoteTroves: list of name, version, flavor tuples
+                                          where version and flavor may be None.
+        @param commit: commit the promote changeset or just return it.
+        @type commit: boolean
+        """
+
+        # Make sure we are not trying to promote packages and groups together.
+        grps = [ x for x in trvLst if x[0].startswith('group-') ]
+        if grps and len(grps) != len(trvLst):
+            raise CanNotPromoteGroupsAndPackagesTogetherError(trvs=trvLst)
+
+        # IF we are just dealing with a normal group promote, go ahead
+        # and do it.
+        if grps:
+            return self._promote(trvLst, expected, *args, **kwargs)
+
+        # Otherwise we need to split up the job and deal with all of the
+        # packages.
+        results = []
+        kwargs['checkPackageList'] = False
+        for job in self._iterPromoteJobList(trvLst):
+            results.extend(self._promote(job, set(), *args, **kwargs))
+        return results
+
+    def _promote(self, trvLst, expected, sourceLabels, targetLabel,
                 checkPackageList=True, extraPromoteTroves=None,
                 extraExpectedPromoteTroves=None, commit=True,
                 enforceAllExpected=True):
@@ -1083,7 +1226,7 @@ class ConaryHelper(object):
                 if version == latestVer:
                     trvLst.append((name, version, flavor))
 
-        callback = UpdateBotCloneCallback(self._ccfg, 'automated promote',
+        callback = UpdateBotCloneCallback(self._ccfg, 'Automated Promote',
             log=log)
 
         success, cs = self._client.createSiblingCloneChangeSet(

@@ -100,10 +100,10 @@ class Advisor(BaseAdvisor):
 
         # W0613 - Unused argument patchSet
         # pylint: disable-msg=W0613
-
-        # Don't have dups on sles
-        # Now we do have dupes in sles
-        # Testing initial code
+        
+        # Don't have dups on sles 
+        # Now we do have duplicates in sles
+        # Testing code from centos
 
         if not len(patchSet):
             return False
@@ -118,10 +118,12 @@ class Advisor(BaseAdvisor):
 
             log.warn('''Duplicate detected in %s and %s''' % 
                      (primary.name, patch.name))
+
             # Copy pkg data into the primary
             # FIXME: This is not the correct solution need more than rpm list
             # Need to add the descriptions and patch numbers when updating
             # Possible add an update method 
+
             primary.packages.append(patch.packages)
 
-        return False
+        return True

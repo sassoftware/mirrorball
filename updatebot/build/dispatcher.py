@@ -28,6 +28,7 @@ from updatebot.build.monitor import JobStarter
 from updatebot.build.monitor import JobMonitor
 from updatebot.build.monitor import JobCommitter
 from updatebot.build.monitor import JobRebuildStarter
+from updatebot.build.monitor import JobPromoter
 from updatebot.build.constants import JobStatus
 
 
@@ -55,12 +56,21 @@ class AbstractDispatcher(object):
         Check if all jobs are complete.
         """
 
+        log.info('waiting for the following jobs: %s' %
+            ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
+            if self._jobs[x][1] not in self._completed]))
+
         if not len(self._jobs):
+            log.warn('_jobs empty... guess we need to wait')
+            log.warn('%s' % str(self._jobs))
             return False
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
+            log.warn('STATUS: %s' % status)
             if status not in self._completed:
+                log.warn('%s %s %s not in _completed' % (jobId, str(status), str(result)))
                 return False
+
         return True
 
     def _availableFDs(self, setMax=False):
@@ -98,7 +108,8 @@ class Dispatcher(AbstractDispatcher):
         AbstractDispatcher.__init__(self, builder, maxSlots)
 
         self._startSlots = util.BoundedCounter(0, 10, 10)
-        self._commitSlots = util.BoundedCounter(0, 2, 2)
+        #self._commitSlots = util.BoundedCounter(0, 2, 2)
+        self._commitSlots = util.BoundedCounter(0, 1, 1)
 
         self._starter = self._starterClass(self._builder)
         self._monitor = self._monitorClass(self._builder._helper.client)
@@ -416,3 +427,92 @@ class RebuildDispatcher(MultiVersionDispatcher):
 
         self._starter = self._starterClass((builder, useLatest,
             additionalResolveTroves))
+
+
+class PromoteDispatcher(Dispatcher):
+    """
+    Dispatcher class that promotes the builds to the production label once they
+    are complete.
+    """
+
+    _completed = (
+        JobStatus.ERROR_MONITOR_FAILURE,
+        JobStatus.ERROR_COMMITTER_FAILURE,
+        JobStatus.ERROR_PROMOTE_FAILURE,
+        buildjob.JOB_STATE_FAILED,
+        JobStatus.JOB_PROMOTED,
+    )
+
+    _promoterClass = JobPromoter
+
+    def __init__(self, builder, maxSlots):
+        Dispatcher.__init__(self, builder, maxSlots)
+
+        self._promoteSlots = util.BoundedCounter(0, 1, 1)
+
+        self._promoter = self._promoterClass((self._builder._conaryhelper,
+            self._builder._cfg.targetLabel))
+
+        self._status = {}
+
+    def _jobDone(self):
+        # Override the job done method from the parent to hook into the
+        # build loop. This is kinda dirty, but I don't really have a
+        # better idea at the moment.
+
+        done = Dispatcher._jobDone(self)
+        if done:
+            return done
+
+        self._promoteJobs()
+
+        return done
+
+    def _promoteJobs(self):
+        """
+        Handle the promote section of the build loop.
+        """
+
+        # Find jobs in the Committed state that need to be promoted
+        if self._promoteSlots:
+            toPromote = []
+            for jobId, (trove, state, result) in self._jobs.iteritems():
+                # not ready to be promoted
+                if state != buildjob.JOB_STATE_COMMITTED:
+                    continue
+
+                # It might take a few iterations through the loop for the
+                # result to show up.
+                if not result:
+                    log.info('No results state is %s' % str(state))
+                    continue
+
+                # Make result hashable
+                res = tuple([ (x, tuple(y)) for x, y in result.iteritems() ])
+
+                toPromote.append((jobId, res))
+                self._status[jobId] = time.time()
+
+            if toPromote:
+                for jobId, res in toPromote:
+                    self._jobs[jobId][1] = JobStatus.JOB_PROMOTING
+
+                self._promoteSlots -= 1
+                self._promoter.promoteJob(toPromote)
+
+
+        # Gather results
+        for result in self._promoter.getStatus():
+            log.warn('WE GOT RESULTS FROM PROMOTER')
+            self._promoteSlots += 1
+            for jobId, promoted in result:
+                self._jobs[jobId][2] = promoted
+                self._jobs[jobId][1] = JobStatus.JOB_PROMOTED
+                log.warn('JOB STATUS: %s %s' % (str(self._jobs[jobId][1]),
+                                                    str(self._jobs[jobId][2])))
+        # Gather errors
+        for jobs, error in self._promoter.getErrors():
+            self._promoteSlots += 1
+            for jobId in jobs:
+                self._jobs[jobId][1] = JobStatus.ERROR_PROMOTE_FAILURE
+                self._failures.append((jobId, error))

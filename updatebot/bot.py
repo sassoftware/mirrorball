@@ -1,4 +1,4 @@
-#
+#a
 # Copyright (c) 2008-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
@@ -179,7 +179,8 @@ class Bot(object):
         return trvMap, failed
 
     def update(self, force=None, updatePkgs=None, expectedRemovals=None,
-        allowPackageDowngrades=None):
+        allowPackageDowngrades=None, updateTroves=None,
+        keepRemovedPackages=None):
         """
         Update the conary repository from the yum repositories.
         @param force: list of packages to update without exception
@@ -192,14 +193,20 @@ class Bot(object):
                                        from/to.
         @type allowPackageDowngrades: list(list(from srcNevra, to srcNevra), )
         @type expectedRemovals: set of package names
+        @param updateTroves: overrides the value of updatePkgs. Set of (n, v, f)
+            tuple to update from and source package to update to.
+        @type updateTroves: set(((n, v, f), srcPkg))
+        @param keepRemovedPackages: list of package nevras to keep even though
+                                    they have been removed in the latest version
+                                    of the source.
+        @type keepRemovedPackages: list(nevra, nevra, ...)
         """
 
         if force is not None:
             self._cfg.disableUpdateSanity = True
             assert isinstance(force, list)
 
-        updateTroves = None
-        if updatePkgs:
+        if updatePkgs and not updateTroves:
             updateTroves = set(((x.name, None, None), x) for x in updatePkgs)
 
         start = time.time()
@@ -212,7 +219,8 @@ class Bot(object):
         toAdvise, toUpdate = self._updater.getUpdates(
             updateTroves=updateTroves,
             expectedRemovals=expectedRemovals,
-            allowPackageDowngrades=allowPackageDowngrades)
+            allowPackageDowngrades=allowPackageDowngrades,
+            keepRemovedPackages=keepRemovedPackages)
 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.

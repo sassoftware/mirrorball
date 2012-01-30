@@ -66,4 +66,3 @@ bot = ordered.Bot(cfg, errata)
 
 bot.createErrataGroups(rebuildGroups=False)
 
-import epdb; epdb.st()

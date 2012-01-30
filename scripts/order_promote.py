@@ -47,7 +47,7 @@ else:
     if cfg.platformName == 'sles':
         from errata.sles import AdvisoryManager as Errata
 
-    elif cfg.platformName == 'sles11':
+    elif cfg.platformName in ('sles11', 'sles11sp1hae'):
         from errata.sles11 import AdvisoryManager11 as Errata
 
     elif cfg.platformName == 'centos':
@@ -63,4 +63,4 @@ else:
 
 bot.promote(enforceAllExpected=True, checkMissingPackages=checkMissingPackages)
 
-import epdb; epdb.st()
+#import epdb; epdb.st()

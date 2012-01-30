@@ -535,6 +535,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
     # updateId sourceNevra
+    # As of updateId, remove resulting binaries from source package 
+    # specified by sourceNevra used when new pkg exists but has different
+    # srpm than older pkg
+    removeObsoletedSource = (CfgIntDict(CfgList(CfgNevra)), {})
+
+    # updateId sourceNevra
     # At updateId, ignore the source package update specified by
     # sourceNevra and continue to use whatever previous version was in
     # the model.

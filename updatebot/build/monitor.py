@@ -17,6 +17,7 @@ Module for managing monitors.
 """
 
 import os
+import itertools
 
 from rmake.cmdline import monitor
 
@@ -140,6 +141,60 @@ class CommitWorker(AbstractWorker):
         self.status.put((MessageTypes.DATA, (self.jobId, result)))
 
 
+class PromoteWorker(AbstractWorker):
+    """
+    Worker thread for promoting committed troves.
+    """
+
+    threadType = WorkerTypes.PROMOTE
+
+    def __init__(self, status, (helper, targetLabel, jobs)):
+        AbstractWorker.__init__(self, status)
+
+        self.helper = helper
+        self.targetLabel = targetLabel
+        self.jobs = jobs
+        self.workerId = tuple([ x[0] for x in jobs ])
+
+    def work(self):
+        """
+        Promote the specified list of troves.
+        """
+
+        # Let's be smart about promoting troves and batch all of the jobs
+        # together. This means we need to keep track of what we put in and
+        # what we get back so that we can map the output to a jobId.
+
+        # Build mapping of nvf tuple to jobId
+        jobMap = {}
+        for jobId, built in self.jobs:
+            for srcTrv, binTrvs in built:
+                for binTrv in binTrvs:
+                    jobMap[binTrv] = (jobId, srcTrv)
+
+        # Get the list of binary troves to promote.
+        trvLst = jobMap.keys()
+
+        # Assume that all troves are on the same source label.
+        srcLabel = trvLst[0][1].trailingLabel()
+
+        # Promote
+        result = self.helper.promote(trvLst, set(), [srcLabel, ],
+            self.targetLabel, checkPackageList=False)
+
+        # Map the results back to source label troves
+        clonedFrom = self.helper.getClonedFrom(result)
+
+        # Map jobIds back to promoted troves.
+        resultMap = {}
+        for spec, (jobId, srcTrv) in jobMap.iteritems():
+            resultMap.setdefault(jobId, dict()).setdefault(srcTrv,
+                set()).add(sorted(clonedFrom.get(spec))[-1])
+
+        # Send back all of the results.
+        self.status.put((MessageTypes.DATA, tuple(resultMap.items())))
+
+
 class JobStarter(AbstractStatusMonitor):
     """
     Abstraction around threaded starter model.
@@ -174,3 +229,12 @@ class JobCommitter(AbstractStatusMonitor):
 
     workerClass = CommitWorker
     commitJob = AbstractStatusMonitor.addJob
+
+
+class JobPromoter(AbstractStatusMonitor):
+    """
+    Abstraction around threaded promote model.
+    """
+
+    workerClass = PromoteWorker
+    promoteJob = AbstractStatusMonitor.addJob
