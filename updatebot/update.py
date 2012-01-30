@@ -375,9 +375,9 @@ class Updater(object):
             allowPackageDowngrades = ()
 
         # HACK HACK HACK REMOVE ME
-        #if 'rhel-5-client-workstation' in self._cfg.targetLabel.asString():
-        #    log.warn('rhel-5-client found for %s, will create package' % nvf[0])
-        #    return True
+        if 'rhel-5-client-workstation' in self._cfg.targetLabel.asString():
+            log.warn('rhel-5-client found for %s, will create package' % nvf[0])
+            return True
         # HACK HACK HACK END
 
         try:

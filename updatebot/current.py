@@ -599,9 +599,12 @@ class Bot(BotSuperClass):
 
         # Go ahead and promote any packages that didn't get promoted during the
         # last run or have been rebuilt since then.
-        log.info('found %s packages that need to be promoted' %
-            len(promotePkgs))
-        #self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+        if promotePkgs:
+            log.info('found %s packages that need to be promoted' %
+                len(promotePkgs))
+            if 'rhel-5-client-workstation' not in str(self._cfg.topSourceGroup):
+                self._updater.publish(promotePkgs, promotePkgs, self._cfg.targetLabel)
+
 
         # Figure out what packages need to be updated.
         updatePkgs = self._getUpdatePackages()
@@ -805,7 +808,8 @@ class Bot(BotSuperClass):
 
                     ltsnvf = None
                     # now look up a conary version for this
-                    if ltsnevra.name in nevraMap:
+                    #if ltsnevra.name in nevraMap:
+                    if [ x for x in nevraMap if ltsnevra.name in x ]:
                         ltsnvf = [ x for x,y in nevraMap.iteritems()
                                 if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) ==
                                 (y.name,y.epoch,y.version,y.release) ][-1]
@@ -817,7 +821,7 @@ class Bot(BotSuperClass):
                                 (ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
                                 (y.epoch,y.version,y.release)]
                         if ltsnvfs:
-                            ltsnvf = ltsnvfs[-1]
+                            ltsnvf = sorted(ltsnvfs)[0]
 
                     # now get the source for the conary verison if ltsnvf
                     if ltsnvf:
