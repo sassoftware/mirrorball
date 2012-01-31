@@ -810,9 +810,9 @@ class Bot(BotSuperClass):
                     # now look up a conary version for this
                     #if ltsnevra.name in nevraMap:
                     if [ x for x in nevraMap if ltsnevra.name in x ]:
-                        ltsnvf = [ x for x,y in nevraMap.iteritems()
+                        ltsnvfs = [ x for x,y in nevraMap.iteritems()
                                 if (ltsnevra.name,ltsnevra.epoch,ltsnevra.version,ltsnevra.release) ==
-                                (y.name,y.epoch,y.version,y.release) ][-1]
+                                (y.name,y.epoch,y.version,y.release) ]
                     else:
                         # Sometimes they don't match up at so we will try another method
                         # This can fail sometimes so we break out the steps...
@@ -820,8 +820,8 @@ class Bot(BotSuperClass):
                                 if y.name.startswith(ltsnevra.name) and 
                                 (ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
                                 (y.epoch,y.version,y.release)]
-                        if ltsnvfs:
-                            ltsnvf = sorted(ltsnvfs)[0]
+                    if ltsnvfs:
+                        ltsnvf = sorted(ltsnvfs)[0]
 
                     # now get the source for the conary verison if ltsnvf
                     if ltsnvf:
