@@ -20,9 +20,9 @@ from updatebot import current
 
 def buildgroups(cfg):
     bot = current.Bot(cfg)
+
     trvMap = bot.buildgroups()
 
-    trvMap = bot.update()
     if trvMap:
         print 'Updated the following troves:'
         print display.displayTroveMap(trvMap)
