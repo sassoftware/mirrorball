@@ -487,9 +487,6 @@ class Bot(BotSuperClass):
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
 
-            #if binPkg.name in [ 'qcairo', 'celt051', 'qpixman', 'qcairo-devel', 
-             #                       'celt051-devel', 'qpixman-devel' ]:
-             #   import epdb;epdb.st()
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
         if self._updateId in self._cfg.addSource:
@@ -1159,6 +1156,12 @@ class Bot(BotSuperClass):
 
         promoted = self._updater.publish(toPromote, toPromote, self._cfg.targetLabel)
 
+        trvMap = {}
+
+        for trv in promoted:
+            n, v , f = trv
+            trvMap.setdefault(n, set()).add((n,v,f))
+
         # Report timings
         advTime = time.strftime('%m-%d-%Y %H:%M:%S',
                                     time.localtime(updateId))
@@ -1166,7 +1169,7 @@ class Bot(BotSuperClass):
         log.info('published group update %s in %s seconds'
             % (advTime, totalTime))
 
-        return promoted
+        return trvMap
 
     def _getOldVersionExceptions(self, updateId):
         versionExceptions = {}
