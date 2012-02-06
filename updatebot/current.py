@@ -488,8 +488,12 @@ class Bot(BotSuperClass):
                 toUpdate.add(srcPkg)
 
             #if binPkg.name in [ 'qcairo', 'celt051', 'qpixman', 'qcairo-devel', 
-             #                       'celt051-devel', 'qpixman-devel' ]:
-             #   import epdb;epdb.st()
+            #                       'celt051-devel', 'qpixman-devel' ]:
+            #   import epdb;epdb.st()
+
+
+        import epdb;epdb.st()
+
 
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
@@ -882,6 +886,14 @@ class Bot(BotSuperClass):
             itertools.chain(*self._cfg.updateRemovesPackages.values()) ])
 
         removed = removeObsoleted | updateRemovesPackage
+
+        ##
+        # TODO: Need to add function for updateReplacesPackages
+        ##
+        updateReplacesPackage = set([ x for x in
+            itertools.chain(*self._cfg.updateReplacesPackages.values()) ])
+
+        #log.info(updateReplacesPackage)
 
         ##
         # Iterate over the group contents, looking for any packages that may

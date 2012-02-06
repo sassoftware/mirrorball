@@ -124,7 +124,7 @@ class Bot(object):
                     log.warn('not packaging %s, not found in srcPkgMap' % latestSrc.name)
                     continue
 
-                if latestSrc.name in self._cfg.package:
+                if latestSrc.name in self._cfg.excludePackage:
                     log.warn('ignoring %s due to exclude rule' % latestSrc.name)
                     continue
 
