@@ -826,7 +826,7 @@ class Bot(BotSuperClass):
                                 (ltsnevra.epoch,ltsnevra.version,ltsnevra.release) == 
                                 (y.epoch,y.version,y.release)]
                     if ltsnvfs:
-                        ltsnvf = sorted(ltsnvfs)[0]
+                        ltsnvf = sorted(ltsnvfs)[-1]
 
                     # now get the source for the conary verison if ltsnvf
                     if ltsnvf:
