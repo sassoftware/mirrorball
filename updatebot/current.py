@@ -947,6 +947,7 @@ class Bot(BotSuperClass):
                 removedPkgs.append((name, rem))
 
 
+
         ##
         # Remove any packages that were flagged for removal.
         ##
