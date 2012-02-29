@@ -609,6 +609,9 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # after allowing an update to downgrade the version.
     addSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
+    # recreate any previously built packages. The default "false" will not attempt
+    # to import the same package version more than once.
+    recreate = (CfgBool, 'recreate')
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
