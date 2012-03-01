@@ -26,13 +26,8 @@ from updatebot import bot, config, log
 log.addRootLogger()
 cfg = config.UpdateBotConfig()
 cfg.read(os.path.abspath('../') + '/config/%s/updatebotrc' % sys.argv[1])
-
 obj = bot.Bot(cfg)
-
 recreate = cfg.recreate
-
-import epdb ; epdb.st()
-
 trvMap = obj.create(recreate=recreate)
 
 import epdb ; epdb.st()
