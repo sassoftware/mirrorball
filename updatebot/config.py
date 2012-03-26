@@ -611,7 +611,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # recreate any previously built packages. The default "false" will not attempt
     # to import the same package version more than once.
-    recreate = (CfgBool, 'recreate')
+    recreate = (CfgBool, False)
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
