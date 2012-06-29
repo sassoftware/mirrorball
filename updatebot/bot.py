@@ -294,7 +294,8 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
-        if self.cfg.updateMode == 'latest':
+        # Updates for centos 5 unencap require grpbuild and promote
+        if self._cfg.updateMode == 'latest' and self._cfg.platformName == 'centos':
             # Build group.
             grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
@@ -306,8 +307,9 @@ class Bot(object):
             newTroves = self._updater.publish(toPublish, expected,
                                               self._cfg.targetLabel)
 
+            # Disabled handled in seperate job
             # Mirror out content
-            self._updater.mirror()
+            #self._updater.mirror()
 
         if not self._cfg.disableAdvisories:
             # Send advisories.
