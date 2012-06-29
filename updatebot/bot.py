@@ -294,23 +294,24 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
-        if not self._cfg.disableAdvisories:
-            # Build group.
-            grpTrvs = (self._cfg.topSourceGroup, )
-            grpTrvMap = self._builder.build(grpTrvs)
+        # Build group.
+        grpTrvs = (self._cfg.topSourceGroup, )
+        grpTrvMap = self._builder.build(grpTrvs)
 
-            # Promote group.
-            # We expect that everything that was built will be published.
-            expected = self._flattenSetDict(trvMap)
-            toPublish = self._flattenSetDict(grpTrvMap)
-            newTroves = self._updater.publish(toPublish, expected,
+        # Promote group.
+        # We expect that everything that was built will be published.
+        expected = self._flattenSetDict(trvMap)
+        toPublish = self._flattenSetDict(grpTrvMap)
+        newTroves = self._updater.publish(toPublish, expected,
                                               self._cfg.targetLabel)
 
-            # Mirror out content
-            self._updater.mirror()
+        # Mirror out content
+        self._updater.mirror()
 
+        if not self._cfg.disableAdvisories:
             # Send advisories.
             self._advisor.send(toAdvise, newTroves)
+
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'
