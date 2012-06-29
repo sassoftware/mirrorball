@@ -294,19 +294,20 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
-        # Build group.
-        grpTrvs = (self._cfg.topSourceGroup, )
-        grpTrvMap = self._builder.build(grpTrvs)
+        if self.cfg.updateMode == 'latest':
+            # Build group.
+            grpTrvs = (self._cfg.topSourceGroup, )
+            grpTrvMap = self._builder.build(grpTrvs)
 
-        # Promote group.
-        # We expect that everything that was built will be published.
-        expected = self._flattenSetDict(trvMap)
-        toPublish = self._flattenSetDict(grpTrvMap)
-        newTroves = self._updater.publish(toPublish, expected,
+            # Promote group.
+            # We expect that everything that was built will be published.
+            expected = self._flattenSetDict(trvMap)
+            toPublish = self._flattenSetDict(grpTrvMap)
+            newTroves = self._updater.publish(toPublish, expected,
                                               self._cfg.targetLabel)
 
-        # Mirror out content
-        self._updater.mirror()
+            # Mirror out content
+            self._updater.mirror()
 
         if not self._cfg.disableAdvisories:
             # Send advisories.
