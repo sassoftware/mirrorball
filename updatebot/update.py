@@ -398,6 +398,7 @@ class Updater(object):
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             elif (line.strip().endswith('.src.rpm') and
                   self._cfg.synthesizeSources):
+                print "This is a fake source %s" % line
                 # this is a fake source.  Move on.
                 continue
             else:

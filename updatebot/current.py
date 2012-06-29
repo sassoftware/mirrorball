@@ -1115,6 +1115,9 @@ class Bot(BotSuperClass):
         # For debuging
         self._updateId = updateId
         log.info('UpdateID is %s' % self._updateId)
+        import epdb;epdb.st()
+
+
         # Figure out what packages still need to be promoted.
         promotePkgs = self._getPromotePackages()
 
