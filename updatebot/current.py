@@ -492,9 +492,6 @@ class Bot(BotSuperClass):
             #   import epdb;epdb.st()
 
 
-        import epdb;epdb.st()
-
-
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
         if self._updateId in self._cfg.addSource:
