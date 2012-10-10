@@ -531,6 +531,9 @@ class Updater(object):
                 oldNevra=str(' '.join(srcPkg.getNevra())),
                 newNevra=str(' '.join(srpm.getNevra())))
 
+        if len(manifest) < self._getManifestFromPkgSource(srpm):
+            needsUpdate = True
+
         return needsUpdate
 
     def sanityCheckSource(self, srpm, allowPackageDowngrades=None):
