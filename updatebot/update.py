@@ -375,7 +375,8 @@ class Updater(object):
             allowPackageDowngrades = ()
 
         # HACK HACK HACK REMOVE ME
-        if 'rhel-5-client-workstation' in self._cfg.targetLabel.asString():
+        if (self._cfg.targetLabel and
+            'rhel-5-client-workstation' in self._cfg.targetLabel.asString()):
             log.warn('rhel-5-client found for %s, will create package' % nvf[0])
             return True
         # HACK HACK HACK END
@@ -528,6 +529,9 @@ class Updater(object):
                 newspkg=srpm, oldspkg=srcPkg,
                 oldNevra=str(' '.join(srcPkg.getNevra())),
                 newNevra=str(' '.join(srpm.getNevra())))
+
+        if len(manifest) < self._getManifestFromPkgSource(srpm):
+            needsUpdate = True
 
         return needsUpdate
 
