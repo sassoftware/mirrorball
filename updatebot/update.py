@@ -154,6 +154,7 @@ class Updater(object):
                 troves.append(((name, version, flavor), latestSrpm))
 
         log.info('found %s protentially updatable troves' % len(troves))
+        import epdb;epdb.st()
         return troves
 
     def getSourceVersions(self):

@@ -425,9 +425,6 @@ class Bot(BotSuperClass):
                 if nvf not in targetClonedFrom:
                     toPromote.add(nvf)
 
-        #import epdb;epdb.st()
-
-
         return toPromote
 
     def _getUpdatePackages(self):
@@ -486,11 +483,6 @@ class Bot(BotSuperClass):
                 log.info('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
-
-            #if binPkg.name in [ 'qcairo', 'celt051', 'qpixman', 'qcairo-devel', 
-            #                       'celt051-devel', 'qpixman-devel' ]:
-            #   import epdb;epdb.st()
-
 
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
@@ -633,16 +625,9 @@ class Bot(BotSuperClass):
             for updateSet in updatePkgs:
                 log.info('building set of update troves')
 
-                #updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
-                #    for x in updateSet])
-
                 log.info('running update')
 
                 log.info('WORKING ON %s UPDATES' % len(updateSet))
-
-                #DEBUG RHEL5CLIENT
-                log.warn('DEBUG THREADING')
-                #import epdb;epdb.st()
 
                 chunks = 1
 
@@ -656,16 +641,10 @@ class Bot(BotSuperClass):
                         for x in upSet])
 
 
-                    #import epdb;epdb.st()
-
                     pkgMap.update(self._update(*args, updateTroves=updateTroves,
                         updatePkgs=True, expectedRemovals=expectedRemovals,
                         keepRemovedPackages=keepRemoved,
                         **kwargs))
-
-                    #import epdb;epdb.st()
-
-                # HACK FOR RHEL 5 CLIENT
 
                 # The NEVRA maps will be changing every time through. Make sure
                 # the clear the cache.
@@ -959,8 +938,6 @@ class Bot(BotSuperClass):
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
 
-        import epdb;epdb.st()
-
         ##
         # Remove any packages that were flagged for removal.
         ##
@@ -1112,8 +1089,6 @@ class Bot(BotSuperClass):
         # For debuging
         self._updateId = updateId
         log.info('UpdateID is %s' % self._updateId)
-        import epdb;epdb.st()
-
 
         # Figure out what packages still need to be promoted.
         promotePkgs = self._getPromotePackages()
@@ -1155,8 +1130,6 @@ class Bot(BotSuperClass):
         # This is to avoid building the same group over and over on the
         # same day...
         version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(time.time()))
-
-        #import epdb;epdb.st()
 
         # Build groups.
         log.info('setting version %s' % version)

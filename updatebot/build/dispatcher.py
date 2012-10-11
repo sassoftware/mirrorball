@@ -500,27 +500,6 @@ class PromoteDispatcher(Dispatcher):
                 self._promoteSlots -= 1
                 self._promoter.promoteJob(toPromote)
 
-        # If anything has been promoting for more than 10 minutes, let us poke
-        # around and figure out why.
-        #toRemove = set()
-        #for jobId, startTime in self._status.iteritems():
-        #    if time.time() - startTime > (60 * 20):
-        #        log.info('JobId ID: %s' % jobId)
-                #log.info('Completely silly promote times have been reached')
-        #        if time.time() - startTime > (60 * 40):
-        #            log.info('Ok ludicrous promote times reached %s' % jobId)
-        #            log.warn('JobId info: %s' % str(self._jobs[jobId]))
-        #            for job in self._jobs:
-        #                if self._jobs[job][1] != -11:
-        #                    log.warn('Waiting on job status for  %s : %s ' % 
-        #                                (job,self._jobs[job][1])) 
-        #                    if time.time() - startTime > (60 * 80):
-        #                        import epdb; epdb.st()
-                    #if self._jobs[jobId][1] == -11 and jobId not in toRemove:
-                        #toRemove.add(jobId)
-        #for jobId in toRemove:
-        #    self._status.pop(jobId, None)
-
         # Gather results
         for result in self._promoter.getStatus():
             log.warn('WE GOT RESULTS FROM PROMOTER')

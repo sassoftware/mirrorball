@@ -295,22 +295,22 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
+        # Updates for centos 5 unencap require grpbuild and promote
+        if self._cfg.updateMode == 'latest' and self._cfg.platformName == 'centos':
+            # Build group.
+            grpTrvs = (self._cfg.topSourceGroup, )
+            grpTrvMap = self._builder.build(grpTrvs)
 
-        log.info("Proceed to build groups")
-
-        # Build group.
-        grpTrvs = (self._cfg.topSourceGroup, )
-        grpTrvMap = self._builder.build(grpTrvs)
-
-        # Promote group.
-        # We expect that everything that was built will be published.
-        expected = self._flattenSetDict(trvMap)
-        toPublish = self._flattenSetDict(grpTrvMap)
-        newTroves = self._updater.publish(toPublish, expected,
+            # Promote group.
+            # We expect that everything that was built will be published.
+            expected = self._flattenSetDict(trvMap)
+            toPublish = self._flattenSetDict(grpTrvMap)
+            newTroves = self._updater.publish(toPublish, expected,
                                               self._cfg.targetLabel)
 
-        # Mirror out what we have done
-        self._updater.mirror()
+            # Disabled handled in seperate job
+            # Mirror out what we have done
+            #self._updater.mirror()
 
         if not self._cfg.disableAdvisories:
             # Send advisories.
