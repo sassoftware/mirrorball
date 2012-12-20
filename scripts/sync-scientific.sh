@@ -25,6 +25,8 @@ rsync -lErtO \
     --exclude "livecd" \
     --exclude "mirrorlist" \
     --exclude "obsolete" \
+    --exclude "repoview" \
+    --exclude ".repoview.new" \
     --exclude "RHAPS*" \
     --exclude "sites" \
     --exclude "virtual?images" \
