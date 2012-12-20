@@ -17,6 +17,12 @@ SOURCE=rsync://archive.kernel.org/centos-vault
 DEST=/l/CentOS-vault/
 
 date
-rsync -arv --progress --bwlimit=700 --exclude 2.* --exclude 3.* $SOURCE $DEST
+rsync -lErtO \
+    --verbose \
+    --bwlimit=700 \
+    --exclude "2.*" \
+    --exclude "3.*" \
+    --exclude "*.drpm" \
+    $SOURCE $DEST "$@"
 
 ./hardlink.py $DEST
