@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
 #
 # Copyright (c) 2008-2010 rPath, Inc.
 #
