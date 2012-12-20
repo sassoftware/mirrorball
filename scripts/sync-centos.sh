@@ -25,4 +25,4 @@ rsync -lErtO \
     --exclude "*.drpm" \
     $SOURCE $DEST "$@"
 
-./hardlink.py $DEST
+./hardlink.py -v 0 $DEST
