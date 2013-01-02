@@ -16,10 +16,7 @@
 SOURCE=rsync://rsync.scientificlinux.org/scientific/
 DEST=/l/scientific/
 
-date
-rsync -lErtO \
-    --verbose \
-    --bwlimit=700 \
+exec sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "*.drpm" \
     --exclude "iso" \
     --exclude "livecd" \
@@ -30,6 +27,4 @@ rsync -lErtO \
     --exclude "RHAPS*" \
     --exclude "sites" \
     --exclude "virtual?images" \
-    $SOURCE $DEST "$@"
-
-./hardlink.py -v 0 $DEST
+    "$@"

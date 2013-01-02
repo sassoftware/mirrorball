@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 #
-# Copyright (c) 2008-2010 rPath, Inc.
+# Copyright (c) SAS Institute
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -13,11 +13,19 @@
 # full details.
 #
 
-SOURCE=rsync://archive.kernel.org/centos-vault
-DEST=/l/CentOS-vault/
+SOURCE="$1"
+DEST="$2"
 
-exec sync-lib.sh "$SOURCE" "$DEST" \
-    --exclude "2.*" \
-    --exclude "3.*" \
-    --exclude "*.drpm" \
-    "$@"
+date
+rsync -lErtO \
+    --verbose \
+    --bwlimit=700 \
+    $SOURCE $DEST "$@" \
+    | tee rsync.tmp
+
+grep -A1000 'receiving incremental file list' rsync.tmp \
+    | grep -B1000 'sent .* bytes' \
+    | grep -qv 'receiving incremental file list\|sent.*bytes\|^$\|^TIME$\|^timestamp.txt$' \
+    >> rsync.log
+
+./hardlink.py -v 0 $DEST

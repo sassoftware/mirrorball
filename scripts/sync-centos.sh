@@ -16,13 +16,8 @@
 SOURCE=rsync://mirrors.us.kernel.org/CentOS-incdvd
 DEST=/l/CentOS/
 
-date
-rsync -lErtO \
-    --verbose \
-    --bwlimit=700 \
+exec sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "2.*" \
     --exclude "3.*" \
     --exclude "*.drpm" \
-    $SOURCE $DEST "$@"
-
-./hardlink.py -v 0 $DEST
+    "$@"
