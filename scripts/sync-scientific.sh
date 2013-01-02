@@ -16,7 +16,8 @@
 SOURCE=rsync://rsync.scientificlinux.org/scientific/
 DEST=/l/scientific/
 
-exec sync-lib.sh "$SOURCE" "$DEST" \
+rm -f rsync.log
+exec ./sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "*.drpm" \
     --exclude "iso" \
     --exclude "livecd" \

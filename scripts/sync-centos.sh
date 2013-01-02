@@ -16,7 +16,7 @@
 SOURCE=rsync://mirrors.us.kernel.org/CentOS-incdvd
 DEST=/l/CentOS/
 
-exec sync-lib.sh "$SOURCE" "$DEST" \
+exec ./sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "2.*" \
     --exclude "3.*" \
     --exclude "*.drpm" \

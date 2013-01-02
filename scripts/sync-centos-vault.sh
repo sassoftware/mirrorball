@@ -16,7 +16,7 @@
 SOURCE=rsync://archive.kernel.org/centos-vault
 DEST=/l/CentOS-vault/
 
-exec sync-lib.sh "$SOURCE" "$DEST" \
+exec ./sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "2.*" \
     --exclude "3.*" \
     --exclude "*.drpm" \

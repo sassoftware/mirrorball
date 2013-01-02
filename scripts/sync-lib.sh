@@ -15,6 +15,7 @@
 
 SOURCE="$1"
 DEST="$2"
+shift 2
 
 date
 rsync -lErtO \
