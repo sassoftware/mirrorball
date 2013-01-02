@@ -13,10 +13,21 @@
 # full details.
 #
 
+rm -f rsync.log
+
 SOURCE=rsync://mirrors.us.kernel.org/CentOS-incdvd
 DEST=/l/CentOS/
 
-exec ./sync-lib.sh "$SOURCE" "$DEST" \
+./sync-lib.sh "$SOURCE" "$DEST" \
+    --exclude "2.*" \
+    --exclude "3.*" \
+    --exclude "*.drpm" \
+    "$@"
+
+SOURCE=rsync://archive.kernel.org/centos-vault
+DEST=/l/CentOS-vault/
+
+./sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "2.*" \
     --exclude "3.*" \
     --exclude "*.drpm" \

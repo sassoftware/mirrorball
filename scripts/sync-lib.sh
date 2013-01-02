@@ -26,7 +26,7 @@ rsync -lErtO \
 
 grep -A1000 'receiving incremental file list' rsync.tmp \
     | grep -B1000 'sent .* bytes' \
-    | grep -qv 'receiving incremental file list\|sent.*bytes\|^$\|^TIME$\|^timestamp.txt$' \
-    >> rsync.log
+    | grep -v 'receiving incremental file list\|sent.*bytes\|^$\|^TIME$\|^timestamp.txt$' \
+    >> rsync.log ||:
 
 ./hardlink.py -v 0 $DEST
