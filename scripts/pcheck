@@ -35,7 +35,6 @@ sys.excepthook = util.genExcepthook()
 from conary.lib import log
 from conary import trove
 from conary import versions
-from conary import callbacks
 from conary import conarycfg
 from conary import conaryclient
 

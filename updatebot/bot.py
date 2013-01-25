@@ -33,7 +33,6 @@ from updatebot import build
 from updatebot import update
 from updatebot import cmdline
 from updatebot import pkgsource
-from updatebot import advisories
 
 from updatebot.errors import InvalidUpdateModeError
 
@@ -57,10 +56,6 @@ class Bot(object):
         self._pkgSource = pkgsource.PackageSource(self._cfg, self._ui)
         self._updater = update.Updater(self._cfg, self._ui, self._pkgSource)
         self._builder = build.Builder(self._cfg, self._ui)
-
-        if not self._cfg.disableAdvisories:
-            self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
-                                               self._cfg.platformName)
 
     @classmethod
     def _validateMode(cls, cfg):
@@ -264,14 +259,6 @@ class Bot(object):
             log.info('no updates available')
             return
 
-        if not self._cfg.disableAdvisories:
-            # Populate patch source now that we know that there are updates
-            # available.
-            self._advisor.load()
-
-            # Check to see if advisories exist for all required packages.
-            self._advisor.check(toAdvise)
-
         # Update source
         parentPackages = set()
         for nvf, srcPkg in toUpdate:
@@ -320,10 +307,6 @@ class Bot(object):
             # Disabled handled in seperate job
             # Mirror out what we have done
             #self._updater.mirror()
-
-        if not self._cfg.disableAdvisories:
-            # Send advisories.
-            self._advisor.send(toAdvise, newTroves)
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'

@@ -958,14 +958,11 @@ class Updater(object):
         else:
             manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
             for pkg in self._getLatestOfAvailableArches(manifestPkgs):
-                if hasattr(pkg, 'location'):
-                    arch = self._getRepositoryArch(pkg.location)
-                    location = pkg.location
-                    if arch:
-                        location += '?arch=%s' % arch
-                    manifest.append(location)
-                elif hasattr(pkg, 'files'):
-                    manifest.extend(pkg.files)
+                arch = self._getRepositoryArch(pkg.location)
+                location = pkg.location
+                if arch:
+                    location += '?arch=%s' % arch
+                manifest.append(location)
         return manifest
 
     def getPackageFileNames(self, srcPkg):

@@ -30,8 +30,6 @@ import urllib2
 import urlparse
 from HTMLParser import HTMLParser
 
-from updatebot.lib import util
-
 class Parser(HTMLParser):
     """
     Parse hrefs out of html documents.

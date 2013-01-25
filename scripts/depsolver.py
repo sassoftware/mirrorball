@@ -31,7 +31,6 @@ sys.path.insert(0, mirrorballDir)
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
 
-import copy
 import logging
 import updatebot.log
 
