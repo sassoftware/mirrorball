@@ -1,0 +1,94 @@
+#!/usr/bin/python
+#
+# Copyright (c) rPath, Inc.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+
+
+"""
+Script for comparing two package sources.
+"""
+
+import os
+import sys
+
+mirrorballDir = os.path.abspath('../')
+sys.path.insert(0, mirrorballDir)
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+
+import conary
+import updatebot
+
+print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
+print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
+from updatebot import log
+from updatebot import config
+from updatebot import pkgsource
+
+log.addRootLogger()
+
+cfg1 = config.UpdateBotConfig()
+cfg1.platformName = 'rhel 6 client'
+cfg1.synthesizeSources = True
+
+cfg2 = config.UpdateBotConfig()
+cfg2.platformName = 'rhel 6 workstation'
+cfg2.synthesizeSources = True
+
+cfg3 = config.UpdateBotConfig()
+cfg3.platformName = 'rhel 6 server'
+cfg3.synthesizeSources = True
+
+repositoryUrl = 'http://install.rdu.rpath.com/rhnmirror/'
+
+cfg1.configLine('repositoryUrl %s' % repositoryUrl)
+cfg2.configLine('repositoryUrl %s' % repositoryUrl)
+cfg3.configLine('repositoryUrl %s' % repositoryUrl)
+
+cfg1.configLine('repositoryPaths rhel-i386-client-6')
+cfg1.configLine('repositoryPaths rhel-i386-client-optional-6')
+cfg1.configLine('repositoryPaths rhel-x86_64-client-6')
+cfg1.configLine('repositoryPaths rhel-x86_64-client-optional-6')
+
+cfg2.configLine('repositoryPaths rhel-i386-workstation-6')
+cfg2.configLine('repositoryPaths rhel-i386-workstation-optional-6')
+cfg2.configLine('repositoryPaths rhel-x86_64-workstation-6')
+cfg2.configLine('repositoryPaths rhel-x86_64-workstation-optional-6')
+
+cfg3.configLine('repositoryPaths rhel-i386-server-6')
+cfg3.configLine('repositoryPaths rhel-i386-server-optional-6')
+cfg3.configLine('repositoryPaths rhel-x86_64-server-6')
+cfg3.configLine('repositoryPaths rhel-x86_64-server-optional-6')
+
+client = pkgsource.PackageSource(cfg1, None)
+workstation = pkgsource.PackageSource(cfg2, None)
+server = pkgsource.PackageSource(cfg3, None)
+
+client.load()
+workstation.load()
+server.load()
+
+import epdb; epdb.st()
