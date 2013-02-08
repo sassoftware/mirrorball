@@ -18,5 +18,3 @@
 from updatebot.groupmgr.manager import GroupManager
 from updatebot.groupmgr.single import SingleGroupManager
 from updatebot.groupmgr.single import SingleGroupManagerSet
-from updatebot.groupmgr.errata import ErrataGroupManager
-from updatebot.groupmgr.errata import ErrataGroupManagerSet

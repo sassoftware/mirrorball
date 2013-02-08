@@ -23,9 +23,6 @@ from xobj import xobj
 
 import conary
 
-from aptmd.packages import _Package
-from aptmd.sources import _SourcePackage
-
 class XDocManager(xobj.Document):
     """
     Base class that implements simple freeze/thaw methods.
@@ -59,35 +56,6 @@ class XDocManager(xobj.Document):
         xml = self.toxml()
         fObj.write(xml)
         fObj.close()
-
-
-class XMetadata(object):
-    """
-    Representation of repository data.
-    """
-
-    binaryPackages = [ _Package ]
-    sourcePackage = _SourcePackage
-
-
-class XMetadataDoc(XDocManager):
-    """
-    Document class for repository data.
-    """
-
-    data = XMetadata
-
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        XDocManager.__init__(self, *args, **kwargs)
-        if data is not None:
-            self.data = XMetadata()
-            self.data.binaryPackages = []
-            for pkg in data:
-                if pkg.arch == 'src':
-                    self.data.sourcePackage = pkg
-                else:
-                    self.data.binaryPackages.append(pkg)
 
 
 class XDictItem(object):

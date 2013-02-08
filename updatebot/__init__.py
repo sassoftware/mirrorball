@@ -21,6 +21,5 @@ packages from a yum or apt repository.
 """
 
 from updatebot.bot import Bot
-from updatebot.ordered import Bot as OrderedBot
 from updatebot.current import Bot as CurrentBot
 from updatebot.config import UpdateBotConfig
