@@ -37,8 +37,8 @@ sys.excepthook = util.genExcepthook()
 from updatebot import log as logSetup
 logSetup.addRootLogger()
 
-from updatebot import OrderedBot
-def getBot(botClass=OrderedBot, *args, **kwargs):
+from updatebot import CurrentBot
+def getBot(botClass=CurrentBot, *args, **kwargs):
     from updatebot import config
     cfg = config.UpdateBotConfig()
     cfg.read(os.path.join(mirrorballDir, 'config', sys.argv[1], 'updatebotrc'))
