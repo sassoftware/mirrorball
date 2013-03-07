@@ -20,7 +20,7 @@ shift 2 || exit 1
 date
 rsync -lErtO \
     --verbose \
-    --bwlimit=700 \
+    --bwlimit=1500 \
     $SOURCE $DEST "$@" \
     | tee rsync.tmp || exit 1
 
