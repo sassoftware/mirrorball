@@ -22,7 +22,7 @@ DEST=/l/CentOS/
     --exclude "2.*" \
     --exclude "3.*" \
     --exclude "*.drpm" \
-    "$@"
+    "$@" || exit 1
 
 SOURCE=rsync://archive.kernel.org/centos-vault
 DEST=/l/CentOS-vault/
@@ -31,4 +31,4 @@ DEST=/l/CentOS-vault/
     --exclude "2.*" \
     --exclude "3.*" \
     --exclude "*.drpm" \
-    "$@"
+    "$@" || exit 1

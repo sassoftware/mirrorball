@@ -17,7 +17,8 @@ SOURCE=rsync://rsync.scientificlinux.org/scientific/
 DEST=/l/scientific/
 
 rm -f rsync.log
-exec ./sync-lib.sh "$SOURCE" "$DEST" \
+./sync-lib.sh "$SOURCE" "$DEST" \
+    --exclude "5*" \
     --exclude "*.drpm" \
     --exclude "iso" \
     --exclude "livecd" \
@@ -28,4 +29,4 @@ exec ./sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "RHAPS*" \
     --exclude "sites" \
     --exclude "virtual?images" \
-    "$@"
+    "$@" || exit 1

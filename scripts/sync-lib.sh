@@ -15,18 +15,18 @@
 
 SOURCE="$1"
 DEST="$2"
-shift 2
+shift 2 || exit 1
 
 date
 rsync -lErtO \
     --verbose \
     --bwlimit=700 \
     $SOURCE $DEST "$@" \
-    | tee rsync.tmp
+    | tee rsync.tmp || exit 1
 
 grep -A1000 'receiving incremental file list' rsync.tmp \
     | grep -B1000 'sent .* bytes' \
     | grep -v 'receiving incremental file list\|sent.*bytes\|^$\|^TIME$\|^timestamp.txt$' \
     >> rsync.log ||:
 
-./hardlink.py -v 0 $DEST
+./hardlink.py -v 0 $DEST || exit 1
