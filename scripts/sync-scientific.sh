@@ -19,6 +19,8 @@ DEST=/l/scientific/
 rm -f rsync.log
 ./sync-lib.sh "$SOURCE" "$DEST" \
     --exclude "5*" \
+    --exclude "6rolling/" \
+    --exclude "6x/" \
     --exclude "*.drpm" \
     --exclude "iso" \
     --exclude "livecd" \
