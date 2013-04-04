@@ -101,14 +101,17 @@ class Builder(object):
     @type ui: cmdline.ui.UserInterface
     """
 
-    def __init__(self, cfg, ui, rmakeCfgFn=None):
+    def __init__(self, cfg, ui, rmakeCfgFn=None, conaryCfg=None, rmakeCfg=None):
         self._cfg = cfg
         self._ui = ui
 
-        self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
-        self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
-        self._ccfg.dbPath = ':memory:'
-        self._ccfg.initializeFlavors()
+        if conaryCfg:
+            self._ccfg = conaryCfg
+        else:
+            self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
+            self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
+            self._ccfg.dbPath = ':memory:'
+            self._ccfg.initializeFlavors()
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 
@@ -122,6 +125,21 @@ class Builder(object):
         self._sanityCheckChangesets = self._cfg.sanityCheckChangesets
         self._sanityCheckCommits = self._cfg.sanityCheckCommits
 
+        if rmakeCfg:
+            self._rmakeCfg = rmakeCfg
+        else:
+            self._rmakeCfg = self._getRmakeConfig(rmakeCfgFn=rmakeCfgFn)
+
+        self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
+
+        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput,
+                       LocalDispatcher(self, 12))
+
+        self._asyncDispatcher = OrderedCommitDispatcher(self, 30)
+
+        self._conaryhelper = ConaryHelper(self._cfg)
+
+    def _getRmakeConfig(self, rmakeCfgFn=None):
         # Get default pluginDirs from the rmake cfg object, setup the plugin
         # manager, then create a new rmake config object so that rmakeUser
         # will be parsed correctly.
@@ -145,24 +163,17 @@ class Builder(object):
             else:
                 log.warn('%s not found, falling back to rmakerc' % rmakeCfgFn)
 
-        self._rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
-        self._rmakeCfg.read(util.join(self._cfg.configPath, rmakerc))
-        self._rmakeCfg.useConaryConfig(self._ccfg)
-        self._rmakeCfg.copyInConfig = False
-        self._rmakeCfg.strictMode = True
+        rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
+        rmakeCfg.read(util.join(self._cfg.configPath, rmakerc))
+        rmakeCfg.useConaryConfig(self._ccfg)
+        rmakeCfg.copyInConfig = False
+        rmakeCfg.strictMode = True
 
         # Use default tmpDir when building with rMake since the specified
         # tmpDir may not exist in the build root.
-        self._rmakeCfg.tmpDir = conarycfg.ConaryContext.tmpDir[1]
+        rmakeCfg.tmpDir = conarycfg.ConaryContext.tmpDir[1]
 
-        self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
-
-        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput,
-                       LocalDispatcher(self, 12))
-
-        self._asyncDispatcher = OrderedCommitDispatcher(self, 30)
-
-        self._conaryhelper = ConaryHelper(self._cfg)
+        return rmakeCfg
 
     def build(self, troveSpecs):
         """
