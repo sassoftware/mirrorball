@@ -35,6 +35,12 @@ class MirrorBall(pluginapi.Plugin):
         cny = self.handle.facade.conary
         rmk = self.handle.facade.rmake
 
+        # This happens when we aren't in a rBuild checkout directory. Most
+        # common case, probably when "rbuild init" is being run. Bail since we
+        # can't do anyhthing anyway.
+        if not store:
+            return
+
         activeStage = store.getActiveStageName()
         activeLabel = product.getLabelForStage(activeStage)
         nextStage = store.getNextStageName(activeStage)
