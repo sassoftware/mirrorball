@@ -24,10 +24,6 @@ class MirrorBall(PackageRecipe):
             r.CompilePython('%%(sitepkgs)s/%s' % mod)
 
         r.Install('scripts/auto_update', '%(bindir)s/update')
-        r.Install('scripts/auto_ordered_errata_groups',
-                  '%(bindir)s/ordered-errata-groups')
-        r.Install('scripts/auto_ordered_promote', '%(bindir)s/ordered-promote')
-        r.Install('scripts/auto_ordered_update', '%(bindir)s/ordered-update')
         r.Install('scripts/auto_mirror', '%(bindir)s/mirror')
 
         r.Install('scripts/auto_current_update', '%(bindir)s/current-update')
