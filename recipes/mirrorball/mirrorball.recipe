@@ -1,0 +1,37 @@
+#
+# Copyright (c) 2008-2010 rPath, Inc.
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
+#
+
+loadInstalled('python')
+class MirrorBall(PackageRecipe):
+    name = 'mirrorball'
+    hg_version = 'tip'
+    base_version = 'devel.'
+    version = base_version + hg_version
+
+    buildRequires = ['python:devel', 'epdb:python', 'lxml:python',
+        'rpath-xmllib:python', 'rmake:python', 'xobj:python', 'python-dateutil:python']
+
+    def setup(r):
+        r.macros.sitepkgs = Python.sitepkgs
+        r.addMercurialSnapshot('http://scc.eng.rpath.com/products/mirrorball'
+                               '/production/mirrorball', tag=r.hg_version)
+
+        for mod in ('aptmd', 'repomd', 'rpmutils', 'updatebot', 'pmap', 'errata'):
+            r.Install(mod, '%(sitepkgs)s/')
+            r.CompilePython('%%(sitepkgs)s/%s' % mod)
+
+        r.Install('scripts/auto_update', '%(bindir)s/update')
+        r.Install('scripts/auto_ordered_errata_groups',
+                  '%(bindir)s/ordered-errata-groups')
+        r.Install('scripts/auto_ordered_promote', '%(bindir)s/ordered-promote')
+        r.Install('scripts/auto_ordered_update', '%(bindir)s/ordered-update')
+        r.Install('scripts/auto_mirror', '%(bindir)s/mirror')
+
+        r.Install('scripts/auto_current_update', '%(bindir)s/current-update')
+        r.Install('scripts/auto_current_buildgroups', '%(bindir)s/current-buildgroups')
+        r.Install('scripts/*', '%(datadir)s/%(name)s/')
+
+        r.Install('rbuild/*', '%(datadir)s/rbuild/plugins/')
