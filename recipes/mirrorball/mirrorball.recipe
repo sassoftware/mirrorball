@@ -19,7 +19,7 @@ class MirrorBall(PackageRecipe):
         r.addMercurialSnapshot('http://scc.eng.rpath.com/products/mirrorball'
                                '/production/mirrorball', tag=r.hg_version)
 
-        for mod in ('aptmd', 'repomd', 'rpmutils', 'updatebot', 'pmap', 'errata'):
+        for mod in ('repomd', 'rpmutils', 'updatebot', ):
             r.Install(mod, '%(sitepkgs)s/')
             r.CompilePython('%%(sitepkgs)s/%s' % mod)
 
