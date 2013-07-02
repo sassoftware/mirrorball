@@ -43,8 +43,8 @@ class MirrorBall(pluginapi.Plugin):
 
         activeStage = store.getActiveStageName()
         activeLabel = product.getLabelForStage(activeStage)
-        nextStage = store.getNextStageName(activeStage)
-        nextLabel = product.getLabelForStage(nextStage)
+        #nextStage = store.getNextStageName(activeStage)
+        #nextLabel = product.getLabelForStage(nextStage)
 
         self.conarycfg = cny.getConaryConfig()
         self.rmakecfg, contextNames = rmk._getRmakeConfigWithContexts()
