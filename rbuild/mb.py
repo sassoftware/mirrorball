@@ -67,4 +67,4 @@ class MirrorBall(pluginapi.Plugin):
     def buildmany(self, packages):
         pkgs = set([ (x, self.conarycfg.buildLabel.asString(), None)
             for x in packages ])
-        return self.builder.buildmany(pkgs)
+        return self.builder.buildmany(pkgs, lateCommit=True)
