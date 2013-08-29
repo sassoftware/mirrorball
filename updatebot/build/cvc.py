@@ -55,12 +55,14 @@ class Cvc(object):
 
     def __init__(self, cfg, ccfg, inputFormatter, dispatcher):
         self._cfg = cfg
-        self._ccfg = copy.deepcopy(ccfg)
+        # Since there's no clone method on a cfg object, use the pickle protocol
+        self._ccfg = ccfg.__class__()
+        self._ccfg.__setstate__(ccfg.__getstate__())
         self._dispatcher = dispatcher
         self._formatInput = inputFormatter
 
         # Restet dbPath to the default value for local cooking.
-        self._ccfg.dbPath = conarycfg.ConaryContext.dbPath
+        self._ccfg.resetToDefault('dbPath')
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 

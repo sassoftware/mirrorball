@@ -622,12 +622,7 @@ class UpdateBotConfig(cfg.SectionedConfigFile):
     """
 
     _defaultSectionType = UpdateBotConfigSection
-
-    def __init__(self):
-        cfg.SectionedConfigFile.__init__(self)
-        for info in self._defaultSectionType._getConfigOptions():
-            if info[0] not in self:
-                self.addConfigOption(*info)
+    _cfg_bases = [ UpdateBotConfigSection ]
 
     def read(self, *args, **kwargs):
         """
