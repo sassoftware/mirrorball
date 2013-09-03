@@ -25,10 +25,22 @@ from rbuild.pluginapi import command
 class BuildManyCommand(command.BaseCommand):
     help = 'Build many packages in sepparate rmake jobs'
     commands = ['buildmany', ]
+    paramHelp = '[package]*'
+    docs = {
+        'late-commit': 'wait until all builds are done before committing',
+        'workers': 'number of active jobs (default 30)'
+    }
+
+    def addLocalParameters(self, argDef):
+        argDef['late-commit'] = command.NO_PARAM
+        argDef['workers'] = command.ONE_PARAM
 
     def runCommand(self, handle, argSet, args):
+        lateCommit = argSet.pop('late-commit', False)
+        workers = int(argSet.pop('workers', 30))
         _, pkgList = self.requireParameters(args, allowExtra=True)
-        results = handle.MirrorBall.buildmany(pkgList)
+        results = handle.MirrorBall.buildmany(pkgList, lateCommit=lateCommit,
+                workers=workers)
 
         if not results:
             raise errors.PluginError('pacakges failed to build')

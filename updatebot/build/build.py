@@ -194,7 +194,7 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def buildmany(self, troveSpecs, lateCommit=False):
+    def buildmany(self, troveSpecs, lateCommit=False, workers=None):
         """
         Build many troves in separate jobs.
         @param troveSpecs: list of trove specs
@@ -205,7 +205,9 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        workers = 30
+        if not workers:
+            workers = 30
+
         if self._cfg.updateMode == 'current':
             dispatcher = PromoteDispatcher(self, workers)
         elif not lateCommit:
