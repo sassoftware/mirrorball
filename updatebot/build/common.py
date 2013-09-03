@@ -132,7 +132,7 @@ class AbstractStatusMonitor(object):
 
     workerClass = None
 
-    def __init__(self, threadArgs):
+    def __init__(self, threadArgs, retries=0):
         if type(threadArgs) not in (list, tuple, set):
             threadArgs = (threadArgs, )
         self._threadArgs = threadArgs
@@ -140,6 +140,8 @@ class AbstractStatusMonitor(object):
         self._status = self.workerClass.queueClass()
         self._workers = {}
         self._errors = []
+
+        self._retries = Retries(retries)
 
     def addJob(self, job):
         """
@@ -163,6 +165,7 @@ class AbstractStatusMonitor(object):
             return
 
         self._workers[worker.workerId] = worker
+        self._retries.addJob(worker.workerId)
         worker.daemon = True
         worker.start()
 
@@ -227,6 +230,28 @@ class AbstractStatusMonitor(object):
             #assert not self._workers[job].isAlive()
             #raise error
             log.error('[%s] FAILED with exception: %s' % (job, error))
-            self._errors.append((job, error))
+
+            workerId = self._workers[job].workerId
+            if self._retries.retry(workerId):
+                log.info('retrying %s' % (job, ))
+                self._workers.pop(job, None)
+                self.addJob(workerId)
+            else:
+                self._errors.append((job, error))
 
         return data
+
+
+class Retries(object):
+    def __init__(self, retries):
+        self.retries = retries
+        self._jobs = {}
+
+    def addJob(self, jobId):
+        if jobId not in self._jobs:
+            self._jobs[jobId] = 0
+
+    def retry(self, jobId):
+        if self._jobs[jobId] + 1 > self.retries:
+            return False
+        self._jobs[jobId] += 1

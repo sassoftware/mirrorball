@@ -64,8 +64,8 @@ class MirrorBall(pluginapi.Plugin):
 
         log.addRootLogger()
 
-    def buildmany(self, packages, lateCommit=False, workers=None):
+    def buildmany(self, packages, lateCommit=False, workers=None, retries=None):
         pkgs = set([ (x, self.conarycfg.buildLabel.asString(), None)
             for x in packages ])
         return self.builder.buildmany(pkgs, lateCommit=lateCommit,
-                workers=workers)
+                workers=workers, retries=retries)

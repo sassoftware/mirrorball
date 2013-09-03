@@ -28,19 +28,22 @@ class BuildManyCommand(command.BaseCommand):
     paramHelp = '[package]*'
     docs = {
         'late-commit': 'wait until all builds are done before committing',
-        'workers': 'number of active jobs (default 30)'
+        'workers': 'number of active jobs (default 30)',
+        'retries': 'number of times to retry a build job (default 0)',
     }
 
     def addLocalParameters(self, argDef):
         argDef['late-commit'] = command.NO_PARAM
         argDef['workers'] = command.ONE_PARAM
+        argDef['retries'] = command.ONE_PARAM
 
     def runCommand(self, handle, argSet, args):
         lateCommit = argSet.pop('late-commit', False)
         workers = int(argSet.pop('workers', 30))
+        retries = int(argSet.pop('retries', 0))
         _, pkgList = self.requireParameters(args, allowExtra=True)
         results = handle.MirrorBall.buildmany(pkgList, lateCommit=lateCommit,
-                workers=workers)
+                workers=workers, retries=retries)
 
         if not results:
             raise errors.PluginError('pacakges failed to build')

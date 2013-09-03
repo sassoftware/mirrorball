@@ -46,9 +46,10 @@ class AbstractDispatcher(object):
 
     _completed = ()
 
-    def __init__(self, builder, maxSlots):
+    def __init__(self, builder, maxSlots, retries=0):
         self._builder = builder
         self._slots = util.BoundedCounter(0, maxSlots, maxSlots)
+        self._retries = retries
 
         # jobId: (trv, status, commitData)
         self._jobs = {}
@@ -107,16 +108,19 @@ class Dispatcher(AbstractDispatcher):
     _monitorClass = JobMonitor
     _committerClass = JobCommitter
 
-    def __init__(self, builder, maxSlots):
-        AbstractDispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, retries=0):
+        AbstractDispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         self._startSlots = util.BoundedCounter(0, 10, 10)
         #self._commitSlots = util.BoundedCounter(0, 2, 2)
         self._commitSlots = util.BoundedCounter(0, 1, 1)
 
-        self._starter = self._starterClass(self._builder)
-        self._monitor = self._monitorClass(self._builder._helper.client)
-        self._committer = self._committerClass(self._builder)
+        self._starter = self._starterClass((self._builder, ),
+                retries=self._retries)
+        self._monitor = self._monitorClass((self._builder._helper.client, ),
+                retries=self._retries)
+        self._committer = self._committerClass((self._builder, ),
+                retries=self._retries)
 
     def buildmany(self, troveSpecs):
         """
@@ -264,8 +268,8 @@ class NonCommittalDispatcher(Dispatcher):
         buildjob.JOB_STATE_BUILT,
     )
 
-    def __init__(self, builder, maxSlots):
-        Dispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, retries=0):
+        Dispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         # Disable commits by removing all commit slots.
         self._commitSlots = util.BoundedCounter(0, 0, 0)
@@ -327,8 +331,8 @@ class MultiVersionDispatcher(Dispatcher):
     versions of the same package.
     """
 
-    def __init__(self, builder, maxSlots, waitForAllVersions=False):
-        Dispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, waitForAllVersions=False, retries=0):
+        Dispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         self._waitForAllVersions = waitForAllVersions
 
@@ -424,9 +428,9 @@ class RebuildDispatcher(MultiVersionDispatcher):
     _starterClass = JobRebuildStarter
 
     def __init__(self, builder, maxSlots, useLatest=None,
-        additionalResolveTroves=None):
+        additionalResolveTroves=None, retries=0):
         MultiVersionDispatcher.__init__(self, builder, maxSlots,
-            waitForAllVersions=True)
+            waitForAllVersions=True, retries=retries)
 
         self._starter = self._starterClass((builder, useLatest,
             additionalResolveTroves))
@@ -448,13 +452,13 @@ class PromoteDispatcher(Dispatcher):
 
     _promoterClass = JobPromoter
 
-    def __init__(self, builder, maxSlots):
-        Dispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, retries=0):
+        Dispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         self._promoteSlots = util.BoundedCounter(0, 1, 1)
 
         self._promoter = self._promoterClass((self._builder._conaryhelper,
-            self._builder._cfg.targetLabel))
+            self._builder._cfg.targetLabel), retries=retries)
 
         self._status = {}
 
