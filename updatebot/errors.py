@@ -102,6 +102,15 @@ class JobFailedError(BuildError):
     _template = 'rMake job %(jobId)s failed: %(why)s'
 
 
+class JobsFailedError(BuildError):
+    """
+    JobsFailedError, raised when a set of builds fail in a multibuild scenerio.
+    """
+
+    _params = ['jobIds', 'why']
+    _template = 'rMake jobs failed: %(jobIds)s failed: %(why)s'
+
+
 class JobNotCompleteError(BuildError):
     """
     JobNotCompleteError, raised when the build dispatcher thinks that the job

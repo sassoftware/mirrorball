@@ -34,7 +34,7 @@ from updatebot.build.monitor import JobRebuildStarter
 from updatebot.build.monitor import JobPromoter
 from updatebot.build.constants import JobStatus
 
-
+from updatebot.errors import JobsFailedError
 from updatebot.errors import JobNotCompleteError
 
 log = logging.getLogger('updatebot.build')
@@ -287,7 +287,11 @@ class NonCommittalDispatcher(Dispatcher):
         results, self._failures = Dispatcher.buildmany(self, troveSpecs)
 
         # Make sure there are no failures.
-        assert not self._failures
+        if self._failures:
+            for failure in self._failures:
+                log.error('failed: %s' % (failure, ))
+            raise JobsFailedError(jobIds=self._failures, why='Failed to build '
+                'all troves, refusing to commit')
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
             # Make sure all jobs are built.
