@@ -159,6 +159,7 @@ class Bot(BotSuperClass):
                     removePackages.setdefault(pkg, []).append(pkgs)
 
 
+
         # Don't taint group model unless something has actually changed.
         if addPackages or removePackages:
             log.info('modifying group model')
@@ -311,7 +312,7 @@ class Bot(BotSuperClass):
     def _useOldVersions(self, updateId, pkgMap):
         # When deriving from an upstream platform sometimes we don't want
         # the latest versions.
-        #oldVersions = self._cfg.useOldVersion.get(updateId, None)
+        # oldVersions = self._cfg.useOldVersion.get(updateId, None)
         # Since we want this to expire in the new mode useOldVersion timestamp 
         # Should be in the future. This way an old version will not remain 
         # pinned forever. If group breaks move the useOldVersion into the 
@@ -457,11 +458,13 @@ class Bot(BotSuperClass):
             itertools.chain(*self._cfg.ignoreSourceUpdate.values()) ])
 
 
+
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
         toUpdate = set()
         toUpdateMap = {}
         for binPkg, srcPkg in self._pkgSource.binPkgMap.iteritems():
+
 
             # Skip updating pkg if explicitly ignored
             if srcPkg.getNevra() in explicitIgnoreSources:
@@ -941,6 +944,26 @@ class Bot(BotSuperClass):
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
 
+
+        # Need to use specific older versions 
+        # because Red Hat are ass monkeys and 
+        # Broke the crap out of the dependencies for some rpms
+
+        oldVersions = [ x for x in self._cfg.useOldVersion.items()
+                                if x >= self._updateId ]
+        versionExceptions = self._getOldVersionExceptions(self._updateId)
+        for name, pkg in newPkgs.iteritems():
+            if name in versionExceptions:
+                # look in the group for the specified version
+                # if exists pass
+                # if not add it to group
+                #rem = toAdd.pop(newPkgs[name])
+                # add newer version to remove
+                #removedPkgs.append((name, rem))
+                #for n2, v2, f2 in nvfs:
+                #    toAdd.setdefault((n2, v2), set()).add(f2)
+                pass
+
         ##
         # Remove any packages that were flagged for removal.
         ##
@@ -1041,12 +1064,14 @@ class Bot(BotSuperClass):
 
                 toRemove.add((name, version, flavor))
 
+
                 n2, v2, f2 = nevra
                 toProd.setdefault((n2, v2), set()).add(f2)
 
         ##
         # Remove any packages that were flagged for removal.
         ##
+
 
         for n, v, f in toRemove:
             log.info('removing %s[%s]' % (n, f))
