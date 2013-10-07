@@ -22,4 +22,5 @@ packages from a yum or apt repository.
 
 from updatebot.bot import Bot
 from updatebot.current import Bot as CurrentBot
+from updatebot.native import Bot as NativeBot
 from updatebot.config import UpdateBotConfig
