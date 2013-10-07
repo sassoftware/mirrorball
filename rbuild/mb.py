@@ -65,7 +65,15 @@ class MirrorBall(pluginapi.Plugin):
         log.addRootLogger()
 
     def buildmany(self, packages, lateCommit=False, workers=None, retries=None):
+        if not hasattr(self, 'builder'):
+            self.handle.ui.writeError('Command run outside of expected '
+                'context, make sure you are in a checkout directory')
+            return
+
         pkgs = set([ (x, self.conarycfg.buildLabel.asString(), None)
             for x in packages ])
+
+
+
         return self.builder.buildmany(pkgs, lateCommit=lateCommit,
                 workers=workers, retries=retries)
