@@ -171,7 +171,7 @@ class Builder(object):
 
         # Use default tmpDir when building with rMake since the specified
         # tmpDir may not exist in the build root.
-        rmakeCfg.tmpDir = conarycfg.ConaryContext.tmpDir[1]
+        rmakeCfg.resetToDefault('tmpDir')
 
         return rmakeCfg
 

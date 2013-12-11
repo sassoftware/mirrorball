@@ -461,6 +461,9 @@ class Bot(BotSuperClass):
         # that have not been imported into the conary repository.
         toUpdate = set()
         toUpdateMap = {}
+
+        kernels = []
+
         for binPkg, srcPkg in self._pkgSource.binPkgMap.iteritems():
 
             # Skip updating pkg if explicitly ignored
@@ -480,12 +483,16 @@ class Bot(BotSuperClass):
                     toUpdate.add(srcPkg)
                     continue
 
-
+            ## DEBUG PLEASE REMOVE
+            #if 'kernel' in binPkg.getNevra():
+            #    kernels.append(binPkg)
 
             if binPkg.getNevra() not in sourceLatest:
                 log.info('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
+
+        #import epdb;epdb.st()
 
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.

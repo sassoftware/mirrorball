@@ -42,6 +42,7 @@ class UpdateBotClientConfig(UpdateBotConfig):
     """
 
     _defaultSectionType = UpdateBotClientConfigSection
+    _cfg_bases = [UpdateBotClientConfigSection]
 
     def __init__(self, readConfigFiles=False, ignoreErrors=False):
         UpdateBotConfig.__init__(self)
