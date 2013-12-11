@@ -6,6 +6,8 @@
 .*\.orig$
 .*\/\.times$
 .*\/\.coverage\/.*
+\.log$
+\.tmp$
 ^pylint\/reports
 ^config$
 ^include

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
 #
 # Copyright (c) 2008 rPath, Inc.
 #
@@ -13,10 +13,22 @@
 # full details.
 #
 
+rm -f rsync.log
+
 SOURCE=rsync://mirrors.us.kernel.org/CentOS-incdvd
 DEST=/l/CentOS/
 
-date
-rsync -arv --progress --bwlimit=700 --exclude 2.* --exclude 3.* $SOURCE $DEST
+./sync-lib.sh "$SOURCE" "$DEST" \
+    --exclude "2.*" \
+    --exclude "3.*" \
+    --exclude "*.drpm" \
+    "$@" || exit 1
 
-./hardlink.py $DEST
+SOURCE=rsync://archive.kernel.org/centos-vault
+DEST=/l/CentOS-vault/
+
+./sync-lib.sh "$SOURCE" "$DEST" \
+    --exclude "2.*" \
+    --exclude "3.*" \
+    --exclude "*.drpm" \
+    "$@" || exit 1
