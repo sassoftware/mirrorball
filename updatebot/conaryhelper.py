@@ -329,7 +329,10 @@ class ConaryHelper(object):
             req.append((n, v, f))
 
         tiMap = {}
-        tiLst = self._repos.getTroveInfo(tiType, req)
+        tiLst = []
+        while req:
+            reqChunk, req = req[:1000], req[1000:]
+            tiLst.extend(self._repos.getTroveInfo(tiType, reqChunk))
         for i, nvf in enumerate(uncached):
             # If this trove doesn't have this piece of trove info, log a warning
             # and skip over it.
