@@ -200,19 +200,19 @@ class YumSource(BasePackageSource):
         # The point of explicit obsoletes handling is what redirects
         # are used for in native conary packages, not for what groups
         # are used for.
-        obsoleteNames = set(
-                x.name for x in itertools.chain(*[
-                    y.getChildren('rpm:entry') for y in package.format
-                    if isinstance(y, repomd.packagexml._RpmObsoletes)])
-                if not x.version)
-        if obsoleteNames:
-            requiresNames = set(
-                    x.name for x in itertools.chain(*[
-                        y.getChildren('rpm:entry') for y in package.format
-                        if isinstance(y, repomd.packagexml._RpmRequires)]))
-            obsoleteNames -= requiresNames
-            if obsoleteNames:
-                self.obsoletesMap[package] = obsoleteNames
+        #obsoleteNames = set(
+        #        x.name for x in itertools.chain(*[
+        #            y.getChildren('rpm:entry') for y in package.format
+        #            if isinstance(y, repomd.packagexml._RpmObsoletes)])
+        #        if not x.version)
+        #if obsoleteNames:
+        #    requiresNames = set(
+        #            x.name for x in itertools.chain(*[
+        #                y.getChildren('rpm:entry') for y in package.format
+        #                if isinstance(y, repomd.packagexml._RpmRequires)]))
+        #    obsoleteNames -= requiresNames
+        #    if obsoleteNames:
+        #        self.obsoletesMap[package] = obsoleteNames
 
         if package.name not in self.binNameMap:
             self.binNameMap[package.name] = set()
