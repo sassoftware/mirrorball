@@ -616,6 +616,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # to import the same package version more than once.
     recreate = (CfgBool, False)
 
+    # uri to a pkgcache server
+    pkgcacheUri = CfgString
+
+
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
     Config object for UpdateBot.

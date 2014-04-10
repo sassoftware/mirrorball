@@ -1,0 +1,12 @@
+#!/usr/bin/python
+
+from _scriptsetup import *
+
+from updatebot.pkgsource.populate_pkgcache import PkgCacheLoader
+
+bot = getBot()
+loader = PkgCacheLoader(bot._cfg)
+
+loader.load()
+
+import epdb; epdb.st()
