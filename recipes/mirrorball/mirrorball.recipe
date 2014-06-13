@@ -1,23 +1,27 @@
 #
-# Copyright (c) 2008-2010 rPath, Inc.
+# Copyright (c) SAS, Inc.
 # This file is distributed under the terms of the MIT License.
-# A copy is available at http://www.rpath.com/permanent/mit-license.html
 #
 
 loadInstalled('python')
 class MirrorBall(PackageRecipe):
     name = 'mirrorball'
-    hg_version = 'tip'
-    base_version = 'devel.'
-    version = base_version + hg_version
+    git_version = 'tip'
+    branch = 'master'
+    version = branch + '.' + git_version
 
-    buildRequires = ['python:devel', 'epdb:python', 'lxml:python',
-        'rpath-xmllib:python', 'rmake:python', 'xobj:python', 'python-dateutil:python']
+    buildRequires = [   'python:devel', 
+                        'epdb:python', 
+                        'lxml:python',
+                        'rpath-xmllib:python', 
+                        'rmake:python', 
+                        'xobj:python', 
+                        'python-dateutil:python',
+                    ]
 
     def setup(r):
         r.macros.sitepkgs = Python.sitepkgs
-        r.addMercurialSnapshot('http://scc.eng.rpath.com/products/mirrorball'
-                               '/production/mirrorball', tag=r.hg_version)
+        r.addGitSnapshot('http://scc.unx.sas.com/git/mirrorball.git', branch=r.branch)
 
         for mod in ('repomd', 'rpmutils', 'updatebot', ):
             r.Install(mod, '%(sitepkgs)s/')
