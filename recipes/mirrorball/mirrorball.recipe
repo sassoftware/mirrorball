@@ -10,14 +10,15 @@ class MirrorBall(PackageRecipe):
     branch = 'master'
     version = branch + '.' + git_version
 
-    buildRequires = [   'python:devel', 
-                        'epdb:python', 
-                        'lxml:python',
-                        'rpath-xmllib:python', 
-                        'rmake:python', 
-                        'xobj:python', 
-                        'python-dateutil:python',
+    buildRequires = [   'python:rpm',
+                        'python-epdb:rpm',
+                        'python-lxml:rpm',
+                        'rpath-xmllib:python',
+                        'rmake:python',
+                        'xobj:python',
+                        'python-dateutil:rpm',
                     ]
+
 
     def setup(r):
         r.macros.sitepkgs = '%(libdir)s/python/site-packages'
