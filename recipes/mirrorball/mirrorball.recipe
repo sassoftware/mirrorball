@@ -20,7 +20,8 @@ class MirrorBall(PackageRecipe):
                     ]
 
     def setup(r):
-        r.macros.sitepkgs = Python.sitepkgs
+        r.macros.sitepkgs = '%(libdir)s/python/site-packages'
+
         r.addGitSnapshot('http://scc.unx.sas.com/git/mirrorball.git', branch=r.branch)
 
         for mod in ('repomd', 'rpmutils', 'updatebot', ):
