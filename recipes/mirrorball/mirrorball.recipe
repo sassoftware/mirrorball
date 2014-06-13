@@ -11,7 +11,7 @@ class MirrorBall(PackageRecipe):
     version = branch + '.' + git_version
 
     buildRequires = [   'python:rpm',
-                        'python-epdb:rpm',
+                        'python-epdb',
                         'python-lxml:rpm',
                         'rpath-xmllib:python',
                         'rmake:python',
