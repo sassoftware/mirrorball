@@ -1,0 +1,60 @@
+#
+# Copyright (c) 2010 rPath, Inc.
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
+#
+
+import time
+
+class UpdateBotAction(PackageRecipe):
+    name = 'updatebot-action'
+    version = '1'
+
+    buildRequires = [   'mirrorball:runtime', 
+                        'mirrorball:python',
+                        'mirrorball-private:config', 
+                        'rpath-xmllib:python', 
+                        'rmake:python', 
+                        'rmake:data', 
+                        'xobj:python',
+                        'conary-repository:python', 
+                        'rhnmirror:python',
+                        'rpm', 
+                        'rpm-python', 
+                        'rpm-devel', 
+                        'createrepo', 
+                        'libxml2:',
+                        'python-devel', 
+                        'python-lxml',
+                        'm2crypto', 
+                        'python-urlgrabber', 
+                        'python-iniparse', 
+                        'python-psycopg2', 
+                    ]
+
+    platform = None
+    action = None
+    cmd = None
+
+    def setup(r):
+
+        if r.platform:
+            r.macros.platform = r.platform
+        else:
+            r.macros.platform = r.name
+
+        r.macros.python = 'python2.6'
+        r.macros.logfile = '%(destdir)s/updatebot.log'
+
+        if r.action:
+            r.macros.action = r.action
+            
+        r.cmd = '%(python)s /usr/bin/%(action)s %(platform)s %(logfile)s'
+
+        r.do_action()
+        
+        r.Create('/timestamp', contents='%s' % time.time())
+
+    def do_action(r):
+        if r.cmd:
+            r.Run(r.cmd)
