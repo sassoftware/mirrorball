@@ -23,7 +23,7 @@ class UpdateBotAction(PackageRecipe):
                         'rpm-python', 
                         'rpm-devel', 
                         'createrepo', 
-                        'libxml2:',
+                        'libxml2',
                         'python-devel', 
                         'python-lxml',
                         'm2crypto', 
