@@ -23,9 +23,9 @@ class MirrorBall(PackageRecipe):
 
 
     def setup(r):
-        if platver == "6":
+        if r.platver == "6":
             r.macros.python = 'python2.6'
-        if platver == "7":
+        if r.platver == "7":
             r.macros.python = 'python2.7'
 
         r.macros.sitepkgs = '%(libdir)s/%(python)s/site-packages'
