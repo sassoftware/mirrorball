@@ -8,6 +8,8 @@ class MirrorBall(PackageRecipe):
     name = 'mirrorball'
     git_version = 'tip'
     branch = 'master'
+    platform = "centos"
+    platver = "6"
     version = branch + '.' + git_version
 
     buildRequires = [   'python:rpm',
@@ -21,7 +23,12 @@ class MirrorBall(PackageRecipe):
 
 
     def setup(r):
-        r.macros.sitepkgs = '%(libdir)s/python/site-packages'
+        if platver == "6":
+            r.macros.python = 'python2.6'
+        if platver == "7"
+            r.macros.python = 'python2.7'
+
+        r.macros.sitepkgs = '%(libdir)s/%(python)s/site-packages'
 
         r.addGitSnapshot('http://scc.unx.sas.com/git/mirrorball.git', branch=r.branch)
 
