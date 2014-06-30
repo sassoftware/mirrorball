@@ -397,6 +397,13 @@ class Bot(BotSuperClass):
 
         helper = self._updater._conaryhelper
 
+        toPromote = set()
+
+        if self._cfg.targetLabel.label() == helper._ccfg.buildLabel:
+            log.info('Target and Source labels match... no need to promote')
+            return toPromote
+
+
         # Get all of the nevras for the target and source labels.
         log.info('querying target nevras')
         targetNevras = self._getNevrasForLabel(self._cfg.targetLabel)
@@ -417,7 +424,7 @@ class Bot(BotSuperClass):
         # Now diff the two maps. We are looking for things that have been
         # updated on the source label, that have not made it to the target
         # label.
-        toPromote = set()
+
         for nevra, nvfs in sourceLatest.iteritems():
             # nevra has not been promoted.
             if nevra not in targetLatest:
