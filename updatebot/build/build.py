@@ -212,8 +212,12 @@ class Builder(object):
         if not retries:
             retries = 0
 
+
         if self._cfg.updateMode == 'current':
-            dispatcher = PromoteDispatcher(self, workers, retries=retries)
+            if self._cfg.targetLabel == self._cfg.sourceLabel[-1]:
+                dispatcher = Dispatcher(self, workers, retries=retries)
+            else:
+                dispatcher = PromoteDispatcher(self, workers, retries=retries)
         elif not lateCommit:
             dispatcher = Dispatcher(self, workers, retries=retries)
         else:
