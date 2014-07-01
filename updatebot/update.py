@@ -403,14 +403,13 @@ class Updater(object):
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             elif (line.strip().endswith('.src.rpm') and
                   self._cfg.synthesizeSources):
-                print "This is a fake source %s" % line
+                log.info("This is a fake source %s" % line)
                 # this is a fake source.  Move on.
                 continue
-            elif self._cfg.disableUpdateSanity:
+            elif self._cfg.disableOldVersionCheck:
                 # For epel support since the repo does not 
                 # keep old versions at all. 
-                print ("Disable old version check with "
-                        "disableUpdateSanity used for epel")
+                log.warn("Disabled OldVersionNotFoundError in config")
                 continue
             else:
                 if metadata is None:
