@@ -64,6 +64,7 @@ class AbstractDispatcher(object):
             ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
             if self._jobs[x][1] not in self._completed]))
 
+
         if not len(self._jobs):
             log.warn('_jobs empty... guess we need to wait')
             log.warn('%s' % str(self._jobs))
@@ -71,6 +72,8 @@ class AbstractDispatcher(object):
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
             log.warn('STATUS: %s' % status)
+            if status == buildjob.JOB_STATE_FAILED:
+                log.error('[%s] failed job: %s' % (jobId, trove))
             if status not in self._completed:
                 log.warn('%s %s %s not in _completed' % (jobId, str(status), str(result)))
                 return False
@@ -135,6 +138,7 @@ class Dispatcher(AbstractDispatcher):
         # Sort troves into buckets.
         troves = self._builder.orderJobs(troveSpecs)
 
+
         while troves or not self._jobDone():
             # Only create more jobs once the last batch has been started.
             if self._startSlots == self._startSlots.upperlimit:
@@ -143,7 +147,6 @@ class Dispatcher(AbstractDispatcher):
                        self._availableFDs()):
                     # get trove to work on
                     trove = troves.pop(0)
-
                     # start build job
                     self._starter.startJob(trove)
                     self._slots -= 1

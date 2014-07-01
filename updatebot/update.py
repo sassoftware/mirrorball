@@ -406,6 +406,12 @@ class Updater(object):
                 print "This is a fake source %s" % line
                 # this is a fake source.  Move on.
                 continue
+            elif self._cfg.disableUpdateSanity:
+                # For epel support since the repo does not 
+                # keep old versions at all. 
+                print ("Disable old version check with "
+                        "disableUpdateSanity used for epel")
+                continue
             else:
                 if metadata is None:
                     pkgs = self._getMetadataFromConaryRepository(nvf[0],
