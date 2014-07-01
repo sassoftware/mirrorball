@@ -625,6 +625,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     chunkSize = (CfgInt, 1)
 
 
+    # Disable OldVersion check for repos that only move forward.
+    # Added to support epel
+    disableOldVersionCheck = (CfgBool, False)
+
+
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
     Config object for UpdateBot.
