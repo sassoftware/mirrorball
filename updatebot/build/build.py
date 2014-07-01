@@ -600,6 +600,8 @@ class Builder(object):
                     if not [ x for x in binaryNames if fltr[1].match(x) ]:
                         troves.remove((name, version, flavor, context))
 
+            assert troves
+
         return sorted(set(troves))
 
     @jobInfoExceptionHandler
