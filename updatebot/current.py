@@ -639,14 +639,14 @@ class Bot(BotSuperClass):
         if updatePkgs:
             updatePkgs.filterPkgs(kwargs.pop('fltr', None))
 
-            for updateSet in updatePkgs:
+            for updateSet in sorted(updatePkgs):
                 log.info('building set of update troves')
 
                 log.info('running update')
 
                 log.info('WORKING ON %s UPDATES' % len(updateSet))
 
-                chunks = 1
+                chunks = self._cfg.chunkSize
 
                 chunk = lambda ulist, step:  map(lambda i: ulist[i:i+step],
                             xrange(0, len(ulist), step))

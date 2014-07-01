@@ -619,6 +619,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # uri to a pkgcache server
     pkgcacheUri = CfgString
 
+    # Set the number of troves to send to rmake at the same time in current mode
+    # It was hardwired to 1 now it is configurable. Be careful. 
+    # If you don't know then don't change it
+    chunkSize = (CfgInt, 1)
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
