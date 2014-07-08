@@ -123,7 +123,7 @@ class Bot(object):
                     continue
 
                 if (latestSrc.name in self._cfg.excludePackages or
-                    latestSrc.name in self._cfg.packages):
+                    latestSrc.name in self._cfg.package):
                     log.warn('ignoring %s due to exclude rule' % latestSrc.name)
                     continue
 
@@ -285,17 +285,19 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
+
         # Updates for centos 5 unencap require grpbuild and promote
         if self._cfg.updateMode == 'latest' and self._cfg.platformName == 'centos':
             # Build group.
             grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
 
-            # Promote group.
+            # Promote group if needed
             # We expect that everything that was built will be published.
-            expected = self._flattenSetDict(trvMap)
-            toPublish = self._flattenSetDict(grpTrvMap)
-            newTroves = self._updater.publish(toPublish, expected,
+            if self._cfg.targetLabel == self._cfg.sourceLabel[-1]:
+                expected = self._flattenSetDict(trvMap)
+                toPublish = self._flattenSetDict(grpTrvMap)
+                newTroves = self._updater.publish(toPublish, expected,
                                               self._cfg.targetLabel)
 
             # Disabled handled in seperate job
