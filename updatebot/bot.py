@@ -294,7 +294,7 @@ class Bot(object):
 
             # Promote group if needed
             # We expect that everything that was built will be published.
-            if self._cfg.targetLabel == self._cfg.sourceLabel[-1]:
+            if self._cfg.targetLabel != self._cfg.sourceLabel[-1]:
                 expected = self._flattenSetDict(trvMap)
                 toPublish = self._flattenSetDict(grpTrvMap)
                 newTroves = self._updater.publish(toPublish, expected,
