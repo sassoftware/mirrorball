@@ -37,6 +37,7 @@ class MirrorBall(PackageRecipe):
             r.CompilePython('%%(sitepkgs)s/%s' % mod)
 
         r.Install('scripts/auto_update', '%(bindir)s/update')
+        r.Install('scripts/auto_buildgroups', '%(bindir)s/buildgroups')
         r.Install('scripts/auto_mirror', '%(bindir)s/mirror')
 
         r.Install('scripts/auto_current_update', '%(bindir)s/current-update')
