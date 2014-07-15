@@ -15,12 +15,14 @@
 # limitations under the License.
 #
 
-
-from header import *
+from updatebot import build
 from updatebot.cmdline import display
 from updatebot.cmdline.simple import main
+from updatebot.cmdline import UserInterface
 
 def buildgroups(cfg):
+
+    ui = UserInterface()
 
     builder = build.Builder(cfg, ui, rmakeCfgFn='rmakerc-groups')
 
@@ -39,3 +41,6 @@ if __name__ == '__main__':
 
     # Build Groups
     sys.exit(main(sys.argv, buildgroups))
+
+
+
