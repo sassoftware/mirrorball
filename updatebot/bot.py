@@ -289,7 +289,7 @@ class Bot(object):
         # Updates for centos 5 unencap require grpbuild and promote
         if self._cfg.updateMode == 'latest' and self._cfg.platformName == 'centos':
             # Build group.
-            log.info('Building group : %s' %  self._cfg.topSourceGroup)
+            log.info('Building group : %s' %  self._cfg.topSourceGroup.asString())
             grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
 
