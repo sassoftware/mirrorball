@@ -629,6 +629,17 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Added to support epel
     disableOldVersionCheck = (CfgBool, False)
 
+    # Gem Factory to use for importing
+    gemPackageFactory   = (CfgString, None)
+
+    # Gem Packages to import
+    gemPackage          = (CfgList(CfgString), [])
+
+    # Gem Package Prefix to use for packages
+    # because we need to know what the gem name is 
+    # without checking out the manifest
+    # so we will strip off the prefix
+    gemPrefix   = (CfgString, None)
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """

@@ -49,7 +49,8 @@ class Client(object):
     def __init__(self, repoUrl):
         self._repoUrl = repoUrl
 
-        self._baseMdPath = '/repodata/repomd.xml'
+        #self._baseMdPath = '/repodata/repomd.xml'
+        self._baseMdPath = 'repodata/repomd.xml'
         self._repo = Repository(self._repoUrl)
         self._repomd = RepoMdXml(self._repo, self._baseMdPath).parse()
 
