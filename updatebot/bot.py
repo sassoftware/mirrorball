@@ -209,7 +209,7 @@ class Bot(object):
             updateTroves = set(((x.name, None, None), x) for x in updatePkgs)
 
         start = time.time()
-        log.info('starting update')
+        log.info('starting update : %s' % start)
 
         if not expectedRemovals:
             ##
@@ -235,6 +235,8 @@ class Bot(object):
             allowPackageDowngrades=allowPackageDowngrades,
             keepRemovedPackages=keepRemovedPackages)
 
+        log.info('Found %s updates : %s' % (len(toUpdate), time.time()))
+ 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.
         if force:
@@ -285,20 +287,17 @@ class Bot(object):
         else:
             trvMap = self._builder.buildsplitarch(buildTroves)
 
-
         # Updates for centos 5 unencap require grpbuild and promote
         if self._cfg.updateMode == 'latest' and self._cfg.platformName == 'centos':
             # Build group.
-            log.info('Building group : %s' %  self._cfg.topSourceGroup.asString())
             grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
 
-            # Promote group if needed
+            # Promote group.
             # We expect that everything that was built will be published.
-            if self._cfg.targetLabel != self._cfg.sourceLabel[-1]:
-                expected = self._flattenSetDict(trvMap)
-                toPublish = self._flattenSetDict(grpTrvMap)
-                newTroves = self._updater.publish(toPublish, expected,
+            expected = self._flattenSetDict(trvMap)
+            toPublish = self._flattenSetDict(grpTrvMap)
+            newTroves = self._updater.publish(toPublish, expected,
                                               self._cfg.targetLabel)
 
             # Disabled handled in seperate job

@@ -20,6 +20,7 @@ Module for finding packages to update and updating them.
 """
 
 import os
+import time
 import copy
 import logging
 import itertools
@@ -79,7 +80,8 @@ class Updater(object):
                 to update
         """
 
-        log.info('searching for packages to update')
+        start = time.time()
+        log.info('Searching for packages to update : %s' % start)
 
         assert updateTroves is None or len(updateTroves)
 
@@ -110,8 +112,9 @@ class Updater(object):
                 toAdvise.append(((nvf[0], version, nvf[2]), srpm))
 
 
-        log.info('found %s troves to update, and %s troves to send advisories'
+        log.info('Found %s troves to update, and %s troves to send advisories'
                  % (len(toUpdate), len(toAdvise)))
+        log.info('Elapsed Time : %s' % (time.time() - start)) 
         return toAdvise, toUpdate
 
     def _fltrPkg(self, pkgname):
@@ -157,6 +160,7 @@ class Updater(object):
                 troves.append(((name, version, flavor), latestSrpm))
 
         log.info('found %s protentially updatable troves' % len(troves))
+        import epdb;epdb.st()
         return troves
 
     def getSourceVersions(self):
@@ -367,6 +371,9 @@ class Updater(object):
         @raises UpdateRemovesPackageError
         """
 
+        start = time.time()
+        log.info('Starting Sanitize Trove : %s' % start)
+
         keepRemovedPackages = keepRemovedPackages or []
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
@@ -541,6 +548,8 @@ class Updater(object):
 
         if len(manifest) < self._getManifestFromPkgSource(srpm):
             needsUpdate = True
+
+        log.info('Elapsed Time Sanitize Trove : %s' % (time.time() - start))
 
         return needsUpdate
 

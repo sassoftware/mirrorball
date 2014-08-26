@@ -437,20 +437,19 @@ class Bot(BotSuperClass):
 
         return toPromote
 
-    def _getUpdatePackages(self):
+    def _getUpdatePackages(self, sourceNevras=None, sourceLatest=None):
         """
         Compare the upstream yum repository and the conary repository to figure
         out what sources need to be updated.
         """
 
-        log.info('finding updates')
+        start = time.time()
 
         # Get a mapping of nvf -> nevra
-        sourceNevras = self._getNevrasForLabel(
-            self._updater._conaryhelper._ccfg.buildLabel)
+        # And reverse the map and filter out old conary versions.
+        if not sourceNevras or not sourceLatest:
+            sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
 
-        # Reverse the map and filter out old conary versions.
-        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
 
         # HACK FOR RHEL5CLIENT
         # Another hack for rhel 5 client workstation
@@ -463,6 +462,7 @@ class Bot(BotSuperClass):
         explicitIgnoreSources = set([ x for x in 
             itertools.chain(*self._cfg.ignoreSourceUpdate.values()) ])
 
+        import epdb;epdb.st()
 
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
@@ -495,7 +495,7 @@ class Bot(BotSuperClass):
             #    kernels.append(binPkg)
 
             if binPkg.getNevra() not in sourceLatest:
-                log.info('UPDATING : %s' % binPkg)
+                #log.info('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
 
@@ -518,22 +518,57 @@ class Bot(BotSuperClass):
                 else:
                     log.warn('addSource failed for %s' % str(sPkg))
 
+        log.info('Elapsed Time : %s' % (time.time() - start))
+
         return UpdateSet(toUpdate)
 
-    def _getPreviousNVFForSrcPkg(self, srcPkg):
+
+    def _getSourceNevraLatestMaps(self):
+        """
+        Return sourceNevra and sourceLatest maps
+        """
+
+        start = time.time()
+
+        log.info('Creating sourceNevras Map : %s' % start)
+
+        # Get a mapping of nvf -> nevra
+        sourceNevras = self._getNevrasForLabel(
+                self._updater._conaryhelper._ccfg.buildLabel)
+
+        log.info('Found sourceNevras : %s' % (time.time() - start))
+
+        # Reverse the map and filter out old conary versions.
+        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+
+        log.info('Created sourceLatest : %s' % (time.time() - start))
+
+        return sourceNevras, sourceLatest
+
+    def _getUpdateTroveSets(self, srcPkgs, sourceNevras=None, sourceLatest=None):
+        """
+        Takes a list of srcsPkgs 
+        Figures out what this source package was meant to update.
+        """
+
+        if not sourceNevras or not sourceLatest:
+            sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
+
+        updateSet = set()
+        
+        for srcPkg in srcPkgs:
+            updateSet.add((self._getPreviousNVFForSrcPkg(srcPkg, sourceNevras, sourceLatest), srcPkg))
+        #import epdb;epdb.st()
+        log.info('Update Set contains %s pkgs' % len(updateSet))
+        return updateSet
+
+    def _getPreviousNVFForSrcPkg(self, srcPkg, sourceNevras=None, sourceLatest=None):
         """
         Figure out what this source package was meant to update.
         """
 
-        # FIXME: Should make this take a list of srcPkgs so that we can
-        #        avoid multiple repository calls.
-
-        # Get a mapping of nvf -> nevra
-        sourceNevras = self._getNevrasForLabel(
-            self._updater._conaryhelper._ccfg.buildLabel)
-
-        # Reverse the map and filter out old conary versions.
-        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+        if not sourceNevras or not sourceLatest:
+            sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
 
         # Find the previous nevra
         srcPkgs = sorted(self._pkgSource.srcNameMap.get(srcPkg.name))
@@ -618,7 +653,9 @@ class Bot(BotSuperClass):
 
 
         # Figure out what packages need to be updated.
-        updatePkgs = self._getUpdatePackages()
+        # These will be used later so lets do this once
+        sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
+        updatePkgs = self._getUpdatePackages(sourceNevras, sourceLatest)
 
         # remove packages from config
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
@@ -639,8 +676,8 @@ class Bot(BotSuperClass):
         if updatePkgs:
             updatePkgs.filterPkgs(kwargs.pop('fltr', None))
 
+
             for updateSet in sorted(updatePkgs):
-                log.info('building set of update troves')
 
                 log.info('running update')
 
@@ -650,13 +687,16 @@ class Bot(BotSuperClass):
 
                 chunk = lambda ulist, step:  map(lambda i: ulist[i:i+step],
                             xrange(0, len(ulist), step))
-
+                
+                log.info('building set of update troves')
 
                 for upSet in chunk(updateSet, chunks):
+                    
+                    log.info('Working on upSet : %s' % len(upSet))
 
-                    updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
-                        for x in upSet])
+                    updateTroves = self._getUpdateTroveSets(upSet, sourceNevras, sourceLatest)
 
+                    log.info('Current Chunk Size : %s' % len(updateTroves))
 
                     pkgMap.update(self._update(*args, updateTroves=updateTroves,
                         updatePkgs=True, expectedRemovals=expectedRemovals,
