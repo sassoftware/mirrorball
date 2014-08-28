@@ -293,12 +293,17 @@ class Bot(object):
             grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
 
-            # Promote group.
+            log.info('Building group : %s' %  self._cfg.topSourceGroup.asString())
+            grpTrvs = (self._cfg.topSourceGroup, )
+            grpTrvMap = self._builder.build(grpTrvs)
+
+            # Promote group if needed
             # We expect that everything that was built will be published.
-            expected = self._flattenSetDict(trvMap)
-            toPublish = self._flattenSetDict(grpTrvMap)
-            newTroves = self._updater.publish(toPublish, expected,
-                                              self._cfg.targetLabel)
+            if self._cfg.targetLabel != self._cfg.sourceLabel[-1]:
+                expected = self._flattenSetDict(trvMap)
+                toPublish = self._flattenSetDict(grpTrvMap)
+                newTroves = self._updater.publish(toPublish, expected,
+                                               self._cfg.targetLabel)
 
             # Disabled handled in seperate job
             # Mirror out what we have done

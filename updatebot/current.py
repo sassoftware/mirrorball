@@ -462,7 +462,6 @@ class Bot(BotSuperClass):
         explicitIgnoreSources = set([ x for x in 
             itertools.chain(*self._cfg.ignoreSourceUpdate.values()) ])
 
-        import epdb;epdb.st()
 
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
