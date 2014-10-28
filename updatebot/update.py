@@ -114,7 +114,7 @@ class Updater(object):
 
         log.info('Found %s troves to update, and %s troves to send advisories'
                  % (len(toUpdate), len(toAdvise)))
-        log.info('Elapsed Time : %s' % (time.time() - start)) 
+        log.info('Elapsed Time : %s' % (time.time() - start))
         return toAdvise, toUpdate
 
     def _fltrPkg(self, pkgname):
@@ -412,8 +412,8 @@ class Updater(object):
                 # this is a fake source.  Move on.
                 continue
             elif self._cfg.disableOldVersionCheck:
-                # For epel support since the repo does not 
-                # keep old versions at all. 
+                # For epel support since the repo does not
+                # keep old versions at all.
                 log.warn("Disabled OldVersionNotFoundError in config")
                 continue
             else:
@@ -829,8 +829,19 @@ class Updater(object):
             log.info('using version from parent platform %s' % parentVersion)
             return parentVersion
 
-        manifest = self._getManifestFromPkgSource(srcPkg)
-        self._conaryhelper.setManifest(nvf[0], manifest)
+        # artifactory packages use a completely
+        # different manifest format
+        if self._cfg.repositoryFormat == 'artifactory':
+            manifest = dict(
+                version=srcPkg.fullVersion,
+                build_requires=srcPkg.getBuildRequires(),
+                artifacts=[binPkg._json for binPkg in
+                           self._pkgSource.srcPkgMap[srcPkg]],
+            )
+            self._conaryhelper.setJsonManifest(nvf[0], manifest)
+        else:
+            manifest = self._getManifestFromPkgSource(srcPkg)
+            self._conaryhelper.setManifest(nvf[0], manifest)
 
         if self._cfg.writePackageVersion:
             self._conaryhelper.setVersion(nvf[0], '%s_%s'
