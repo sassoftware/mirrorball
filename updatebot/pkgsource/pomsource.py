@@ -78,31 +78,25 @@ class Package(object):
         return self.fullVersion.replace('-', '_')
 
     def getBuildRequires(self):
-        build_requires = []
+        buildRequires = set()
         if hasattr(self._pom, 'parent'):
             # add parent projects as a build req
-            build_requires.append(str(self._pom.parent.artifactId))
+            buildRequires.add(str(self._pom.parent.artifactId))
 
-        if not hasattr(self._pom, 'dependencies'):
-            if not hasattr(self._pom, 'dependencyManagement'):
-                return build_requires
-            dependencies = self._pom.dependencyManagement.dependencies
-        else:
-            dependencies = self._pom.dependencies
+        if hasattr(self._pom, 'dependencies'):
+            for dep in self._pom.dependencies.iterchildren():
+                if hasattr(dep, 'optional') and dep.optional:
+                    # ignore opitonal deps, these are deps a dependent
+                    # project may want to include
+                    continue
 
-        for dep in dependencies.iterchildren():
-            if hasattr(dep, 'optional') and dep.optional:
-                # ignore opitonal deps, these are deps a dependent
-                # project may want to include
-                continue
+                if hasattr(dep, 'scope') and str(dep.scope) != 'compile':
+                    # we only want compile deps (the default)
+                    continue
 
-            if hasattr(dep, 'scope') and str(dep.scope) != 'compile':
-                # we only want compile deps (the default)
-                continue
+                buildRequires.add(str(dep.artifactId))
 
-            build_requires.append(str(dep.artifactId))
-
-        return build_requires
+        return list(buildRequires)
 
     def getNevra(self):
         return self.name, self.epoch, self.version, self.release, self.arch
