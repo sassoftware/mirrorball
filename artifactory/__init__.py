@@ -2,16 +2,22 @@
 # Copyright (c) SAS Institute Inc
 #
 
-from functools import wraps
 from urlparse import urljoin
 import logging
+import os
 
+from lxml import objectify
 import requests
+
+from .pompackage import Package
+
 
 __all__ = ()
 
 
 log = logging.getLogger(__name__)
+
+XMLParser = objectify.makeparser(recover=True, remove_comments=True)
 
 
 def detail(func):
@@ -72,8 +78,10 @@ class Client(object):
         self._api_url = urljoin(self.url, "api/")
 
         self._session = requests.Session()
-        if auth: self._session.auth = auth
-        if headers: self._session.headers.update(headers)
+        if auth:
+            self._session.auth = auth
+        if headers:
+            self._session.headers.update(headers)
 
     def _get(self, uris, **kwargs):
         res = self._request('GET', uris, **kwargs)
@@ -138,10 +146,14 @@ class Client(object):
         :param bool properties: get the properties of found artifacts
         """
         params = {}
-        if group: params["g"] = group
-        if artifact: params["a"] = artifact
-        if version: params['v'] = version
-        if classifier: params['c'] = classifier
+        if group:
+            params["g"] = group
+        if artifact:
+            params["a"] = artifact
+        if version:
+            params['v'] = version
+        if classifier:
+            params['c'] = classifier
         if not params:
             raise ValueError("Must provide one of: group, artifact, version,"
                              " or classifier")
@@ -172,8 +184,10 @@ class Client(object):
     @repos
     def version_search(self, group=None, artifact=None, **kwargs):
         params = {}
-        if group: params['g'] = group
-        if artifact: params['a'] = artifact
+        if group:
+            params['g'] = group
+        if artifact:
+            params['a'] = artifact
 
         if not params:
             raise ValueError("Must specify at least one of: group, artifact")
@@ -190,8 +204,12 @@ class Client(object):
     def retrieve_artifact(self, paths, stream=False):
         if isinstance(paths, str):
             paths = [paths]
+            return_one = True
         urls = [p.replace(':', '', 1) for p in paths]
-        return self._request('GET', urls, stream=stream, return_json=False)
+        res = self._request('GET', urls, stream=stream, return_json=False)
+        if return_one:
+            return res[0]
+        return res
 
     @property
     def repositories(self):
@@ -232,3 +250,29 @@ class Client(object):
 
         if not topdown:
             yield parent, folders, artifacts
+
+    def getPackageDetails(self, repo, archStr):
+        poms = [pom for pom in self.quick_search('pom', repos=repo)
+                if pom.get('mimeType') == 'application/x-maven-pom+xml']
+
+        for pom in poms:
+            location ='{repo}:{path}'.format(**pom)
+            pomFile = self.retrieve_artifact(location)
+            pomObject = objectify.fromstring(pomFile.text.encode('utf-8'),
+                                             XMLParser)
+            if hasattr(pomObject, 'getroot'):
+                pomObject = pomObject.getroot()
+
+            artifacts = self.gavc_search(
+                str(pomObject.groupId if hasattr(pomObject, 'groupId')
+                    else pomObject.parent.groupId),
+                str(pomObject.artifactId),
+                str(pomObject.version if hasattr(pomObject, 'version')
+                    else pomObject.parent.version),
+                )
+
+            if not artifacts:
+                log.debug('No extra artifacts assocated with %s', location)
+
+            yield Package(pomObject, location)
+            yield Package(pomObject, location, archStr, artifacts)
