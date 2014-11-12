@@ -256,7 +256,7 @@ class Client(object):
                 if pom.get('mimeType') == 'application/x-maven-pom+xml']
 
         for pom in poms:
-            location ='{repo}:{path}'.format(**pom)
+            location = '{repo}:{path}'.format(**pom)
             pomFile = self.retrieve_artifact(location)
             pomObject = objectify.fromstring(pomFile.text.encode('utf-8'),
                                              XMLParser)
@@ -274,5 +274,7 @@ class Client(object):
             if not artifacts:
                 log.debug('No extra artifacts assocated with %s', location)
 
-            yield Package(pomObject, location)
-            yield Package(pomObject, location, archStr, artifacts)
+            yield Package(pomObject, os.path.dirname(location))
+            for artifact in artifacts:
+                yield Package(pomObject, '{repo}:{path}'.format(**artifact),
+                              archStr, artifact)

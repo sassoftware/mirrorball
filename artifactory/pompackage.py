@@ -9,13 +9,13 @@ log = logging.getLogger(__name__)
 
 
 class Package(object):
-    __slots__ = ('artifacts', 'arch', 'fullVersion', 'name', 'buildRequires',
+    __slots__ = ('artifact', 'arch', 'fullVersion', 'name', 'buildRequires',
                  'epoch', 'version', 'release', 'location',)
 
-    def __init__(self, pom, location, arch='src', artifacts=None):
+    def __init__(self, pom, location, arch='src', artifact=None):
         self.location = location
         self.arch = arch and arch or ''
-        self.artifacts = artifacts
+        self.artifact = artifact
         self.epoch = '0'
 
         try:
