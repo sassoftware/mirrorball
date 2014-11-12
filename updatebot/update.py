@@ -832,11 +832,12 @@ class Updater(object):
         # artifactory packages use a completely
         # different manifest format
         if self._cfg.repositoryFormat == 'artifactory':
+            artifacts = itertools.chain(*[binPkg.artifacts
+                for binPkg in self._pkgSource.srcPkgMap[srcPkg]])
             manifest = dict(
                 version=srcPkg.fullVersion,
                 build_requires=srcPkg.getBuildRequires(),
-                artifacts=[binPkg._json for binPkg in
-                           self._pkgSource.srcPkgMap[srcPkg]],
+                artifacts=list(artifacts),
             )
             self._conaryhelper.setJsonManifest(nvf[0], manifest)
         else:
