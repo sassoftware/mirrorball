@@ -20,9 +20,7 @@ Module for interacting with packages defined by pom files
 """
 
 import logging
-import os
 
-from lxml import objectify
 import artifactory
 import prism_rest_client
 
@@ -71,11 +69,9 @@ class PomSource(BasePackageSource):
 
     @loaded
     def load(self):
-        auth = self._cfg.artifactoryUser.find(self._cfg.repositoryUrl)
-
+        client = artifactory.Client(self._cfg)
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
-            client = artifactory.Client(self._cfg.repositoryUrl, auth)
             archStr = self._cfg.repositoryArch.get(repo, None)
             self.loadFromClient(client, repo, archStr=archStr)
 

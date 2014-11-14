@@ -53,33 +53,25 @@ class Client(object):
     Client for talking to artfactory api
     """
 
-    def __init__(self, url, auth=None, headers=None):
+    def __init__(self, cfg, headers=None):
         """
-        Create a client from a url.
-
-        If you need authenticatio, pass in a tuple of username and password:
-            Client("http://example.com", ("user", "secret"))
-        or
-            Client("http://example.com", auth=("user", "secret"))
+        Create a client from a updatebot config object.
 
         If there are default headers you want used for every request, pass in
         a dictionary:
             Client("http://example.com,
                 headers={'my-default-header': 'foo'})
 
-        :param str hostname: hostname of artifactory
-        :param int port: port if other than 80/443
-        :param bool https: use https if true
-        :param tuple auth: 2-tuple of username and password
+        :param UpdateBotConfig cfg: cfg object to use for configuring the client
         :param dict headers: dictionary of headers to use for all requests
         """
         # append a / to url if it doesn't end with one
-        self.url = url + ('' if url.endswith('/') else '/')
-        self._api_url = urljoin(self.url, "api/")
+        self._cfg = cfg
+        self._url = cfg.repositoryUrl + '/'
+        self._api_url = urljoin(self._url, "api/")
 
         self._session = requests.Session()
-        if auth:
-            self._session.auth = auth
+        self._session.auth = cfg.artifactoryUser.find(cfg.repositoryUrl)
         if headers:
             self._session.headers.update(headers)
 
@@ -96,7 +88,7 @@ class Client(object):
         if isinstance(uris, str):
             return_one = True
             uris = [uris]
-        urls = [urljoin(self.url, uri) for uri in uris]
+        urls = [urljoin(self._url, uri) for uri in uris]
         res = [self._session.request(method, u, **kwargs) for u in urls]
         if return_json:
             res = [r.json() for r in res]
