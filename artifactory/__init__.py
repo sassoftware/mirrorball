@@ -101,7 +101,7 @@ class Client(object):
         log.debug("search(%s, kwargs=%s)", path, kwargs)
         res = self._get(urljoin("api/search/", path), **kwargs)
         results = res.get('results')
-        urls = [r['uri'] for r in results]
+        urls = [r['uri'] for r in results][:50]
         res = self._get(urls)
         return res
 
@@ -244,7 +244,7 @@ class Client(object):
         if not topdown:
             yield parent, folders, artifacts
 
-    def getPackageDetails(self, repo, archStr):
+    def iterPackageDetails(self, repo, archStr):
         poms = [pom for pom in self.quick_search('pom', repos=repo)
                 if pom.get('mimeType') == 'application/x-maven-pom+xml']
 
@@ -278,3 +278,6 @@ class Client(object):
             for artifact in artifacts:
                 yield Package(pomObject, '{repo}:{path}'.format(**artifact),
                               archStr, artifact)
+
+    def getPackageDetails(self, repo, archStr):
+        return list(self.iterPackageDetails(repo, archStr))
