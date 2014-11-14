@@ -10,6 +10,7 @@ from lxml import objectify
 import requests
 
 from .pompackage import Package
+from .pompackage import PomObject
 
 
 __all__ = ()
@@ -250,17 +251,24 @@ class Client(object):
         for pom in poms:
             location = '{repo}:{path}'.format(**pom)
             pomFile = self.retrieve_artifact(location)
-            pomObject = objectify.fromstring(pomFile.text.encode('utf-8'),
-                                             XMLParser)
-            if hasattr(pomObject, 'getroot'):
-                pomObject = pomObject.getroot()
+            pomObject = PomObject(pomFile.text.encode('utf8'), self, repo)
+
+            if pomObject.artifactId in self._cfg.excludePackages:
+                continue
+
+            if self._cfg.packageAll:
+                # cfg.package is a list of excludes
+                if pomObject.artifactId in self._cfg.package:
+                    continue
+            else:
+                # cfg.package is a list of what to package
+                if pomObject.artifactId not in self._cfg.package:
+                    continue
 
             artifacts = self.gavc_search(
-                str(pomObject.groupId if hasattr(pomObject, 'groupId')
-                    else pomObject.parent.groupId),
-                str(pomObject.artifactId),
-                str(pomObject.version if hasattr(pomObject, 'version')
-                    else pomObject.parent.version),
+                pomObject.groupId,
+                pomObject.artifactId,
+                pomObject.version,
                 )
 
             if not artifacts:

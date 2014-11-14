@@ -833,8 +833,8 @@ class Updater(object):
         # different manifest format
         if self._cfg.repositoryFormat == 'artifactory':
             manifest = dict(
-                version=srcPkg.fullVersion,
-                build_requires=srcPkg.getBuildRequires(),
+                version=srcPkg.version,
+                build_requires=srcPkg.buildRequires,
                 artifacts=[pkg.artifact for pkg in
                            self._pkgSource.srcPkgMap[srcPkg]],
             )
