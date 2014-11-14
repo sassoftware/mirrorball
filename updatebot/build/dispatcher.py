@@ -66,16 +66,16 @@ class AbstractDispatcher(object):
 
 
         if not len(self._jobs):
-            log.warn('_jobs empty... guess we need to wait')
-            log.warn('%s' % str(self._jobs))
+            log.debug('_jobs empty... guess we need to wait')
+            log.debug('%s' % str(self._jobs))
             return False
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
-            log.warn('STATUS: %s' % status)
+            log.debug('STATUS: %s' % status)
             if status == buildjob.JOB_STATE_FAILED:
                 log.error('[%s] failed job: %s' % (jobId, trove))
             if status not in self._completed:
-                log.warn('%s %s %s not in _completed' % (jobId, str(status), str(result)))
+                log.debug('%s %s %s not in _completed' % (jobId, str(status), str(result)))
                 return False
 
         return True
