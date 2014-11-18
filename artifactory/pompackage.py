@@ -186,12 +186,12 @@ class PomObject(object):
 
 
 class Package(object):
-    __slots__ = ('artifact', 'arch', 'fullVersion', 'name', 'buildRequires',
+    __slots__ = ('artifacts', 'arch', 'fullVersion', 'name', 'buildRequires',
                  'epoch', 'version', 'release', 'location',)
 
-    def __init__(self, pom, location, arch='src', artifact=None):
+    def __init__(self, pom, location, arch='src', artifacts=None):
         self.location = location
-        self.artifact = artifact
+        self.artifacts = artifacts if artifacts is not None else []
         self.name = pom.artifactId.strip()
         self.epoch = '0'
         self.version = pom.version.strip()
@@ -200,15 +200,8 @@ class Package(object):
         self.buildRequires = list(pom.dependencies)
 
     def __repr__(self):
-        if self.arch == 'src':
-            return '<pomsource.Package(%r, %r, %r)>' % (
-                self.name, self.version, self.arch)
-        return '<pomsource.Package(%r, %r, %r, %r)>' % (
-            self.name,
-            self.version,
-            self.arch,
-            '%(repo)s:%(path)s' % self.artifact,
-        )
+        return '<pomsource.Package(%r, %r, %r)>' % (
+            self.name, self.version, self.arch)
 
     def getConaryVersion(self):
         assert self.arch == 'src'
