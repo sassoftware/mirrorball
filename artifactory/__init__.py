@@ -18,6 +18,10 @@ log = logging.getLogger(__name__)
 
 XMLParser = objectify.makeparser(recover=True, remove_comments=True)
 
+# Turn down the logging level on requeests
+requests_logger = logging.getLogger('requests.packages.urllib3.connectionpool')
+requests_logger.setLevel(logging.WARN)
+
 
 def detail(func):
     def wrapper(*args, **kwargs):
