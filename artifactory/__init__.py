@@ -4,7 +4,6 @@
 
 from urlparse import urljoin
 import logging
-import os
 
 from lxml import objectify
 import requests
@@ -13,8 +12,7 @@ from .pompackage import Package
 from .pompackage import PomObject
 
 
-__all__ = ()
-
+__all__ = ('Client', 'Package', 'PomObject')
 
 log = logging.getLogger(__name__)
 
