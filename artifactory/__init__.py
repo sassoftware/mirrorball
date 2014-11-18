@@ -76,34 +76,29 @@ class Client(object):
         if headers:
             self._session.headers.update(headers)
 
-    def _get(self, uris, **kwargs):
-        res = self._request('GET', uris, **kwargs)
+    def _get(self, uri, **kwargs):
+        res = self._request('GET', uri, **kwargs)
         return res
 
-    def _post(self, uris,  **kwargs):
-        res = self._request_many('POST', uris, **kwargs)
+    def _post(self, uri,  **kwargs):
+        res = self._request('POST', uri, **kwargs)
         return res
 
-    def _request(self, method, uris, return_json=True, **kwargs):
-        return_one = False
-        if isinstance(uris, str):
-            return_one = True
-            uris = [uris]
-        urls = [urljoin(self._url, uri) for uri in uris]
-        res = [self._session.request(method, u, **kwargs) for u in urls]
+    def _request(self, method, uri, return_json=True, **kwargs):
+        url = urljoin(self._url, uri)
+        res = self._session.request(method, url, **kwargs)
         if return_json:
-            res = [r.json() for r in res]
-        if return_one:
-            return res[0]
+            return res.json()
         return res
 
     def _search(self, path, **kwargs):
         log.debug("search(%s, kwargs=%s)", path, kwargs)
         res = self._get(urljoin("api/search/", path), **kwargs)
         results = res.get('results')
-        urls = [r['uri'] for r in results][:50]
-        res = self._get(urls)
-        return res
+        urls = [r['uri'] for r in results]
+        for url in urls:
+            res = self._get(url)
+            yield res
 
     @repos
     @detail
@@ -195,11 +190,13 @@ class Client(object):
         return self._search('versions/', **kwargs)
 
     def retrieve_artifact(self, paths, stream=False):
-        if isinstance(paths, str):
+        return_one = False
+        if isinstance(paths, (str, unicode)):
             paths = [paths]
             return_one = True
         urls = [p.replace(':', '', 1) for p in paths]
-        res = self._request('GET', urls, stream=stream, return_json=False)
+        res = [self._request('GET', url, stream=stream, return_json=False)
+               for url in urls]
         if return_one:
             return res[0]
         return res
