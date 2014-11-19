@@ -4,6 +4,7 @@
 
 from urlparse import urljoin
 import logging
+import os
 
 from lxml import objectify
 import requests
@@ -244,25 +245,13 @@ class Client(object):
             yield parent, folders, artifacts
 
     def iterPackageDetails(self, repo, archStr):
-        poms = [pom for pom in self.quick_search('pom', repos=repo)
-                if pom.get('mimeType') == 'application/x-maven-pom+xml']
-
-        for pom in poms:
-            location = '{repo}:{path}'.format(**pom)
-            pomFile = self.retrieve_artifact(location)
-            pomObject = PomObject(pomFile.text.encode('utf8'), self, repo)
-
-            if pomObject.artifactId in self._cfg.excludePackages:
+        for pom in self.quick_search('pom', repos=repo):
+            if pom.get('mimeType') != 'application/x-maven-pom+xml':
                 continue
 
-            if self._cfg.packageAll:
-                # cfg.package is a list of excludes
-                if pomObject.artifactId in self._cfg.package:
-                    continue
-            else:
-                # cfg.package is a list of what to package
-                if pomObject.artifactId not in self._cfg.package:
-                    continue
+            location = '%(repo)s:%(path)s' % pom
+            pomFile = self.retrieve_artifact(location)
+            pomObject = PomObject(pomFile.text.encode('utf8'), self, repo)
 
             artifacts = self.gavc_search(
                 pomObject.groupId,
@@ -274,9 +263,7 @@ class Client(object):
                 log.debug('No extra artifacts assocated with %s', location)
 
             yield Package(pomObject, os.path.dirname(location))
-            for artifact in artifacts:
-                yield Package(pomObject, '{repo}:{path}'.format(**artifact),
-                              archStr, artifact)
+            yield Package(pomObject, location, archStr, artifacts)
 
     def getPackageDetails(self, repo, archStr):
         return list(self.iterPackageDetails(repo, archStr))

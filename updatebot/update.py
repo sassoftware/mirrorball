@@ -835,8 +835,7 @@ class Updater(object):
             manifest = dict(
                 version=srcPkg.version,
                 build_requires=srcPkg.buildRequires,
-                artifacts=[pkg.artifact for pkg in
-                           self._pkgSource.srcPkgMap[srcPkg]],
+                artifacts=srcPkg.artifacts,
             )
             self._conaryhelper.setJsonManifest(nvf[0], manifest)
         else:

@@ -47,6 +47,7 @@ class PomSource(BasePackageSource):
     def __init__(self, cfg, ui):
         BasePackageSource.__init__(self, cfg, ui)
         self._srcPkgs = set()
+        self._binMap = {}
 
     def _procSrc(self, package):
         self.srcNameMap.setdefault(package.name, set()).add(package)
@@ -54,6 +55,8 @@ class PomSource(BasePackageSource):
         self._srcPkgs.add(package)
 
     def _procBin(self, package, archStr=None):
+        key = package.getNevra()[:-1] + ('src',)
+        self._binMap.setdefault(key, set()).add(package)
         self.binNameMap.setdefault(package.name, set()).add(package)
         self.locationMap[package.location] = package
 
@@ -63,7 +66,7 @@ class PomSource(BasePackageSource):
             if pkg in self.srcPkgMap:
                 continue
 
-            self.srcPkgMap[pkg] = list(self.binNameMap[pkg.name])
+            self.srcPkgMap[pkg] = list(self._binMap[pkg.getNevra()])
             for binPkg in self.srcPkgMap[pkg]:
                 self.binPkgMap[binPkg] = pkg
 
@@ -80,9 +83,6 @@ class PomSource(BasePackageSource):
 
     def loadFromClient(self, client, repo, archStr=None):
         for pkg in client.getPackageDetails(repo, archStr):
-            assert '-' not in pkg.version
-            assert '-' not in pkg.release
-
             if pkg.arch == 'src':
                 self._procSrc(pkg)
             else:

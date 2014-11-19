@@ -192,9 +192,9 @@ class Package(object):
     def __init__(self, pom, location, arch='src', artifacts=None):
         self.location = location
         self.artifacts = artifacts if artifacts is not None else []
-        self.name = pom.artifactId.strip()
+        self.name = pom.artifactId
         self.epoch = '0'
-        self.version = pom.version.strip()
+        self.version = pom.version
         self.release = ''
         self.arch = arch and arch or ''
         self.buildRequires = list(pom.dependencies)
@@ -204,7 +204,6 @@ class Package(object):
             self.name, self.version, self.arch)
 
     def getConaryVersion(self):
-        assert self.arch == 'src'
         return self.version.replace('-', '_')
 
     def getNevra(self):
