@@ -6,18 +6,14 @@ from urlparse import urljoin
 import logging
 import os
 
-from lxml import objectify
 import requests
 
-from .pompackage import Package
-from .pompackage import PomObject
+from .pompackage import PomPackage
 
 
-__all__ = ('Client', 'Package', 'PomObject')
+__all__ = ('Client', 'PomPackage')
 
 log = logging.getLogger(__name__)
-
-XMLParser = objectify.makeparser(recover=True, remove_comments=True)
 
 # Turn down the logging level on requeests
 requests_logger = logging.getLogger('requests.packages.urllib3.connectionpool')
@@ -97,8 +93,8 @@ class Client(object):
     def _search(self, path, **kwargs):
         log.debug("search(%s, kwargs=%s)", path, kwargs)
         res = self._get(urljoin("api/search/", path), **kwargs)
-        results = res.get('results')
-        urls = [r['uri'] for r in results]
+        urls = [r['uri'] for r in res.get('results', [])]
+
         for url in urls:
             res = self._get(url)
             yield res
@@ -243,27 +239,3 @@ class Client(object):
 
         if not topdown:
             yield parent, folders, artifacts
-
-    def iterPackageDetails(self, repo, archStr):
-        for pom in self.quick_search('pom', repos=repo):
-            if pom.get('mimeType') != 'application/x-maven-pom+xml':
-                continue
-
-            location = '%(repo)s:%(path)s' % pom
-            pomFile = self.retrieve_artifact(location)
-            pomObject = PomObject(pomFile.text.encode('utf8'), self, repo)
-
-            artifacts = self.gavc_search(
-                pomObject.groupId,
-                pomObject.artifactId,
-                pomObject.version,
-                )
-
-            if not artifacts:
-                log.debug('No extra artifacts assocated with %s', location)
-
-            yield Package(pomObject, os.path.dirname(location))
-            yield Package(pomObject, location, archStr, artifacts)
-
-    def getPackageDetails(self, repo, archStr):
-        return list(self.iterPackageDetails(repo, archStr))

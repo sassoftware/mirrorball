@@ -5,8 +5,6 @@
 from string import Template
 import logging
 
-from lxml import etree
-
 
 log = logging.getLogger(__name__)
 
@@ -15,93 +13,77 @@ class PomTemplate(Template):
     idpattern = '[_a-z][-_a-z0-9.]*'
 
 
-class PomObject(object):
+class PomPackage(object):
+    """Abstracts away processing pom xml
     """
-    Abstracts away processing pom xml
-    """
-    def __init__(self, xml, client, repo):
-        """
-        Create a PomObject from xml string
+    __slots__ = ('_dependencies', '_dependencyManagement', '_ns', '_parent',
+                 '_properties', '_xml', 'arch', 'artifactId', 'artifacts',
+                 'buildRequires', 'children', 'groupId', 'location', 'name',
+                 'version',)
 
-        :param str xml: xml used to construct the pom object
-        :param client: an artifactory client for recursing parent projects
-        :type client: artifactory.Client
+    def __init__(self, gav, resource, xml, parent, artifacts=None, arch=None):
         """
-        self._parent = None
-        self._artifactId = None
-        self._groupId = None
-        self._version = None
+        Create a PomPackage
+
+        @param gav: group, artifact, version
+        @type gav: tuple
+        @param resource: artifactory json resource for pom file
+        @type pomResource: dict
+        @param xml: pom file xml
+        @type xml: lxml.ElementTree
+        @param parent: parent project package
+        @type parent: PomPackage
+        @param arch: architecture string, x86 or x86_64
+        @type arch: str
+        """
         self._properties = None
         self._dependencyManagement = None
         self._dependencies = None
 
-        self._xml = etree.fromstring(xml,
-            parser=etree.XMLParser(recover=True, remove_comments=True,
-                                   remove_pis=True))
-        if None in self._xml.nsmap:
-            self._ns = '{%s}' % self._xml.nsmap[None]
-        else:
-            self._ns = ''
+        self._xml = xml
+        self._ns = ('{%s}' % xml.nsmap[None]) if None in xml.nsmap else ''
+        self._parent = parent
+        if parent and self not in parent.children:
+            parent.children.append(self)
 
-        parent = self._xml.find('%sparent' % self._ns)
-        if parent is not None:
-            groupId = parent.find('%sgroupId' % self._ns).text.strip()
-            artifactId = parent.find('%sartifactId' % self._ns).text.strip()
-            version = parent.find('%sversion' % self._ns).text.strip()
-            parentArtifacts = client.gavc_search(
-                group=groupId,
-                artifact=artifactId,
-                version=version,
-            )
-            parentPom = [a for a in parentArtifacts
-                         if a.get('mimeType') == 'application/x-maven-pom+xml']
-            if parentPom:
-                if len(parentPom) > 1:
-                    log.warning("Found more than one parent pom file %s",
-                        self.artifactId)
-                    # try filtering for a parent pom in our repo
-                    # otherwise use the first
-                    _parentPom = [p for p in parentPom
-                                  if p.get('repo') == repo]
-                    if _parentPom:
-                        parentPom = _parentPom
-                parentPom = parentPom[0]
-                parentXml = client.retrieve_artifact('%(repo)s:%(path)s' %
-                                                     parentPom)
-                self._parent = PomObject(parentXml.text.encode('utf8'), client,
-                                         repo)
-            else:
-                # we got here because the parent is not
-                # cached in svcartifact
-                log.warning('Parent pom of %s is not cached in svcartifact:'
-                            ' %s (%s)', self.artifactId, artifactId, version)
+        self.groupId, self.artifactId, self.version = gav
+        self.location = '%(repo)s:%(path)s' % resource
+        self.artifacts = artifacts if artifacts is not None else []
+        self.arch = arch if arch is not None else ''
+        self.buildRequires = [d[1] for d in self.dependencies]
+        self.children = []
+
+    def __repr__(self):
+        return '<pomsource.Package(%r, %r, %r)>' % self.getGAV()
 
     @property
-    def artifactId(self):
-        if self._artifactId is None:
-            artifactId = self._xml.find('%sartifactId' % self._ns).text.strip()
-            self._artifactId = self._replaceProperties(artifactId)
-        return self._artifactId
+    def epoch(self):
+        return '0'
 
     @property
-    def groupId(self):
-        if self._groupId is None:
-            groupId = self._xml.find('%sgroupId' % self._ns)
-            if groupId is None:
-                groupId = self._xml.find(
-                    '%sparent/%sgroupId' % (self._ns, self._ns))
-            self._groupId = self._replaceProperties(groupId.text.strip())
-        return self._groupId
+    def release(self):
+        return ''
+
+    def getConaryVersion(self):
+        return str(self.version.replace('-', '_'))
+
+    def getGAV(self):
+        return self.groupId, self.artifactId, self.version
+
+    def getNevra(self):
+        return self.name, self.epoch, self.version, self.release, self.arch
 
     @property
-    def version(self):
-        if self._version is None:
-            version = self._xml.find('%sversion' % self._ns)
-            if version is None:
-                version = self._xml.find(
-                    '%sparent/%sversion' % (self._ns, self._ns))
-            self._version = self._replaceProperties(version.text.strip())
-        return self._version
+    def nevra(self):
+        return self
+
+    @property
+    def checksum(self):
+        return None
+
+    @property
+    def name(self):
+        return str(self.artifactId)
 
     @property
     def properties(self):
@@ -109,12 +91,15 @@ class PomObject(object):
             properties = {}
             if self._parent is not None:
                 properties.update(self._parent.properties)
+                properties['parent.groupId'] = self._parent.groupId
                 properties['parent.version'] = self._parent.version
             project_properties = self._xml.find('%sproperties' % self._ns)
             if project_properties is not None:
                 properties.update(
-                    (p.tag.replace('%s' % self._ns, ''), p.text)
-                    for p in project_properties.iterchildren())
+                    (p.tag.replace('%s' % self._ns, ''), p.text.strip())
+                     for p in project_properties.iterchildren())
+            properties['project.groupId'] = self.groupId
+            properties['project.version'] = self.version
             self._properties = properties
         return self._properties
 
@@ -124,9 +109,10 @@ class PomObject(object):
             dependencyManagement = {}
             if self._parent is not None:
                 dependencyManagement.update(self._parent.dependencyManagement)
-            for dep in self._xml.iter('dependencyManagement/dependencies'):
-                gav, scope, optional = \
-                    self._processDependencyElement(dep)
+            depManagmentString = ('{0}dependencyManagement/{0}dependencies'
+                                  '/{0}dependency'.format(self._ns))
+            for dep in self._xml.findall(depManagmentString):
+                gav, scope, optional = self._processDependencyElement(dep)
                 group, artifact, version = self._processVersion(gav)
                 if scope == 'compile' and not optional:
                     dependencyManagement[(group, artifact)] = version
@@ -138,34 +124,50 @@ class PomObject(object):
         if self._dependencies is None:
             dependencies = set()
             if self._parent is not None:
-                dependencies = self._parent.dependencies
-                dependencies.add(self._parent.artifactId)
-            for dep in self._xml.iter('dependencies/dependency'):
-                artifactId = dep.find('%sartifactId' % self._ns)
-                artifactId = artifactId.text.strip()
-                dependencies.add(self._replaceProperties(artifactId))
+                dependencies.add(self._parent.getGAV())
+
+            for dep in self._xml.findall('{0}dependencies/{0}dependency'):
+                (group, artifact, version), scope, optional = \
+                    self._processDependencyElement(dep)
+                if version is None:
+                    version = self.dependencyManagement[(group, artifact)]
+                dependencies.add((group, artifact, version))
             self._dependencies = dependencies
         return self._dependencies
 
     def _processDependencyElement(self, dep):
+        """Process the xml element and pull out the group, artifact, version,
+        scope and optionality of the dependency.
+
+        @param dep: a dependency elemnent from a pom file
+        @type dep: lxml.etree.Element
+        @return: ((group, artifact, version), scope, optional)
+        @rtype: tuple
+        """
+        group = dep.find('%sgroupId' % self._ns).text.strip()
+        group = self._replaceProperties(group)
+
+        artifact = dep.find('%sartifactId' % self._ns).text.strip()
+        artifact = self._replaceProperties(artifact)
+
+        version = dep.find('%sversion' % self._ns)
+        if version is not None:
+            version = version.text.strip()
+        else:
+            version = None
+
         scope = dep.find('%sscope' % self._ns)
         if scope is not None:
-            scope = scope.text
+            scope = scope.text.strip()
         else:
             scope = 'compile'
 
         optional = dep.find('%soptional' % self._ns)
         if optional is not None:
-            optional = (optional.text == 'true')
+            optional = (optional.text.strip() == 'true')
         else:
             optional = False
 
-        version = dep.find('%sversion' % self._ns)
-        if version is not None:
-            version = version.text
-
-        group = dep.find('%sgroupId' % self._ns).text
-        artifact = dep.find('%sartifactId' % self._ns).text
         return (group, artifact, version), scope, optional
 
     def _processVersion(self, gav):
@@ -183,36 +185,3 @@ class PomObject(object):
     def _replaceProperties(self, string):
         newString = PomTemplate(string).substitute(self.properties)
         return newString
-
-
-class Package(object):
-    __slots__ = ('artifacts', 'arch', 'fullVersion', 'name', 'buildRequires',
-                 'epoch', 'version', 'release', 'location',)
-
-    def __init__(self, pom, location, arch='src', artifacts=None):
-        self.location = location
-        self.artifacts = artifacts if artifacts is not None else []
-        self.name = pom.artifactId
-        self.epoch = '0'
-        self.version = pom.version
-        self.release = ''
-        self.arch = arch and arch or ''
-        self.buildRequires = list(pom.dependencies)
-
-    def __repr__(self):
-        return '<pomsource.Package(%r, %r, %r)>' % (
-            self.name, self.version, self.arch)
-
-    def getConaryVersion(self):
-        return self.version.replace('-', '_')
-
-    def getNevra(self):
-        return self.name, self.epoch, self.version, self.release, self.arch
-
-    @property
-    def nevra(self):
-        return self
-
-    @property
-    def checksum(self):
-        return None
