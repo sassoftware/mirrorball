@@ -127,7 +127,7 @@ class PomSource(object):
                 # add the parent to the map
                 self.pkgMap[parentGAV] = parent
 
-        artifacts = list(client.gavc_search(*gav, repos=repo))
+        artifacts = list(client.gavc_search(*gav, repos=pomResource['repo']))
         if not artifacts:
             raise Exception('No artifacts associated with %s', '/'.join(gav))
 
