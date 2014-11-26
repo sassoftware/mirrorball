@@ -41,7 +41,7 @@ def repos(func):
     def wrapper(*args, **kwargs):
         repos = kwargs.pop('repos', None)
         if repos:
-            if isinstance(repos, str):
+            if isinstance(repos, (str, unicode)):
                 repos = [repos]
             kwargs.setdefault('params', {})['repos'] = ','.join(repos)
         return func(*args, **kwargs)
