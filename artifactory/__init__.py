@@ -188,17 +188,13 @@ class Client(object):
         kwargs.setdefault('params', {}).update(params)
         return self._search('versions/', **kwargs)
 
-    def retrieve_artifact(self, paths, stream=False):
-        return_one = False
-        if isinstance(paths, (str, unicode)):
-            paths = [paths]
-            return_one = True
-        urls = [p.replace(':', '', 1) for p in paths]
-        res = [self._request('GET', url, stream=stream, return_json=False)
-               for url in urls]
-        if return_one:
-            return res[0]
-        return res
+    def retrieve_artifact(self, path, stream=False):
+        url = path.replace(':', '', 1)
+        res = self._request('GET', url, stream=stream, return_json=False)
+        if res.status_code == requests.codes.ok:
+            if stream:
+                return res.raw
+            return res.text.encode('utf-8')
 
     @property
     def repositories(self):

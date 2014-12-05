@@ -2,63 +2,136 @@
 # Copyright (c) 2014 SAS Institute Inc
 #
 
-from string import Template
 import logging
+import re
+
+from lxml import etree
+
+POM_PARSER = etree.XMLParser(recover=True, remove_comments=True,
+                             remove_pis=True)
+PROPERTY_RE = re.compile(r'\$\{(.*?)\}')
+STRIP_NAMESPACE_RE = re.compile(r"<project(.|\s)*?>")
 
 
 log = logging.getLogger(__name__)
 
 
-class PomTemplate(Template):
-    idpattern = '[_a-z][-_a-z0-9.]*'
-
-
 class PomPackage(object):
     """Abstracts away processing pom xml
     """
-    __slots__ = ('_dependencies', '_dependencyManagement', '_ns', '_parent',
-                 '_properties', '_xml', 'arch', 'artifactId', 'artifacts',
-                 'buildRequires', 'children', 'groupId', 'location', 'name',
+    __slots__ = ('dependencies', 'dependencyManagement', 'parent', 'properties',
+                 'artifactId', 'artifacts', 'children', 'groupId', 'location',
                  'version',)
 
-    def __init__(self, gav, resource, xml, parent, artifacts=None, arch=None):
+    def __init__(self, pomEtree, location, client, cache):
         """
         Create a PomPackage
 
-        @param gav: group, artifact, version
-        @type gav: tuple
-        @param resource: artifactory json resource for pom file
-        @type pomResource: dict
-        @param xml: pom file xml
-        @type xml: lxml.ElementTree
-        @param parent: parent project package
-        @type parent: PomPackage
-        @param arch: architecture string, x86 or x86_64
-        @type arch: str
+        @param pomEtree: pom
+        @type pomEtree: lxml.ElementTree
+        @param location: location string
+        @type location: str
+        @param parent: parent project
+        @type parent: PomPackage or None
+        @param artifacts: artifacts associated with this project
+        @type artifacts: list of json objects or None
+        @param arch: architecture string
+        @type arch: str or None
         """
-        self._properties = None
-        self._dependencyManagement = None
-        self._dependencies = None
+        self.location = location
 
-        self._xml = xml
-        self._ns = ('{%s}' % xml.nsmap[None]) if None in xml.nsmap else ''
-        self._parent = parent
-        if parent and self not in parent.children:
-            parent.children.append(self)
-
-        self.groupId, self.artifactId, self.version = gav
-        self.location = '%(repo)s:%(path)s' % resource
-        self.artifacts = artifacts if artifacts is not None else []
-        self.arch = arch if arch is not None else ''
-        self.buildRequires = [d[1] for d in self.dependencies]
+        self.dependencies = []
+        self.dependencyManagement = {}
+        self.parent = None
+        self.properties = {}
+        self.artifactId = None
+        self.groupId = None
+        self.version = None
+        self.artifacts = []
         self.children = []
+
+        self.setParent(pomEtree, client, cache)
+
+        self.setProperties(pomEtree)
+
+        self.setArtifactId(pomEtree)
+        self.setGroupId(pomEtree)
+        self.setVersion(pomEtree)
+
+        self.setDependencyManagement(pomEtree, client, cache)
+
+        self.setArtifacts((self.groupId, self.artifactId, self.version), client)
 
     def __repr__(self):
         return '<pomsource.Package(%r, %r, %r)>' % self.getGAV()
 
+    def _constructPath(self, groupId, artifactId, version):
+        path = '/{0}/{1}/{2}/{1}-{2}.pom'.format(
+            groupId.replace('.', '/'),
+            artifactId,
+            version,
+            )
+        return path
+
+    def _createPomPackage(self, groupId, artifactId, version, client,
+                          cache=None):
+        if cache and (groupId, artifactId, version) in cache:
+            pom = cache[(groupId, artifactId, version)]
+        else:
+            path = self._constructPath(groupId, artifactId, version)
+            for repo in client._cfg.repositoryPaths:
+                location = '%s:%s' % (repo, path)
+                pom = client.retrieve_artifact(location)
+                if pom is not None:
+                    break
+
+            if pom is not None:
+                pomEtree = etree.fromstring(
+                    STRIP_NAMESPACE_RE.sub('<project>', pom, 1),
+                    parser=POM_PARSER,
+                    )
+                pom = PomPackage(pomEtree, location, client, cache)
+                if cache:
+                    cache[(groupId, artifactId, version)] = pom
+                pom.setDependencies(pomEtree, client, cache)
+        return pom
+
+    def _processVersion(self, gav):
+        group, artifact, version = gav
+        if version is None:
+            if (group, artifact) in self.dependencyManagement:
+                version = self.dependencyManagement[(group, artifact)]
+            else:
+                version = self.parent.version
+
+        version = self._replaceProperties(version)
+
+        return group, artifact, version
+
+    def _replaceProperties(self, text, properties=None):
+        if properties is None:
+            properties = self.properties
+
+        def subfunc(matchobj):
+            key = matchobj.group(1)
+            if key in properties:
+                return properties[key]
+            else:
+                return matchobj.group(0)
+
+        return PROPERTY_RE.sub(subfunc, text)
+
+    @property
+    def checksum(self):
+        return None
+
     @property
     def epoch(self):
         return '0'
+
+    @property
+    def buildRequires(self):
+        return [d.name for d in self.dependencies]
 
     @property
     def release(self):
@@ -74,114 +147,170 @@ class PomPackage(object):
         return self.name, self.epoch, self.version, self.release, self.arch
 
     @property
-    def nevra(self):
-        return self
-
-    @property
-    def checksum(self):
-        return None
-
-    @property
     def name(self):
         return str(self.artifactId)
 
     @property
-    def properties(self):
-        if self._properties is None:
-            properties = {}
-            if self._parent is not None:
-                properties.update(self._parent.properties)
-                properties['parent.groupId'] = self._parent.groupId
-                properties['parent.version'] = self._parent.version
-            project_properties = self._xml.find('%sproperties' % self._ns)
-            if project_properties is not None:
-                properties.update(
-                    (p.tag.replace('%s' % self._ns, ''), p.text.strip())
-                     for p in project_properties.iterchildren())
-            properties['project.groupId'] = self.groupId
-            properties['project.version'] = self.version
-            self._properties = properties
-        return self._properties
+    def nevra(self):
+        return self
 
-    @property
-    def dependencyManagement(self):
-        if self._dependencyManagement is None:
-            dependencyManagement = {}
-            if self._parent is not None:
-                dependencyManagement.update(self._parent.dependencyManagement)
-            depManagmentString = ('{0}dependencyManagement/{0}dependencies'
-                                  '/{0}dependency'.format(self._ns))
-            for dep in self._xml.findall(depManagmentString):
-                gav, scope, optional = self._processDependencyElement(dep)
-                group, artifact, version = self._processVersion(gav)
-                if scope == 'compile' and not optional:
-                    dependencyManagement[(group, artifact)] = version
-            self._dependencyManagement = dependencyManagement
-        return self._dependencyManagement
+    def setArtifactId(self, pom):
+        artifactId = self._replaceProperties(pom.findtext('artifactId'))
+        self.artifactId = artifactId
 
-    @property
-    def dependencies(self):
-        if self._dependencies is None:
-            dependencies = set()
-            if self._parent is not None:
-                dependencies.add(self._parent.getGAV())
+    def setArtifacts(self, gavc, client):
+        for repo in client._cfg.repositoryPaths:
+            artifacts = list(client.gavc_search(*gavc, repos=repo))
+            if artifacts:
+                break
 
-            for dep in self._xml.findall('{0}dependencies/{0}dependency'):
-                (group, artifact, version), scope, optional = \
-                    self._processDependencyElement(dep)
+        if not artifacts:
+            raise Exception('No artifacts associated with %s', '/'.join(gavc))
+
+        self.artifacts = artifacts
+
+    def setGroupId(self, pom):
+        groupId = pom.findtext('groupId')
+        if groupId is None:
+            groupId = pom.findtext('parent/groupId')
+        groupId = self._replaceProperties(groupId)
+        self.groupId = groupId
+
+    def setDependencies(self, pom, client, cache=None):
+        depMgmt = self.dependencyManagement
+
+        dependencies = []
+
+        p = self.parent
+        while p is not None:
+            dependencies.append(p)
+            p = p.parent
+
+        dependency_elems = pom.findall('dependencies/dependency')
+        for dep in dependency_elems:
+            groupId = self._replaceProperties(dep.findtext('groupId'))
+            artifactId = self._replaceProperties(dep.findtext('artifactId'))
+            version = dep.findtext('version')
+            if version is not None:
+                version = self._replaceProperties(version)
+
+            scope = dep.findtext('scope')
+            optional = dep.findtext('optional')
+
+            # process compile deps
+            if optional is None or optional == 'false':
                 if version is None:
-                    version = self.dependencyManagement[(group, artifact)]
-                dependencies.add((group, artifact, version))
-            self._dependencies = dependencies
-        return self._dependencies
+                    version = depMgmt[(groupId, artifactId)][0]
+                    version = self._replaceProperties(version)
 
-    def _processDependencyElement(self, dep):
-        """Process the xml element and pull out the group, artifact, version,
-        scope and optionality of the dependency.
+                if scope is None:
+                    if (groupId, artifactId) in depMgmt:
+                        scope = depMgmt[(groupId, artifactId)][1]
 
-        @param dep: a dependency elemnent from a pom file
-        @type dep: lxml.etree.Element
-        @return: ((group, artifact, version), scope, optional)
-        @rtype: tuple
-        """
-        group = dep.find('%sgroupId' % self._ns).text.strip()
-        group = self._replaceProperties(group)
+                if scope in (None, 'compile', 'import'):
+                    dep_pom = self._createPomPackage(
+                        groupId, artifactId, version, client, cache)
+                    if dep_pom is not None:
+                        dependencies.append(dep_pom)
+                    else:
+                        log.warning(
+                            "Dependency of %s is missing: %s",
+                            '/'.join(self.getGAV()),
+                            '/'.join([groupId, artifactId, version]),
+                            )
+        self.dependencies = dependencies
 
-        artifact = dep.find('%sartifactId' % self._ns).text.strip()
-        artifact = self._replaceProperties(artifact)
+    def setDependencyManagement(self, pom, client, cache=None):
+        dependencyManagement = {}
+        if self.parent is not None:
+            dependencyManagement.update(self.parent.dependencyManagement)
 
-        version = dep.find('%sversion' % self._ns)
-        if version is not None:
-            version = version.text.strip()
-        else:
-            version = None
+        dependencyManagementDependencies = pom.findall(
+            'dependencyManagement/dependencies/dependency')
+        for dep in dependencyManagementDependencies:
+            groupId = self._replaceProperties(dep.findtext('groupId'))
+            artifactId = self._replaceProperties(dep.findtext('artifactId'))
+            version = self._replaceProperties(dep.findtext('version'))
 
-        scope = dep.find('%sscope' % self._ns)
-        if scope is not None:
-            scope = scope.text.strip()
-        else:
-            scope = 'compile'
-
-        optional = dep.find('%soptional' % self._ns)
-        if optional is not None:
-            optional = (optional.text.strip() == 'true')
-        else:
-            optional = False
-
-        return (group, artifact, version), scope, optional
-
-    def _processVersion(self, gav):
-        group, artifact, version = gav
-        if version is None:
-            if (group, artifact) in self.dependencyManagement:
-                version = self.dependencyManagement[(group, artifact)]
+            scope = dep.findtext('scope')
+            if scope is not None and scope == 'import':
+                import_pom = self._createPomPackage(groupId, artifactId,
+                                                    version, client, cache)
+                if import_pom is not None:
+                    dependencyManagement.update(import_pom.dependencyManagement)
+                else:
+                    log.warning('%s missing import pom: %s',
+                                '/'.join(self.getGAV()),
+                                '/'.join([groupId, artifactId, version]))
             else:
-                version = self._parent.version
+                dependencyManagement[(groupId, artifactId)] = (version, scope)
+        self.dependencyManagement = dependencyManagement
 
+    def setParent(self, pom, client, cache=None):
+        parent_pom = None
+        parent = pom.find('parent')
+        if parent is not None:
+            groupId = parent.findtext('groupId')
+            artifactId = parent.findtext('artifactId')
+            version = parent.findtext('version')
+
+            parent_pom = self._createPomPackage(groupId, artifactId, version,
+                                                client, cache)
+            if parent_pom is None:
+                log.warning(
+                    'Parent of %s is missing: %s',
+                    '/'.join([
+                        pom.findtext('groupId') or groupId,
+                        pom.findtext('artifactId'),
+                        pom.findtext('version') or version,
+                        ]),
+                    '/'.join([groupId, artifactId, version]),
+                    )
+        self.parent = parent_pom
+
+    def setProperties(self, pom):
+        properties = {}
+        project_properties = pom.find('properties')
+        if project_properties is not None:
+            for prop in project_properties.iterchildren():
+                if prop.tag == 'property':
+                    name = prop.get('name')
+                    value = prop.get('value')
+                else:
+                    name = prop.tag
+                    value = prop.text
+                properties[name] = value
+
+        if self.parent is not None:
+            properties.update(self.parent.properties)
+            properties['parent.groupId'] = self.parent.groupId
+            properties['parent.artifactId'] = self.parent.artifactId
+            properties['parent.version'] = self.parent.version
+
+
+        # maven built-in properties
+        artifactId = pom.findtext('artifactId')
+        groupId = pom.findtext('groupId')
+        if groupId is None:
+            groupId = pom.findtext('parent/groupId')
+        version = pom.findtext('version')
+        if version is None:
+            version = pom.findtext('parent/version')
+
+        # built-in properties
+        properties['version'] = version
+        properties['project.artifactId'] = artifactId
+        properties['project.groupId'] = groupId
+        properties['project.version'] = version
+        properties['pom.artifactId'] = artifactId
+        properties['pom.groupId'] = groupId
+        properties['pom.version'] = version
+
+        self.properties = properties
+
+    def setVersion(self, pom):
+        version = pom.findtext('version')
+        if version is None:
+            version = pom.findtext('parent/version')
         version = self._replaceProperties(version)
-
-        return group, artifact, version
-
-    def _replaceProperties(self, string):
-        newString = PomTemplate(string).substitute(self.properties)
-        return newString
+        self.version = version

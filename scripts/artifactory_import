@@ -37,8 +37,7 @@ cfg = config.UpdateBotConfig()
 cfg.read(os.path.abspath('../') + '/config/%s/updatebotrc' % sys.argv[1])
 
 obj = Bot(cfg)
-import epdb; epdb.st()  # XXX breakpoint
 recreate = cfg.recreate
-obj.create(recreate=recreate)
+failed = obj.create(recreate=recreate)
 
 epdb.st()

@@ -21,9 +21,13 @@ Module for finding artifactory packages and updating them
 import logging
 import time
 
+from rmake.build import buildcfg
+from rmake.cmdline import helper
+
 from . import cmdline
 from . import pkgsource
 from .bot import Bot as BotSuperClass
+from .build import Builder as BuilderSuperClass
 from .update import Updater as UpdaterSuperClass
 
 
@@ -44,7 +48,7 @@ class Bot(BotSuperClass):
 
         self._pkgSource = pkgsource.PackageSource(self._cfg, self._ui)
         self._updater = Updater(self._cfg, self._ui, self._pkgSource)
-        #self._builder = build.Builder(self._cfg, self._ui)
+        self._builder = Builder(self._cfg, self._ui)
 
     def create(self, rebuild=False, recreate=None):
         """
@@ -71,13 +75,12 @@ class Bot(BotSuperClass):
                 log.error('failed to import %s: %s' % (pkg, e))
             return {}, fail
 
-        for chunk in buildSet:
-            toBuild = self._formatBuildTroves(chunk)
+        for toBuild, resolveTroves in buildSet:
             if len(toBuild):
                 log.info('found %s packages to build' % len(toBuild))
 
                 # Build all newly imported packages.
-                failed = self._builder.build(toBuild)
+                failed = self._builder.build(toBuild, resolveTroves)
                 log.info('failed to import %s packages' % len(failed))
                 if len(failed):
                     for pkg in failed:
@@ -86,10 +89,63 @@ class Bot(BotSuperClass):
                 log.info('imported %s source packages' % (len(toBuild), ))
         else:
             log.info('no packages found to build, maybe there is a flavor '
-                    'configuration issue')
+                     'configuration issue')
 
         log.info('elapsed time %s' % (time.time() - start, ))
         return failed
+
+
+class Builder(BuilderSuperClass):
+    """
+    Class for wrapping the rMake api until we can switch to using rBuild.
+
+    @param cfg: updateBot configuration object
+    @type cfg: config.UpdateBotConfig
+    @param ui: command line user interface.
+    @type ui: cmdline.ui.UserInterface
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(Builder, self).__init__(*args, **kwargs)
+        self._rmakeCfgFn = kwargs.get('rmakeCfgFn')
+
+    def _formatInput(self, troveSpecs):
+        return super(Builder, self)._formatInput([nvf for nvf, _ in troveSpecs])
+
+    def _getRmakeConfig(self, rmakeCfgFn=None, extraResolveTroves=None):
+        """Generate an rmake config object
+
+        Get default pluginDirs from the rmake cfg object, setup the plugin
+        manager, then create a new rmake config object so that rmakeUser
+        will be parsed correctly. Finally, add any extra resolveTroves
+        """
+        rmakeCfg = super(Builder, self)._getRmakeConfig(rmakeCfgFn)
+        if extraResolveTroves is not None:
+            rmakeCfg.configKey(
+                'resolveTroves',
+                ' '.join('%s=%s' % r for r in extraResolveTroves),
+                )
+        return rmakeCfg
+
+    def build(self, troveSpecs, resolveTroves):
+        """Build a list of troves.
+
+        @param troveSpecs: list of trove specs
+        @type troveSpecs: [(name, versionObj, flavorObj), ...]
+        @param resolveTroves: set of version objects to use for resolveTroves
+        @type resolveTroves: set([TroveSpec, ...])
+        @return troveMap: dictionary of troveSpecs to built troves
+        """
+
+        if not troveSpecs:
+            return {}
+
+        rmakeCfg = self._getRmakeConfig(self._rmakeCfgFn, resolveTroves)
+        self._helper = self.getRmakeHelper(rmakeCfg)
+        return super(Builder, self).build(troveSpecs)
+
+    def getRmakeHelper(self, rmakeCfg):
+        return helper.rMakeHelper(buildConfig=rmakeCfg)
 
 
 class Updater(UpdaterSuperClass):
@@ -98,6 +154,15 @@ class Updater(UpdaterSuperClass):
 
     def create(self, buildAll=False, recreate=False):
         """Import new packages into the repository
+
+        @param buildAll: build all binary packages, even if the source didn't
+            change
+        @type buildAll: bool
+        @param recreate: recreate source packages even if they already exist
+        @type recreate: bool
+        @return: a list of buildable chunks (sets of packages that can be built
+            together)
+        @rtype: [set([((name, version, flavor), pkg), ...]), ...]
         """
         troveList = []
         for p in self._pkgSource.pkgQueue:
@@ -106,18 +171,21 @@ class Updater(UpdaterSuperClass):
 
         verCache = {}
         for k, v in self._conaryhelper.findTroves(
-                troveList, allowMissing=True).iteritems():
+                troveList,
+                allowMissing=True,
+                ).iteritems():
             if len(v) > 1:
                 import epdb; epdb.st()  # XXX breakpoint
             verCache[k] = v[0][1]  # v is a list of a tuple (name, ver, flav)
 
         fail = set()
         chunk = set()
+        resolveTroves = set()
         toBuild = []
-        chunk_size = 10
+        chunk_size = 20
         total = len(self._pkgSource.pkgQueue)
 
-        def addPackage(p):
+        def addPackage(p, isDeps=False):
             try:
                 version = verCache.get(
                     ('%s:source' % p.name, p.getConaryVersion(), None))
@@ -134,32 +202,62 @@ class Updater(UpdaterSuperClass):
                         artifacts=p.artifacts,
                         )
                     self._conaryhelper.setJsonManifest(p.name, manifest)
-                    version = self._conaryhelper.commit(p.name,
-                        commitMessage=self._cfg.commitMessage)
+                    version = self._conaryhelper.commit(
+                        p.name, commitMessage=self._cfg.commitMessage)
+                else:
+                    log.info(
+                        'not importing %s (%s/%s)',
+                        '/'.join(p.getGAV()),
+                        total - len(self._pkgSource.pkgQueue),
+                        total,
+                        )
 
                 binVersion = verCache.get((p.name, p.getConaryVersion(), None))
                 if (not binVersion or binVersion.getSourceVersion() != version
                         or buildAll or recreate):
                     chunk.add(((p.name, version, None), p))
+                else:
+                    log.info('not building %s=%s' % (p.name, version))
+
+                if binVersion and isDeps:
+                    resolveTroves.add((p.name, binVersion))
             except Exception as e:
-                log.error('failed to import %s: %s', '/'.join(p.getGAV()), e)
-                import epdb; epdb.st()  # XXX breakpoint
                 fail.add((p, e))
 
-        def addDependencies(p):
-            for gav in p.dependencies:
-                dep = self._pkgSource.pkgMap[gav]
+        def getDependencies(pkg):
+            deps = set()
+            for dep in pkg.dependencies:
                 if dep in self._pkgSource.pkgQueue:
                     self._pkgSource.pkgQueue.remove(dep)
-                addPackage(dep)
-                addDependencies(dep)
+                    deps.add(dep)
+                    deps.update(getDependencies(dep))
+            return deps
 
+        prevLength = None
+        loopCount = 0
         while self._pkgSource.pkgQueue:
-            if len(chunk) >= chunk_size:
-                toBuild.append(chunk)
+            pkg = self._pkgSource.pkgQueue.popleft()
+            pkgs = getDependencies(pkg)
+            pkgs.add(pkg)
+            currentPkgNames = [c[0][0] for c in chunk]
+            pkgMatch = any(p.name in currentPkgNames for p in pkgs)
+            if pkgMatch:
+                # send to end of queue
+                self._pkgSource.pkgQueue.extend(pkgs)
+            else:
+                for idx, pkg in enumerate(pkgs):
+                    addPackage(pkg, isDeps=bool(idx))
+
+            length = len(self._pkgSource.pkgQueue)
+            if length == prevLength:
+                loopCount += 1
+
+            if len(chunk) >= chunk_size or loopCount > length:
+                toBuild.append((chunk, resolveTroves))
                 chunk = set()
-            pkg = self._pkgSource.pkgQueue.pop()
-            addPackage(pkg)
-            addDependencies(pkg)
+                resolveTroves = set()
+                loopCount = 0
+
+            prevLength = length
 
         return toBuild, fail
