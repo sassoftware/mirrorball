@@ -185,21 +185,32 @@ class Updater(UpdaterSuperClass):
         chunk_size = 20
         total = len(self._pkgSource.pkgQueue)
 
+        class counter:
+            count = 1
+
         def addPackage(p, isDeps=False):
             try:
                 version = verCache.get(
                     ('%s:source' % p.name, p.getConaryVersion(), None))
+                manifest = dict(
+                    version=p.getConaryVersion(),
+                    build_requires=p.buildRequires,
+                    artifacts=p.artifacts,
+                    )
                 if not version or recreate:
+                    importPackage = False
+                else:
+                    oldManifest = self._conaryhelper.getJsonManifest(
+                        p.name, version)
+                    if oldManifest != manifest:
+                        importPackage = True
+
+                if importPackage:
                     log.info(
                         'attempting to import %s (%s/%s)',
                         '/'.join(p.getGAV()),
-                        total - len(self._pkgSource.pkgQueue),
+                        counter.count,
                         total,
-                        )
-                    manifest = dict(
-                        version=p.getConaryVersion(),
-                        build_requires=p.buildRequires,
-                        artifacts=p.artifacts,
                         )
                     self._conaryhelper.setJsonManifest(p.name, manifest)
                     version = self._conaryhelper.commit(
@@ -208,7 +219,7 @@ class Updater(UpdaterSuperClass):
                     log.info(
                         'not importing %s (%s/%s)',
                         '/'.join(p.getGAV()),
-                        total - len(self._pkgSource.pkgQueue),
+                        counter.count,
                         total,
                         )
 
@@ -223,6 +234,7 @@ class Updater(UpdaterSuperClass):
                     resolveTroves.add((p.name, binVersion))
             except Exception as e:
                 fail.add((p, e))
+            counter.count += 1
 
         def getDependencies(pkg):
             deps = set()
