@@ -83,6 +83,10 @@ class Client(object):
         res = self._request('POST', uri, **kwargs)
         return res
 
+    def _head(self, uri, **kwargs):
+        res = self._request('HEAD', uri, return_json=False, **kwargs)
+        return res
+
     def _request(self, method, uri, return_json=True, **kwargs):
         url = urljoin(self._url, uri)
         res = self._session.request(method, url, **kwargs)
@@ -98,6 +102,31 @@ class Client(object):
         for url in urls:
             res = self._get(url)
             yield res
+
+    @staticmethod
+    def constructPath(groupId, artifactId, version, type='pom', relative=False):
+        path = '/{0}/{1}/{2}/{1}-{2}.{3}'.format(
+            groupId.replace('.', '/'),
+            artifactId,
+            version,
+            type
+            )
+        if relative:
+            path = path[1:]
+        return path
+
+
+    def artifactUrl(self, group, artifact, version, type='pom'):
+        path = self.constructPath(group, artifact, version, type, relative=True)
+        uri = urljoin('repo/', path)
+        return urljoin(self._url, uri)
+
+    def checkJar(self, group, artifact, version):
+        path = self.constructPath(group, artifact, version, type='jar',
+                                  relative=True)
+        uri = urljoin('repo/', path)
+        res = self._head(uri)
+        return res.status_code == requests.codes.ok
 
     @repos
     @detail

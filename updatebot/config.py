@@ -644,6 +644,10 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # user config for artifactory api
     artifactoryUser = CfgUserInfo
 
+    # allow rmake to commit outdated sources
+    commitOutdatedSources = (CfgBool, False)
+
+
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
     Config object for UpdateBot.

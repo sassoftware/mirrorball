@@ -932,11 +932,13 @@ class Builder(object):
         writeToFile = self._saveChangeSets and csfn or None
 
         self._helper.client.startCommit(jobIds)
-        succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
-                                            jobs,
-                                            self._rmakeCfg.reposName,
-                                            self._cfg.commitMessage,
-                                            writeToFile=writeToFile)
+        succeeded, data = commit.commitJobs(
+            self._helper.getConaryClient(),
+            jobs,
+            self._rmakeCfg.reposName,
+            self._cfg.commitMessage,
+            commitOutdatedSources=self._cfg.commitOutdatedSources,
+            writeToFile=writeToFile)
 
         if not succeeded:
             self._helper.client.commitFailed(jobIds, data)

@@ -7,6 +7,9 @@ import re
 
 from lxml import etree
 
+from . import errors
+
+
 POM_PARSER = etree.XMLParser(recover=True, remove_comments=True,
                              remove_pis=True)
 PROPERTY_RE = re.compile(r'\$\{(.*?)\}')
@@ -14,6 +17,31 @@ STRIP_NAMESPACE_RE = re.compile(r"<project(.|\s)*?>")
 
 
 log = logging.getLogger(__name__)
+
+
+
+def createPomPackage(groupId, artifactId, version, client,
+                     cache=None):
+    if cache and (groupId, artifactId, version) in cache:
+        pom = cache[(groupId, artifactId, version)]
+    else:
+        path = client.constructPath(groupId, artifactId, version)
+        location = 'repo:%s' % path
+        pom = client.retrieve_artifact(location)
+        if pom is not None:
+            pomEtree = etree.fromstring(
+                STRIP_NAMESPACE_RE.sub('<project>', pom, 1),
+                parser=POM_PARSER,
+                )
+            pom = PomPackage(pomEtree, location, client, cache)
+            if cache:
+                cache[(groupId, artifactId, version)] = pom
+            pom.setDependencies(pomEtree, client, cache)
+        else:
+            raise errors.MissingProjectError(
+                project=':'.join([groupId, artifactId, version]),
+                )
+    return pom
 
 
 class PomPackage(object):
@@ -65,36 +93,8 @@ class PomPackage(object):
     def __repr__(self):
         return '<pomsource.Package(%r, %r, %r)>' % self.getGAV()
 
-    def _constructPath(self, groupId, artifactId, version):
-        path = '/{0}/{1}/{2}/{1}-{2}.pom'.format(
-            groupId.replace('.', '/'),
-            artifactId,
-            version,
-            )
-        return path
-
-    def _createPomPackage(self, groupId, artifactId, version, client,
-                          cache=None):
-        if cache and (groupId, artifactId, version) in cache:
-            pom = cache[(groupId, artifactId, version)]
-        else:
-            path = self._constructPath(groupId, artifactId, version)
-            for repo in client._cfg.repositoryPaths:
-                location = '%s:%s' % (repo, path)
-                pom = client.retrieve_artifact(location)
-                if pom is not None:
-                    break
-
-            if pom is not None:
-                pomEtree = etree.fromstring(
-                    STRIP_NAMESPACE_RE.sub('<project>', pom, 1),
-                    parser=POM_PARSER,
-                    )
-                pom = PomPackage(pomEtree, location, client, cache)
-                if cache:
-                    cache[(groupId, artifactId, version)] = pom
-                pom.setDependencies(pomEtree, client, cache)
-        return pom
+    def __str__(self):
+        return ':'.join(self.getGAV())
 
     def _processVersion(self, gav):
         group, artifact, version = gav
@@ -159,15 +159,15 @@ class PomPackage(object):
         self.artifactId = artifactId
 
     def setArtifacts(self, gavc, client):
-        for repo in client._cfg.repositoryPaths:
-            artifacts = list(client.gavc_search(*gavc, repos=repo))
-            if artifacts:
-                break
-
-        if not artifacts:
-            raise Exception('No artifacts associated with %s', '/'.join(gavc))
-
-        self.artifacts = artifacts
+        self.artifacts = [dict(
+            downloadUri=client.artifactUrl(*gavc),
+            path=client.constructPath(*gavc),
+            )]
+        if client.checkJar(*gavc):
+            self.artifacts.append(dict(
+                downloadUri=client.artifactUrl(*gavc, type='jar'),
+                path=client.constructPath(*gavc, type='jar'),
+                ))
 
     def setGroupId(self, pom):
         groupId = pom.findtext('groupId')
@@ -179,13 +179,14 @@ class PomPackage(object):
     def setDependencies(self, pom, client, cache=None):
         depMgmt = self.dependencyManagement
 
-        dependencies = []
+        dependencies = set()
 
         p = self.parent
         while p is not None:
-            dependencies.append(p)
+            dependencies.add(p)
             p = p.parent
 
+        # process actual dependencies
         dependency_elems = pom.findall('dependencies/dependency')
         for dep in dependency_elems:
             groupId = self._replaceProperties(dep.findtext('groupId'))
@@ -208,16 +209,38 @@ class PomPackage(object):
                         scope = depMgmt[(groupId, artifactId)][1]
 
                 if scope in (None, 'compile', 'import'):
-                    dep_pom = self._createPomPackage(
-                        groupId, artifactId, version, client, cache)
-                    if dep_pom is not None:
-                        dependencies.append(dep_pom)
-                    else:
-                        log.warning(
-                            "Dependency of %s is missing: %s",
-                            '/'.join(self.getGAV()),
-                            '/'.join([groupId, artifactId, version]),
+                    try:
+                        dep_pom = createPomPackage(
+                            groupId, artifactId, version, client, cache)
+                    except errors.MissingProjectError:
+                        log.warning('%s missing dependent project: %s',
+                            ':'.join(self.getGAV()),
+                            ':'.join([groupId, artifactId, version]),
                             )
+                    else:
+                        dependencies.add(dep_pom)
+
+        # process depMgmt dependencies to find imports
+        dependencyManagementDependencies = pom.findall(
+            'dependencyManagement/dependencies/dependency')
+        for dep in dependencyManagementDependencies:
+            groupId = self._replaceProperties(dep.findtext('groupId'))
+            artifactId = self._replaceProperties(dep.findtext('artifactId'))
+            version = self._replaceProperties(dep.findtext('version'))
+
+            scope = dep.findtext('scope')
+            if scope is not None and scope == 'import':
+                try:
+                    import_pom = createPomPackage(groupId, artifactId, version,
+                                                client, cache)
+                except errors.MissingProjectError:
+                    log.warning('%s missing import project: %s',
+                        ':'.join(self.getGAV()),
+                        ':'.join([groupId, artifactId, version]),
+                        )
+                else:
+                    dependencies.add(import_pom)
+
         self.dependencies = dependencies
 
     def setDependencyManagement(self, pom, client, cache=None):
@@ -234,14 +257,15 @@ class PomPackage(object):
 
             scope = dep.findtext('scope')
             if scope is not None and scope == 'import':
-                import_pom = self._createPomPackage(groupId, artifactId,
-                                                    version, client, cache)
-                if import_pom is not None:
-                    dependencyManagement.update(import_pom.dependencyManagement)
-                else:
-                    log.warning('%s missing import pom: %s',
-                                '/'.join(self.getGAV()),
-                                '/'.join([groupId, artifactId, version]))
+                try:
+                    import_pom = createPomPackage(groupId, artifactId, version,
+                                                client, cache)
+                except errors.MissingProjectError:
+                    log.warning('%s missing import project: %s',
+                        ':'.join(self.getGAV()),
+                        ':'.join([groupId, artifactId, version]),
+                        )
+                dependencyManagement.update(import_pom.dependencyManagement)
             else:
                 dependencyManagement[(groupId, artifactId)] = (version, scope)
         self.dependencyManagement = dependencyManagement
@@ -254,17 +278,17 @@ class PomPackage(object):
             artifactId = parent.findtext('artifactId')
             version = parent.findtext('version')
 
-            parent_pom = self._createPomPackage(groupId, artifactId, version,
-                                                client, cache)
-            if parent_pom is None:
-                log.warning(
-                    'Parent of %s is missing: %s',
-                    '/'.join([
+            try:
+                parent_pom = createPomPackage(groupId, artifactId, version,
+                                              client, cache)
+            except errors.MissingProjectError:
+                log.warning('%s missing parent project: %s',
+                    ':'.join([
                         pom.findtext('groupId') or groupId,
                         pom.findtext('artifactId'),
                         pom.findtext('version') or version,
                         ]),
-                    '/'.join([groupId, artifactId, version]),
+                    ':'.join([groupId, artifactId, version]),
                     )
         self.parent = parent_pom
 

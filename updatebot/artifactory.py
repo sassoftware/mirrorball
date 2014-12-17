@@ -21,13 +21,16 @@ Module for finding artifactory packages and updating them
 import logging
 import time
 
+from conary import conarycfg
 from rmake.build import buildcfg
 from rmake.cmdline import helper
 
 from . import cmdline
 from . import pkgsource
 from .bot import Bot as BotSuperClass
-from .build import Builder as BuilderSuperClass
+from .build import Builder
+from .errors import JobFailedError
+from .lib import util
 from .update import Updater as UpdaterSuperClass
 
 
@@ -48,7 +51,6 @@ class Bot(BotSuperClass):
 
         self._pkgSource = pkgsource.PackageSource(self._cfg, self._ui)
         self._updater = Updater(self._cfg, self._ui, self._pkgSource)
-        self._builder = Builder(self._cfg, self._ui)
 
     def create(self, rebuild=False, recreate=None):
         """
@@ -75,77 +77,48 @@ class Bot(BotSuperClass):
                 log.error('failed to import %s: %s' % (pkg, e))
             return {}, fail
 
+        trvMap = {}
+
+        total = sum(len(chunk) for chunk, _ in buildSet)
+        built = 0
+        log.info('found %s packages to build' % total)
         for toBuild, resolveTroves in buildSet:
             if len(toBuild):
-                log.info('found %s packages to build' % len(toBuild))
+                # create an initial builder object to get the base rmake config
+                rmakeCfg = Builder(self._cfg, self._ui)._getRmakeConfig()
+                if resolveTroves is not None:
+                    # add our resolveTroves to the build config
+                    rmakeCfg.configKey(
+                        'resolveTroves',
+                        ' '.join('%s=%s' % r for r in resolveTroves),
+                        )
+
+                # make a new buidler with rmakeCfg to do the actual build
+                builder = Builder(self._cfg, self._ui, rmakeCfg=rmakeCfg)
 
                 # Build all newly imported packages.
-                failed = self._builder.build(toBuild, resolveTroves)
-                log.info('failed to import %s packages' % len(failed))
-                if len(failed):
-                    for pkg in failed:
-                        log.warn('%s' % (pkg, ))
+                tries = 0
+                while True:
+                    try:
+                        trvMap.update(builder.build([nvf for nvf, _ in toBuild]))
+                    except JobFailedError:
+                        if tries > 1:
+                            raise
+                        tries += 1
+                        log.info('attempting to retry build: %s of %s',
+                                 tries, 2)
+                    else:
+                        break
+
                 log.info('import completed successfully')
-                log.info('imported %s source packages' % (len(toBuild), ))
+
+                built += len(toBuild)
+                log.info('built %s packages of %s', built, total)
         else:
             log.info('no packages found to build, maybe there is a flavor '
                      'configuration issue')
-
         log.info('elapsed time %s' % (time.time() - start, ))
-        return failed
-
-
-class Builder(BuilderSuperClass):
-    """
-    Class for wrapping the rMake api until we can switch to using rBuild.
-
-    @param cfg: updateBot configuration object
-    @type cfg: config.UpdateBotConfig
-    @param ui: command line user interface.
-    @type ui: cmdline.ui.UserInterface
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(Builder, self).__init__(*args, **kwargs)
-        self._rmakeCfgFn = kwargs.get('rmakeCfgFn')
-
-    def _formatInput(self, troveSpecs):
-        return super(Builder, self)._formatInput([nvf for nvf, _ in troveSpecs])
-
-    def _getRmakeConfig(self, rmakeCfgFn=None, extraResolveTroves=None):
-        """Generate an rmake config object
-
-        Get default pluginDirs from the rmake cfg object, setup the plugin
-        manager, then create a new rmake config object so that rmakeUser
-        will be parsed correctly. Finally, add any extra resolveTroves
-        """
-        rmakeCfg = super(Builder, self)._getRmakeConfig(rmakeCfgFn)
-        if extraResolveTroves is not None:
-            rmakeCfg.configKey(
-                'resolveTroves',
-                ' '.join('%s=%s' % r for r in extraResolveTroves),
-                )
-        return rmakeCfg
-
-    def build(self, troveSpecs, resolveTroves):
-        """Build a list of troves.
-
-        @param troveSpecs: list of trove specs
-        @type troveSpecs: [(name, versionObj, flavorObj), ...]
-        @param resolveTroves: set of version objects to use for resolveTroves
-        @type resolveTroves: set([TroveSpec, ...])
-        @return troveMap: dictionary of troveSpecs to built troves
-        """
-
-        if not troveSpecs:
-            return {}
-
-        rmakeCfg = self._getRmakeConfig(self._rmakeCfgFn, resolveTroves)
-        self._helper = self.getRmakeHelper(rmakeCfg)
-        return super(Builder, self).build(troveSpecs)
-
-    def getRmakeHelper(self, rmakeCfg):
-        return helper.rMakeHelper(buildConfig=rmakeCfg)
+        return trvMap
 
 
 class Updater(UpdaterSuperClass):
@@ -155,10 +128,16 @@ class Updater(UpdaterSuperClass):
     def create(self, buildAll=False, recreate=False):
         """Import new packages into the repository
 
-        @param buildAll: build all binary packages, even if the source didn't
-            change
+        By default, this will only imort and build completely new packages. Set
+        `buildAll` to True if you want to buid all packages, even ones whose
+        source trove did not changes. Set `recreate` True if you want to check
+        if the source changed, and import it if it has.
+
+        @param buildAll: build all binary packages, even if their source didn't
+            change, defaults to False
         @type buildAll: bool
-        @param recreate: recreate source packages even if they already exist
+        @param recreate: commit changed source packages when True, else only
+            commit new sources
         @type recreate: bool
         @return: a list of buildable chunks (sets of packages that can be built
             together)
@@ -182,30 +161,40 @@ class Updater(UpdaterSuperClass):
         chunk = set()
         resolveTroves = set()
         toBuild = []
-        chunk_size = 20
         total = len(self._pkgSource.pkgQueue)
 
         class counter:
             count = 1
 
-        def addPackage(p, isDeps=False):
-            try:
-                version = verCache.get(
-                    ('%s:source' % p.name, p.getConaryVersion(), None))
-                manifest = dict(
-                    version=p.getConaryVersion(),
-                    build_requires=p.buildRequires,
-                    artifacts=p.artifacts,
-                    )
-                if not version or recreate:
-                    importPackage = False
-                else:
+        def addPackage(p, isDep=False):
+            version = verCache.get(
+                ('%s:source' % p.name, p.getConaryVersion(), None))
+
+            manifest = dict(
+                version=p.getConaryVersion(),
+                build_requires=p.buildRequires,
+                artifacts=p.artifacts,
+                )
+
+            doImport = True
+            if version:
+                # source exists, see if we should re-commit
+                if recreate:
+                    # check if build reqs or artifacts changed
                     oldManifest = self._conaryhelper.getJsonManifest(
                         p.name, version)
-                    if oldManifest != manifest:
-                        importPackage = True
+                    oldBuildReqs = sorted(oldManifest.get('build_requires', []))
+                    oldArtifacts = sorted(oldManifest.get('artifacts', []))
+                    buildReqs = sorted(manifest['build_requires'])
+                    artifacts = sorted(manifest['artifacts'])
+                    if (buildReqs == oldBuildReqs
+                            and artifacts == oldArtifacts):
+                        doImport = False
+                else:
+                    doImport = False
 
-                if importPackage:
+            if doImport:
+                try:
                     log.info(
                         'attempting to import %s (%s/%s)',
                         '/'.join(p.getGAV()),
@@ -215,32 +204,37 @@ class Updater(UpdaterSuperClass):
                     self._conaryhelper.setJsonManifest(p.name, manifest)
                     version = self._conaryhelper.commit(
                         p.name, commitMessage=self._cfg.commitMessage)
-                else:
-                    log.info(
-                        'not importing %s (%s/%s)',
-                        '/'.join(p.getGAV()),
-                        counter.count,
-                        total,
-                        )
-
-                binVersion = verCache.get((p.name, p.getConaryVersion(), None))
-                if (not binVersion or binVersion.getSourceVersion() != version
-                        or buildAll or recreate):
-                    chunk.add(((p.name, version, None), p))
-                else:
-                    log.info('not building %s=%s' % (p.name, version))
-
-                if binVersion and isDeps:
-                    resolveTroves.add((p.name, binVersion))
-            except Exception as e:
-                fail.add((p, e))
+                except Exception as e:
+                    fail.add((p, e))
+            else:
+                log.info(
+                    'not importing %s (%s/%s)',
+                    '/'.join(p.getGAV()),
+                    counter.count,
+                    total,
+                    )
             counter.count += 1
+
+            binVersion = verCache.get((p.name, p.getConaryVersion(), None))
+            if (not binVersion or binVersion.getSourceVersion() != version
+                    or buildAll):
+                log.info('building %s=%s' % (p.name, version))
+                log.debug('adding %s=%s to chunk %s', p.name, version, chunk)
+                chunk.add(((p.name, version, None), p))
+                if not isDep:
+                    return True
+            else:
+                log.info('not building %s=%s' % (p.name, version))
+                if isDep:
+                    log.debug('adding %s=%s as a resovle trove' %
+                              (p.name, binVersion))
+                    resolveTroves.add((p.name, binVersion))
+            return False
 
         def getDependencies(pkg):
             deps = set()
             for dep in pkg.dependencies:
                 if dep in self._pkgSource.pkgQueue:
-                    self._pkgSource.pkgQueue.remove(dep)
                     deps.add(dep)
                     deps.update(getDependencies(dep))
             return deps
@@ -249,27 +243,35 @@ class Updater(UpdaterSuperClass):
         loopCount = 0
         while self._pkgSource.pkgQueue:
             pkg = self._pkgSource.pkgQueue.popleft()
-            pkgs = getDependencies(pkg)
-            pkgs.add(pkg)
-            currentPkgNames = [c[0][0] for c in chunk]
-            pkgMatch = any(p.name in currentPkgNames for p in pkgs)
-            if pkgMatch:
+            deps = getDependencies(pkg)
+            depNames = [pkg.name] + [d.name for d in deps]
+            duplicateDeps = set([n for n in depNames if depNames.count(n) > 1])
+            currentPkgNames = [name for (name, _, _), _ in chunk]
+            pkgMatch = any(p.name in currentPkgNames
+                           for p in [pkg] + list(deps))
+            if pkgMatch or duplicateDeps:
                 # send to end of queue
-                self._pkgSource.pkgQueue.extend(pkgs)
+                self._pkgSource.pkgQueue.append(pkg)
             else:
-                for idx, pkg in enumerate(pkgs):
-                    addPackage(pkg, isDeps=bool(idx))
+                if addPackage(pkg):
+                    for dep in deps:
+                        addPackage(dep, isDep=True)
+                        self._pkgSource.pkgQueue.remove(dep)
 
             length = len(self._pkgSource.pkgQueue)
             if length == prevLength:
                 loopCount += 1
 
-            if len(chunk) >= chunk_size or loopCount > length:
+            if len(chunk) >= self._cfg.chunkSize or loopCount > length:
                 toBuild.append((chunk, resolveTroves))
                 chunk = set()
                 resolveTroves = set()
                 loopCount = 0
+                prevLength = None
 
             prevLength = length
+
+        if chunk and (chunk, resolveTroves) not in toBuild:
+            toBuild.append((chunk, resolveTroves))
 
         return toBuild, fail
