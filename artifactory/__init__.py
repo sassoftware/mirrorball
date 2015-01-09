@@ -104,25 +104,51 @@ class Client(object):
             yield res
 
     @staticmethod
-    def constructPath(groupId, artifactId, version, type='pom', relative=False):
-        path = '/{0}/{1}/{2}/{1}-{2}.{3}'.format(
+    def constructPath(groupId, artifactId, version=None, artifactName=None,
+                      extension='pom', relative=False):
+        """Construct a maven 2 path
+
+        @param groupId: group name
+        @type groupId: string
+        @param artifactId: artifact name
+        @type artifactId: string
+        @param version: (None) version of artifact
+        @type version: string
+        @param artifactName: (None) artifact name if not the artifactId
+        @type artifactName: string
+        @param extension: (pom) file extention of artifact
+        @type extension: string
+        @param relative: (False) generate a relative path
+        @type relative: bool
+        """
+        path = '/{0}/{1}'
+        if relative:
+            path = path[1:]
+
+        if version:
+            path += '/{2}'
+
+        if artifactName:
+            path += '/{3}.{4}'
+        else:
+            path += '/{1}-{2}.{4}'
+
+        return path.format(
             groupId.replace('.', '/'),
             artifactId,
             version,
-            type
+            artifactName,
+            extension,
             )
-        if relative:
-            path = path[1:]
-        return path
 
-
-    def artifactUrl(self, group, artifact, version, type='pom'):
-        path = self.constructPath(group, artifact, version, type, relative=True)
+    def artifactUrl(self, group, artifact, version, extension='pom'):
+        path = self.constructPath(group, artifact, version, extension=extension,
+                                  relative=True)
         uri = urljoin('repo/', path)
         return urljoin(self._url, uri)
 
     def checkJar(self, group, artifact, version):
-        path = self.constructPath(group, artifact, version, type='jar',
+        path = self.constructPath(group, artifact, version, extension='jar',
                                   relative=True)
         uri = urljoin('repo/', path)
         res = self._head(uri)

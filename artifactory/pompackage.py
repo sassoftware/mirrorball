@@ -8,6 +8,7 @@ import re
 from lxml import etree
 
 from . import errors
+from .versioning import Version, VersionRange
 
 
 POM_PARSER = etree.XMLParser(recover=True, remove_comments=True,
@@ -17,7 +18,6 @@ STRIP_NAMESPACE_RE = re.compile(r"<project(.|\s)*?>")
 
 
 log = logging.getLogger(__name__)
-
 
 
 def createPomPackage(groupId, artifactId, version, client,
@@ -42,6 +42,34 @@ def createPomPackage(groupId, artifactId, version, client,
                 project=':'.join([groupId, artifactId, version]),
                 )
     return pom
+
+
+def pickVersion(spec, availableVersions):
+    """Pick a version from availableVersions according to the range versionRange
+
+    If spec contains a '+', then it is a gradle dyanmic version, and we return
+    the newest version in `availableVersions` that starts with `spec`.
+
+    Otherwise, convert spec into maven version range and return the first
+    version in availableVersions that is within the range.
+
+    @param spec a maven version range spec or gradle dynamic version
+    @type spec str
+    @param availableVersions list of available versions for this artifact
+    @type availableVersions [artifactory.versioning.Version, ...]
+    @return string version representation or None
+    @rtype str
+    """
+    if '+' in spec:
+        # this is a gradle dynamic version
+        for version in availableVersions:
+            if str(version).startswith(spec[:-1]):
+                return str(version)
+    else:
+        versionRange = VersionRange.fromstring(spec)
+        for version in sorted(availableVersions, reverse=True):
+            if version in versionRange:
+                return str(version)
 
 
 class PomPackage(object):
@@ -165,8 +193,8 @@ class PomPackage(object):
             )]
         if client.checkJar(*gavc):
             self.artifacts.append(dict(
-                downloadUri=client.artifactUrl(*gavc, type='jar'),
-                path=client.constructPath(*gavc, type='jar'),
+                downloadUri=client.artifactUrl(*gavc, extension='jar'),
+                path=client.constructPath(*gavc, extension='jar'),
                 ))
 
     def setGroupId(self, pom):
@@ -209,6 +237,33 @@ class PomPackage(object):
                         scope = depMgmt[(groupId, artifactId)][1]
 
                 if scope in (None, 'compile', 'import'):
+                    if (any(ch in version for ch in ('+', '[', '(', ']', ')'))
+                            or 'latest.' in version):
+                        # fetch the maven metadata file
+                        path = client.constructPath(
+                            groupId,
+                            artifactId,
+                            artifactName='maven-metadata',
+                            extension='xml',
+                            )
+                        mavenMetadata = client.retrieve_artifact(
+                            'repo:%s' % path)
+                        if mavenMetadata is not None:
+                            mavenMetadata = etree.fromstring(mavenMetadata)
+                            if version == 'latest.release':
+                                version = mavenMetadata.findtext('release')
+                            elif version == 'latest.integration':
+                                version = mavenMetadata.findtext('latest')
+                            else:
+                                versions = [Version(v.text.strip()) for v in
+                                            mavenMetadata.findall('version')]
+                                version = pickVersion(version, versions)
+                                if version is None:
+                                    raise errors.ArtifactoryError(
+                                        "No vaild versions for this range")
+                        else:
+                            raise RuntimeError("Cannot find maven-metadata.xml"
+                                               " for project %s" % self)
                     try:
                         dep_pom = createPomPackage(
                             groupId, artifactId, version, client, cache)

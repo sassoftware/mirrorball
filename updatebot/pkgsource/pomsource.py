@@ -62,6 +62,7 @@ class PomSource(object):
         self._inclusions = self._buildGAVMap(includePackages)
         self._pkgMap = {}  # map group, artifact, version to package
         self.pkgQueue = None
+        self.chunked = set()
         self._loaded = False
 
     def _buildGAVMap(self, packages):
