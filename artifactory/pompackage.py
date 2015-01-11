@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 def createPomPackage(groupId, artifactId, version, client,
                      cache=None):
-    if cache and (groupId, artifactId, version) in cache:
+    if cache is not None and (groupId, artifactId, version) in cache:
         pom = cache[(groupId, artifactId, version)]
     else:
         path = client.constructPath(groupId, artifactId, version)
@@ -34,7 +34,7 @@ def createPomPackage(groupId, artifactId, version, client,
                 parser=POM_PARSER,
                 )
             pom = PomPackage(pomEtree, location, client, cache)
-            if cache:
+            if cache is not None:
                 cache[(groupId, artifactId, version)] = pom
             pom.setDependencies(pomEtree, client, cache)
         else:
