@@ -11,8 +11,11 @@ from . import errors
 from .versioning import Version, VersionRange
 
 
-POM_PARSER = etree.XMLParser(recover=True, remove_comments=True,
-                             remove_pis=True)
+POM_PARSER = etree.XMLParser(
+    recover=True,
+    remove_comments=True,
+    remove_pis=True,
+    )
 PROPERTY_RE = re.compile(r'\$\{(.*?)\}')
 STRIP_NAMESPACE_RE = re.compile(r"<project(.|\s)*?>")
 
@@ -22,6 +25,14 @@ log = logging.getLogger(__name__)
 
 def createPomPackage(groupId, artifactId, version, client,
                      cache=None):
+    """Create a PomPackage object for the artifact `groupId:artifactId:version`
+
+    :param str groupId: group identifier
+    :param str artifactId: artifact identifier
+    :param str version: artifact version
+    :param MavenClient client: a maven client
+    :param dict cache: optional package cache
+    """
     if cache is not None and (groupId, artifactId, version) in cache:
         pom = cache[(groupId, artifactId, version)]
     else:
@@ -53,12 +64,11 @@ def pickVersion(spec, availableVersions):
     Otherwise, convert spec into maven version range and return the first
     version in availableVersions that is within the range.
 
-    @param spec a maven version range spec or gradle dynamic version
-    @type spec str
-    @param availableVersions list of available versions for this artifact
-    @type availableVersions [artifactory.versioning.Version, ...]
-    @return string version representation or None
-    @rtype str
+    :param str spec: a maven version range spec or gradle dynamic version
+    :param availableVersions: list of available versions for this artifact
+    :type availableVersions: [artifactory.versioning.Version, ...]
+    :return: the newest version that matches the spec
+    :rtype: str or None
     """
     if '+' in spec:
         # this is a gradle dynamic version
@@ -83,16 +93,16 @@ class PomPackage(object):
         """
         Create a PomPackage
 
-        @param pomEtree: pom
-        @type pomEtree: lxml.ElementTree
-        @param location: location string
-        @type location: str
-        @param parent: parent project
-        @type parent: PomPackage or None
-        @param artifacts: artifacts associated with this project
-        @type artifacts: list of json objects or None
-        @param arch: architecture string
-        @type arch: str or None
+        :param pomEtree: pom
+        :type pomEtree: lxml.ElementTree
+        :param location: location string
+        :type location: str
+        :param parent: parent project
+        :type parent: PomPackage or None
+        :param artifacts: artifacts associated with this project
+        :type artifacts: list of json objects or None
+        :param arch: architecture string
+        :type arch: str or None
         """
         self.location = location
 
