@@ -24,8 +24,11 @@ import logging
 
 from artifactory.pompackage import POM_PARSER
 from artifactory.pompackage import STRIP_NAMESPACE_RE
+from artifactory.pompackage import createPomPackage
 from lxml import etree
 import artifactory
+
+from ..lib import util
 
 
 log = logging.getLogger('updatebot.pkgsource')
@@ -61,8 +64,7 @@ class PomSource(object):
         self._exclusions = self._buildGAVMap(excludePackages)
         self._inclusions = self._buildGAVMap(includePackages)
         self._pkgMap = {}  # map group, artifact, version to package
-        self.pkgQueue = None
-        self.chunked = set()
+        self.pkgQueue = collections.deque()
         self._loaded = False
 
     def _buildGAVMap(self, packages):
@@ -118,19 +120,12 @@ class PomSource(object):
             return False
 
     @loaded
-    def finalize(self):
-        self.pkgQueue = collections.deque(v for v in self._pkgMap.values()
-                                          if v is not None)
-
-    @loaded
     def load(self):
         client = artifactory.Client(self._cfg)
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             archStr = self._cfg.repositoryArch.get(repo, None)
             self.loadFromClient(client, repo, archStr=archStr)
-
-        self.finalize()
         self._loaded = True
 
     def loadFromClient(self, client, repo, archStr=None):
@@ -149,17 +144,10 @@ class PomSource(object):
                 log.debug('excluding %s from package source', ':'.join(gav))
                 continue
 
-            if gav in self._pkgMap:
-                # already processed this as a parent or import
-                continue
+            if gav not in self._pkgMap:
+                # this is a new package
+                pkg = createPomPackage(*gav, client=client, cache=self._pkgMap)
+            else:
+                pkg = self._pkgMap[gav]
 
-            location = 'repo:%(path)s' % pom
-            pomString = client.retrieve_artifact(location)
-            pomEtree = etree.fromstring(
-                STRIP_NAMESPACE_RE.sub('<project>', pomString, 1),
-                parser=POM_PARSER,
-                )
-            pkg = artifactory.PomPackage(pomEtree, location, client,
-                                         self._pkgMap)
-            self._pkgMap[gav] = pkg
-            pkg.setDependencies(pomEtree, client, self._pkgMap)
+            self.pkgQueue = util.createDepTree(pkg, self.pkgQueue)

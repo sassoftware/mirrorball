@@ -219,6 +219,15 @@ def setproctitle(title):
     except:
         pass
 
+def createDepTree(pkg, tree):
+    def _helper(p):
+        for dep in p.dependencies:
+            _helper(dep)
+        if p not in tree:
+            tree.append(p)
+    _helper(pkg)
+    return tree
+
 class BoundedCounter(object):
     """
     Basic counter that can be incremented and decremented while enforcing
