@@ -18,6 +18,7 @@
 Module for finding artifactory packages and updating them
 """
 
+from collections import deque
 import logging
 import time
 
@@ -56,10 +57,8 @@ class Bot(BotSuperClass):
         """
         Do initial imports.
 
-        @param rebuild: build all packages, even if source package is the same
-        @type rebuild: bool
-        @param recreate: recreate all source packages
-        @type recreate: bool
+        :param bool rebuild: build all packages, even if source is the same
+        :param bool recreate: recreate all source packages
         """
         start = time.time()
         log.info('starting import')
@@ -68,8 +67,7 @@ class Bot(BotSuperClass):
         self._pkgSource.load()
 
         # Import sources into repository.
-        buildSet, fail = self._updater.create(buildAll=rebuild,
-                                              recreate=recreate)
+        trvMap, fail = self._updater.create(buildAll=rebuild, recreate=recreate)
 
         if fail:
             log.error('failed to create %s packages:' % len(fail))
@@ -77,81 +75,15 @@ class Bot(BotSuperClass):
                 log.error('failed to import %s: %s' % (pkg, e))
             return {}, fail
 
-        trvMap = {}
-
-        total = sum(len(chunk) for chunk, _ in buildSet)
-        built = 0
-        log.info('found %s packages to build' % total)
-        for toBuild, resolveTroves in buildSet:
-            if len(toBuild):
-                # create an initial builder object to get the base rmake config
-                rmakeCfg = Builder(self._cfg, self._ui)._getRmakeConfig()
-                if resolveTroves is not None:
-                    # add our resolveTroves to the build config
-                    rmakeCfg.configKey(
-                        'resolveTroves',
-                        ' '.join('%s=%s' % r for r in resolveTroves),
-                        )
-
-                # make a new buidler with rmakeCfg to do the actual build
-                builder = Builder(self._cfg, self._ui, rmakeCfg=rmakeCfg)
-
-                # Build all newly imported packages.
-                tries = 0
-                while True:
-                    try:
-                        trvMap.update(builder.build([nvf for nvf, _ in toBuild]))
-                    except JobFailedError:
-                        if tries > 1:
-                            raise
-                        tries += 1
-                        log.info('attempting to retry build: %s of %s',
-                                 tries, 2)
-                    else:
-                        break
-
-                log.info('import completed successfully')
-
-                built += len(toBuild)
-                log.info('built %s packages of %s', built, total)
-
-        if not buildSet:
-            log.info('no packages found to build, maybe there is a flavor '
-                     'configuration issue')
-
         log.info('elapsed time %s' % (time.time() - start, ))
-        return trvMap
+        return trvMap, fail
 
 
 class Updater(UpdaterSuperClass):
     """Class for finding and updating packages sourced from artifactory
     """
 
-    def create(self, buildAll=False, recreate=False):
-        """Import new packages into the repository
-
-        By default, this will only imort and build completely new packages. Set
-        `buildAll` to True if you want to buid all packages, even ones whose
-        source trove did not changes. Set `recreate` True if you want to check
-        if existing sources changed, and import them if they have.
-
-        @param buildAll: build all binary packages, even if their source didn't
-            change, defaults to False
-        @type buildAll: bool
-        @param recreate: commit changed source packages when True, else only
-            commit new sources
-        @type recreate: bool
-        @return: a list of buildable chunks (sets of packages that can be built
-            together)
-        @rtype: [set([((name, version, flavor), pkg), ...]), ...]
-        """
-        # generate a list of trove specs for the packages in the queue so
-        # we can populate a cache of existing conary versions
-        troveList = []
-        for p in self._pkgSource.pkgQueue:
-            troveList.append((p.name, p.getConaryVersion(), None))
-            troveList.append(('%s:source' % p.name, p.getConaryVersion(), None))
-
+    def _createVerCache(self, troveList):
         verCache = {}
         for k, v in self._conaryhelper.findTroves(
                 troveList,
@@ -161,162 +93,178 @@ class Updater(UpdaterSuperClass):
                 # something weird happened
                 import epdb; epdb.st()  # XXX breakpoint
             verCache[k] = v[0][1]  # v is a list of a tuple (name, ver, flav)
+        return verCache
 
-        fail = set()  # failed packages and their error messages
-        chunk = set()  # chunk of packages to build
-        resolveTroves = set()  # resolveTroves for the current chunk
-        toBuild = []    # list of chunks to build
-        total = len(self._pkgSource.pkgQueue)   # total number of packages
+    def _build(self, buildSet, cache):
+        """Helper function to do some repetivite pre-build processing
 
-        # this is bit of a hack so that our closures can update the count
-        # of packages we have processed
-        class counter:
-            count = 1
+        :param buildSet: list of name, version, flavor tuples and packages to
+            build
+        :type buildSet: [((name, version, flavor), package), ...]
+        :param dict cache: conary version cache
+        """
+        # unpack buildSet into nvf tuples and packages lists
+        nvfs, packages = zip(*buildSet)
 
-        def addPackage(p):
-            """Add package to current chunk
+        resolveTroves = set()
+        # create resolve troves for deps not in the current chunk
+        for pkg in packages:
+            needResolveTroves = set(pkg.dependencies) - set(packages)
+            for p in needResolveTroves:
+                currentVersion = cache.get(
+                    (p.name, p.getConaryVersion(), None))
+                resolveTroves.add((p.name, currentVersion))
 
-            If the package is new, or `recreate` is True, then check if the
-            source needs to be updated.
-
-            If there is no existing binary, or the existing binary's source is
-            not the same, then add the package to the current chunk.
-
-            Returns True if the package was added to the chunk, False otherwise
-            """
-            version = verCache.get(
-                ('%s:source' % p.name, p.getConaryVersion(), None))
-
-            manifest = dict(
-                version=p.getConaryVersion(),
-                build_requires=p.buildRequires,
-                artifacts=p.artifacts,
+        rmakeCfg = Builder(self._cfg, self._ui)._getRmakeConfig()
+        if resolveTroves is not None:
+            # add our resolveTroves to the build config
+            rmakeCfg.configKey(
+                'resolveTroves',
+                ' '.join('%s=%s' % r for r in resolveTroves),
                 )
 
-            doImport = True
-            if version:
-                # source exists, see if we should re-commit
-                if recreate:
-                    # check if build reqs or artifacts changed
-                    oldManifest = self._conaryhelper.getJsonManifest(
-                        p.name, version)
-                    oldBuildReqs = sorted(oldManifest.get('build_requires', []))
-                    oldArtifacts = sorted(oldManifest.get('artifacts', []))
-                    buildReqs = sorted(manifest['build_requires'])
-                    artifacts = sorted(manifest['artifacts'])
-                    if (buildReqs == oldBuildReqs
-                            and artifacts == oldArtifacts):
-                        # manifest didn't change so don't re-import
-                        doImport = False
-                else:
+        # make a new buidler with rmakeCfg to do the actual build
+        builder = Builder(self._cfg, self._ui, rmakeCfg=rmakeCfg)
+
+        # Build all newly imported packages.
+        tries = 0
+        while True:
+            try:
+                trvMap = builder.build(nvfs)
+            except JobFailedError:
+                if tries > 1:
+                    raise
+                tries += 1
+                log.info('attempting to retry build: %s of %s', tries, 2)
+            else:
+                break
+
+        return trvMap
+
+    def _importPackage(self, p, version, recreate):
+        """Import source package
+
+        If the package is new, or `recreate` is True, then check if the
+        source needs to be updated.
+
+        :param PomPackage p: package to import
+        :param version: conary version of existing source
+        :type version: conary version object or None
+        :param bool recreate: re-import the package if True
+        :returns: True if the package was imported, False otherwise
+        :rtype: bool
+        """
+        manifest = dict(
+            version=p.getConaryVersion(),
+            build_requires=p.buildRequires,
+            artifacts=p.artifacts,
+            )
+
+        doImport = True
+        if version:
+            # source exists, see if we should re-commit
+            if recreate:
+                # check if build reqs or artifacts changed
+                oldManifest = self._conaryhelper.getJsonManifest(
+                    p.name, version)
+                oldBuildReqs = sorted(oldManifest.get('build_requires', []))
+                oldArtifacts = sorted(oldManifest.get('artifacts', []))
+                buildReqs = sorted(manifest['build_requires'])
+                artifacts = sorted(manifest['artifacts'])
+                if (buildReqs == oldBuildReqs
+                        and artifacts == oldArtifacts):
+                    # manifest didn't change so don't re-import
                     doImport = False
-
-            if doImport:
-                try:
-                    log.info('attempting to import %s (%s/%s)', p,
-                             counter.count, total)
-                    self._conaryhelper.setJsonManifest(p.name, manifest)
-                    version = self._conaryhelper.commit(
-                        p.name, commitMessage=self._cfg.commitMessage)
-                except Exception as e:
-                    fail.add((p, e))
             else:
-                log.info('not importing %s (%s/%s)', p, counter.count, total)
-            counter.count += 1
+                doImport = False
 
-            binVersion = verCache.get((p.name, p.getConaryVersion(), None))
-            if (not binVersion or binVersion.getSourceVersion() != version
-                    or buildAll):
-                log.info('building %s=%s' % (p.name, version))
-                log.debug('adding %s=%s to chunk %s', p.name, version, chunk)
-                chunk.add(((p.name, version, None), p))
-                return True, binVersion
-            else:
-                log.info('not building %s=%s' % (p.name, version))
-                return False, binVersion
+        if doImport:
+            log.info("attempting to import %s", p)
+            self._conaryhelper.setJsonManifest(p.name, manifest)
+            version = self._conaryhelper.commit(
+                p.name, commitMessage=self._cfg.commitMessage)
+        else:
+            log.info("not importing %s", p)
 
-        def getDependencies(pkg):
-            """Recursively get the dependencies of package 'pkg' and its
-            dependencies' dependencies.
-            """
-            deps = set()
-            for dep in pkg.dependencies:
-                deps.add(dep)
-                deps.update(getDependencies(dep))
-            return deps
+        return version
 
-        # of the packages loaded by pkgSource, we need to import new or updated
-        # sources, and build new or updated binaries. We also need to not
-        # overload the rmake builds, so we need to break the packages up into
-        # managable, dep closed chunks. Additionally, we need to configure
-        # resolveTrove entries for each chunk so that rmake can resolve
-        # dependencies that are already built
-        prevLength = None
-        loopCount = 0
-        while self._pkgSource.pkgQueue:
-            pkg = self._pkgSource.pkgQueue.popleft()
-            deps = getDependencies(pkg)
+    def create(self, buildAll=False, recreate=False):
+        """Import new packages into the repository
 
-            # if the current package, or any of its dependencies, match a
-            # package already in the chunk, then kick the package to the end
-            # of the queue. this avoids trying to build two versions of the
-            # same package in a single rmake job
-            depNames = [pkg.name] + [d.name for d in deps]
-            duplicateDeps = set([n for n in depNames if depNames.count(n) > 1])
-            currentPkgNames = [name for (name, _, _), _ in chunk]
-            pkgMatch = any(p.name in currentPkgNames
-                           for p in [pkg] + list(deps))
-            if pkgMatch or duplicateDeps:
-                # send to end of queue
-                self._pkgSource.pkgQueue.append(pkg)
-            else:
-                # add the package to the chunk.
-                if addPackage(pkg):
-                    # if the package was added to the chunk, then add its
-                    # deps and remove them from the queue
-                    self._pkgSource.chunked.add(pkg)
-                    for dep in deps:
-                        # check if this dep is already in a chunk, and if not
-                        # see if its going to be built
-                        if dep in self._pkgSource.chunked:
-                            depAdded = False
-                            depVersion = None
-                        else:
-                            depAdded, depVersion = addPackage(dep)
+        By default, this will only imort and build completely new packages. Set
+        `buildAll` to True if you want to buid all packages, even ones whose
+        source trove did not changes. Set `recreate` True if you want to check
+        if existing sources changed, and import them if they have.
 
-                        if not depAdded:
-                            # this dep is already built so create resolve trove
-                            log.debug('adding %s=%s as a resovle trove' %
-                                      (dep.name, depVersion))
-                            resolveTroves.add((dep.name, binVersion))
+        :param buildAll: build all binary packages, even if their source didn't
+            change, defaults to False
+        :type buildAll: bool
+        :param recreate: commit changed source packages when True, else only
+            commit new sources
+        :type recreate: bool
+        :returns: a list of buildable chunks (sets of packages that can be built
+            together)
+        :rtype: [set([((name, version, flavor), pkg), ...]), ...]
+        """
+        # generate a list of trove specs for the packages in the queue so
+        # we can populate a cache of existing conary versions
+        troveList = []
+        for p in self._pkgSource.pkgQueue:
+            troveList.append((p.name, p.getConaryVersion(), None))
+            troveList.append(('%s:source' % p.name, p.getConaryVersion(), None))
 
-                        # either way this dep is built so remove it from the
-                        # queue and add it to the chunked packages
-                        if dep in self._pkgSource.pkgQueue:
-                            self._pkgSource.pkgQueue.remove(dep)
-                            self._pkgSource.chunked.add(dep)
+        fail = set()                    # packages that failed to import
+        chunk = set()                   # current chunk of packages to build
+        chunkedPackageNames = set()     # names of packages in the current chunk
+        trvMap = {}                     # map of built troves
+        verCache = self._createVerCache(troveList)  # initial version cache
 
-            # if the length of the queue didn't change, then we might be
-            # in an infinite loop due to package name conflicts. increment
-            # the loop counter
-            length = len(self._pkgSource.pkgQueue)
-            if length == prevLength:
-                loopCount += 1
+        for pkg in self._pkgSource.pkgQueue:
+            if pkg.name in chunkedPackageNames \
+                    or len(chunk) >= self._cfg.chunkSize:
+                # chunk contains a package with the same name or is too big
+                # so build the current chunk before continuing
+                trvMap.update(self._build(chunk, verCache))
 
-            # if the chunk is bigger than the max chunk size, or we have
-            # looped over every package in the queue, then add the chunk to
-            # the build set and start a new one
-            if len(chunk) >= self._cfg.chunkSize or loopCount > length:
-                toBuild.append((chunk, resolveTroves))
+                # update the version cache
+                verCache = self._createVerCache(troveList)
+
+                # clear the chunk
                 chunk = set()
-                resolveTroves = set()
-                loopCount = 0
-                prevLength = None
+                chunkedPackageNames = set()
 
-            prevLength = length
+            srcVersion = verCache.get((
+                '%s:source' % pkg.name,
+                pkg.getConaryVersion(),
+                None,
+                ))
+            binVersion = verCache.get((
+                pkg.name,
+                pkg.getConaryVersion(),
+                None,
+                ))
 
-        # make sure we add the last chunk to the build set
-        if chunk and (chunk, resolveTroves) not in toBuild:
-            toBuild.append((chunk, resolveTroves))
+            # determine if pkg needs to be imported, and update srcVersion
+            try:
+                srcVersion = self._importPackage(pkg, srcVersion, recreate)
+            except Exception, e:
+                log.error('failed to import %s: %s' % (pkg, e))
+                fail.add((pkg, e))
 
-        return toBuild, fail
+            # if buildAll is true, or there is no existing binary or the binary
+            # was built from a different source, then build pkg
+            if (buildAll or not binVersion
+                     or binVersion.getSourceVersion() != srcVersion):
+                log.info('building %s' % pkg)
+                log.debug('adding %s to chunk %s', pkg, chunk)
+                chunk.add(((pkg.name, srcVersion, None), pkg))
+                chunkedPackageNames.add(pkg.name)
+            else:
+                log.info('not building %s' % pkg)
+
+        else:
+            # exhausted the list, so make sure we build the last chunk
+            if chunk:
+                trvMap.update(self._build(chunk, verCache))
+
+        return trvMap, fail
