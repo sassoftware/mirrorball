@@ -219,14 +219,15 @@ def setproctitle(title):
     except:
         pass
 
-def createDepTree(pkg, tree):
+def recurseDeps(pkg):
+    deps = []
     def _helper(p):
-        for dep in p.dependencies:
-            _helper(dep)
-        if p not in tree:
-            tree.append(p)
+        for d in p.dependencies:
+            _helper(d)
+            if d not in deps:
+                deps.append(d)
     _helper(pkg)
-    return tree
+    return deps
 
 class BoundedCounter(object):
     """

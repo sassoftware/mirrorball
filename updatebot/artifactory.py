@@ -83,19 +83,32 @@ class Updater(UpdaterSuperClass):
     """Class for finding and updating packages sourced from artifactory
     """
 
-    def _createVerCache(self, troveList):
-        verCache = {}
-        for k, v in self._conaryhelper.findTroves(
-                troveList,
-                allowMissing=True,
-                ).iteritems():
-            if len(v) > 1:
-                # something weird happened
-                import epdb; epdb.st()  # XXX breakpoint
-            verCache[k] = v[0][1]  # v is a list of a tuple (name, ver, flav)
-        return verCache
+    def _buildLeaf(self, leaf, cache, buildAll=False, recreate=False):
+        failedImports = set()
+        srcVersion = cache.get((
+            '%s:source' % leaf.name,
+            leaf.getConaryVersion(),
+            None,
+            ))
+        binVersion = cache.get((
+            leaf.name,
+            leaf.getConaryVersion(),
+            None,
+            ))
 
-    def _build(self, buildSet, cache):
+        # determine if leaf needs to be imported, and update srcVersion
+        srcVersion = self._importPackage(leaf, srcVersion, recreate)
+
+        # if buildAll is true, or there is no existing binary or the
+        # binary was built from a different source, then build leaf
+        if (buildAll or not binVersion
+                or binVersion.getSourceVersion() != srcVersion):
+            return True
+        else:
+            log.info('not building %s' % leaf)
+            return False
+
+    def _build(self, buildSet, buildReqs, cache):
         """Helper function to do some repetivite pre-build processing
 
         :param buildSet: list of name, version, flavor tuples and packages to
@@ -103,25 +116,28 @@ class Updater(UpdaterSuperClass):
         :type buildSet: [((name, version, flavor), package), ...]
         :param dict cache: conary version cache
         """
-        # unpack buildSet into nvf tuples and packages lists
-        nvfs, packages = zip(*buildSet)
-
+        # unpack buildSet into nvf tuples
+        nvfs = []
         resolveTroves = set()
-        # create resolve troves for deps not in the current chunk
-        for pkg in packages:
-            needResolveTroves = set(pkg.dependencies) - set(packages)
-            for p in needResolveTroves:
-                currentVersion = cache.get(
-                    (p.name, p.getConaryVersion(), None))
-                resolveTroves.add((p.name, currentVersion))
 
+        for package in buildSet:
+            version = cache.get(
+                (package.name + ":source", package.getConaryVersion(), None))
+            nvfs.append((package.name, version, None))
+
+        # get our base rmakeCfg
         rmakeCfg = Builder(self._cfg, self._ui)._getRmakeConfig()
-        if resolveTroves is not None:
-            # add our resolveTroves to the build config
-            rmakeCfg.configKey(
-                'resolveTroves',
-                ' '.join('%s=%s' % r for r in resolveTroves),
-                )
+
+        # create resolve troves for deps not in the current chunk
+        resolveTroves.update(set([
+            (dep.name, rmakeCfg.buildLabel, dep.getConaryVersion())
+            for dep in buildReqs
+            ]))
+
+        rmakeCfg.configKey(
+            'resolveTroves',
+            ' '.join('%s=%s/%s' % r for r in resolveTroves),
+            )
 
         # make a new buidler with rmakeCfg to do the actual build
         builder = Builder(self._cfg, self._ui, rmakeCfg=rmakeCfg)
@@ -130,6 +146,9 @@ class Updater(UpdaterSuperClass):
         tries = 0
         while True:
             try:
+                log.debug("Building: \n%s", "\n".join(str(nvf) for nvf in nvfs))
+                log.debug("Resolve troves: \n%s",
+                          "\n".join("%s=%s/%s" % r for r in resolveTroves))
                 trvMap = builder.build(nvfs)
             except JobFailedError:
                 if tries > 1:
@@ -140,6 +159,19 @@ class Updater(UpdaterSuperClass):
                 break
 
         return trvMap
+
+    def _createVerCache(self, troveList):
+        verCache = {}
+        for k, v in self._conaryhelper.findTroves(
+                troveList,
+                allowMissing=True,
+                cache=False,
+                ).iteritems():
+            if len(v) > 1:
+                # something weird happened
+                import epdb; epdb.st()  # XXX breakpoint
+            verCache[k] = v[0][1]  # v is a list of a tuple (name, ver, flav)
+        return verCache
 
     def _importPackage(self, p, version, recreate):
         """Import source package
@@ -154,32 +186,14 @@ class Updater(UpdaterSuperClass):
         :returns: True if the package was imported, False otherwise
         :rtype: bool
         """
-        manifest = dict(
-            version=p.getConaryVersion(),
-            build_requires=p.buildRequires,
-            artifacts=p.artifacts,
-            )
-
-        doImport = True
-        if version:
-            # source exists, see if we should re-commit
-            if recreate:
-                # check if build reqs or artifacts changed
-                oldManifest = self._conaryhelper.getJsonManifest(
-                    p.name, version)
-                oldBuildReqs = sorted(oldManifest.get('build_requires', []))
-                oldArtifacts = sorted(oldManifest.get('artifacts', []))
-                buildReqs = sorted(manifest['build_requires'])
-                artifacts = sorted(manifest['artifacts'])
-                if (buildReqs == oldBuildReqs
-                        and artifacts == oldArtifacts):
-                    # manifest didn't change so don't re-import
-                    doImport = False
-            else:
-                doImport = False
-
-        if doImport:
+        if not version or recreate:
             log.info("attempting to import %s", p)
+
+            manifest = dict(
+                version=p.getConaryVersion(),
+                build_requires=p.buildRequires,
+                artifacts=p.artifacts,
+                )
             self._conaryhelper.setJsonManifest(p.name, manifest)
             version = self._conaryhelper.commit(
                 p.name, commitMessage=self._cfg.commitMessage)
@@ -209,7 +223,7 @@ class Updater(UpdaterSuperClass):
         # generate a list of trove specs for the packages in the queue so
         # we can populate a cache of existing conary versions
         troveList = []
-        for p in self._pkgSource.pkgQueue:
+        for p in self._pkgSource.pkgQueue.iterNodes():
             troveList.append((p.name, p.getConaryVersion(), None))
             troveList.append(('%s:source' % p.name, p.getConaryVersion(), None))
 
@@ -219,52 +233,51 @@ class Updater(UpdaterSuperClass):
         trvMap = {}                     # map of built troves
         verCache = self._createVerCache(troveList)  # initial version cache
 
-        for pkg in self._pkgSource.pkgQueue:
-            if pkg.name in chunkedPackageNames \
-                    or len(chunk) >= self._cfg.chunkSize:
-                # chunk contains a package with the same name or is too big
-                # so build the current chunk before continuing
-                trvMap.update(self._build(chunk, verCache))
+        # walk our dependency graph by getting all of the current leaves,
+        # figuring out which can built together, building those and then
+        # reiterating the process with the new set of leaves
+        graph = self._pkgSource.pkgQueue
+        leaves = set(graph.getLeaves())
+        while leaves:
+            job = set()               # set of leaves we can build together
+            jobNames = set()          # names of leaf nodes in job
+            jobBuildReqs = set()      # package objects of build reqs
+            jobBuildReqNames = set()  # names of all build reqs
+            for leaf in leaves:
+                try:
+                    buildLeaf = self._buildLeaf(
+                        leaf, verCache, buildAll, recreate)
+                except Exception, e:
+                    log.error('failed to import %s: %s' % (leaf, e))
+                    raise
+
+                if buildLeaf:
+                    # defer this leaf to the next round if there is already a
+                    # leaf of the same name in the job or if any of this leaf's
+                    # dependencies have the same name as other dependencies but
+                    # a different version
+                    if leaf.name in jobNames:
+                        deferLeaf = True
+                    elif any((d not in jobBuildReqs and d.name in jobBuildReqNames)
+                             for d in leaf.dependencies):
+                        deferLeaf = True
+                    else:
+                        deferLeaf = False
+
+                    if not deferLeaf:
+                        # add this leaf to the job
+                        job.add(leaf)
+                        jobNames.add(leaf.name)  # and its name
+                        jobBuildReqs.update(set(leaf.dependencies))  # and deps
+                        jobBuildReqNames.update(  # and their names
+                            set([d.name for d in leaf.dependencies]))
+                        graph.delete(leaf)
+
+            leaves = set(graph.getLeaves())
+            if job:
+                trvMap.update(self._build(job, jobBuildReqs, verCache))
 
                 # update the version cache
                 verCache = self._createVerCache(troveList)
-
-                # clear the chunk
-                chunk = set()
-                chunkedPackageNames = set()
-
-            srcVersion = verCache.get((
-                '%s:source' % pkg.name,
-                pkg.getConaryVersion(),
-                None,
-                ))
-            binVersion = verCache.get((
-                pkg.name,
-                pkg.getConaryVersion(),
-                None,
-                ))
-
-            # determine if pkg needs to be imported, and update srcVersion
-            try:
-                srcVersion = self._importPackage(pkg, srcVersion, recreate)
-            except Exception, e:
-                log.error('failed to import %s: %s' % (pkg, e))
-                fail.add((pkg, e))
-
-            # if buildAll is true, or there is no existing binary or the binary
-            # was built from a different source, then build pkg
-            if (buildAll or not binVersion
-                     or binVersion.getSourceVersion() != srcVersion):
-                log.info('building %s' % pkg)
-                log.debug('adding %s to chunk %s', pkg, chunk)
-                chunk.add(((pkg.name, srcVersion, None), pkg))
-                chunkedPackageNames.add(pkg.name)
-            else:
-                log.info('not building %s' % pkg)
-
-        else:
-            # exhausted the list, so make sure we build the last chunk
-            if chunk:
-                trvMap.update(self._build(chunk, verCache))
 
         return trvMap, fail

@@ -19,12 +19,12 @@
 Module for interacting with packages defined by pom files
 """
 
-import collections
 import logging
 
 from artifactory.pompackage import POM_PARSER
 from artifactory.pompackage import STRIP_NAMESPACE_RE
 from artifactory.pompackage import createPomPackage
+from conary.lib import graph
 from lxml import etree
 import artifactory
 
@@ -64,7 +64,7 @@ class PomSource(object):
         self._exclusions = self._buildGAVMap(excludePackages)
         self._inclusions = self._buildGAVMap(includePackages)
         self._pkgMap = {}  # map group, artifact, version to package
-        self.pkgQueue = collections.deque()
+        self.pkgQueue = graph.DirectedGraph()
         self._loaded = False
 
     def _buildGAVMap(self, packages):
@@ -89,6 +89,20 @@ class PomSource(object):
                 ).add(version)
 
         return gavMap
+
+    def _iterPackages(self, client, repo):
+        searchKwargs = {'repos': repo}
+        if self._inclusions:
+            searchFunc = client.gavc_search
+            searchArgs = [package.split(':') for package in self._cfg.package]
+        else:
+            searchFunc = client.quick_search
+            searchArgs = ["*.pom"]
+
+        for args in searchArgs:
+            for result in searchFunc(*args, **searchKwargs):
+                if result["mimeType"] == "application/x-maven-pom+xml":
+                    yield result
 
     def _includeResult(self, group, artifact, version):
         """Return whether to include result
@@ -120,27 +134,32 @@ class PomSource(object):
             return False
 
     @loaded
+    def finalize(self):
+        for node in self.pkgQueue.iterNodes():
+            self.pkgQueue.addEdges((node, dep, 1) for dep in node.dependencies)
+
+    @loaded
     def load(self):
         client = artifactory.Client(self._cfg)
         for repo in self._cfg.repositoryPaths:
             log.info('loading repository data %s' % repo)
             archStr = self._cfg.repositoryArch.get(repo, None)
             self.loadFromClient(client, repo, archStr=archStr)
+
+        self.finalize()
         self._loaded = True
 
     def loadFromClient(self, client, repo, archStr=None):
-        for pom in client.quick_search('*.pom', repos=repo):
-            if pom.get('mimeType') != 'application/x-maven-pom+xml':
-                continue
-
+        for result in self._iterPackages(client, repo):
             # process path into group, artifact, verstion tuple
-            path = pom['path'][1:]  # strip the leading /
+            path = result['path'][1:]  # strip the leading /
             # split path and strip file
             group, artifact, version = path.rsplit('/', 3)[:-1]
             group = group.replace('/', '.')  # replace / with . in group
             gav = (group, artifact, version)
 
-            if not self._includeResult(group, artifact, version):
+            if self._inclusions and not \
+                    self._includeResult(group, artifact, version):
                 log.debug('excluding %s from package source', ':'.join(gav))
                 continue
 
@@ -150,4 +169,6 @@ class PomSource(object):
             else:
                 pkg = self._pkgMap[gav]
 
-            self.pkgQueue = util.createDepTree(pkg, self.pkgQueue)
+            self.pkgQueue.addNode(pkg)
+            for dep in util.recurseDeps(pkg):
+                self.pkgQueue.addNode(dep)
