@@ -103,10 +103,10 @@ class Updater(UpdaterSuperClass):
         # binary was built from a different source, then build leaf
         if (buildAll or not binVersion
                 or binVersion.getSourceVersion() != srcVersion):
-            return True
+            return srcVersion, True
         else:
             log.info('not building %s' % leaf)
-            return False
+            return srcVersion, False
 
     def _build(self, buildSet, buildReqs, cache):
         """Helper function to do some repetivite pre-build processing
@@ -120,9 +120,7 @@ class Updater(UpdaterSuperClass):
         nvfs = []
         resolveTroves = set()
 
-        for package in buildSet:
-            version = cache.get(
-                (package.name + ":source", package.getConaryVersion(), None))
+        for package, version in buildSet:
             nvfs.append((package.name, version, None))
 
         # get our base rmakeCfg
@@ -245,7 +243,7 @@ class Updater(UpdaterSuperClass):
             jobBuildReqNames = set()  # names of all build reqs
             for leaf in leaves:
                 try:
-                    buildLeaf = self._buildLeaf(
+                    version, buildLeaf = self._buildLeaf(
                         leaf, verCache, buildAll, recreate)
                 except Exception, e:
                     log.error('failed to import %s: %s' % (leaf, e))
@@ -266,7 +264,7 @@ class Updater(UpdaterSuperClass):
 
                     if not deferLeaf:
                         # add this leaf to the job
-                        job.add(leaf)
+                        job.add((leaf, version))
                         jobNames.add(leaf.name)  # and its name
                         jobBuildReqs.update(set(leaf.dependencies))  # and deps
                         jobBuildReqNames.update(  # and their names
