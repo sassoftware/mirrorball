@@ -235,6 +235,8 @@ class Updater(UpdaterSuperClass):
         # figuring out which can built together, building those and then
         # reiterating the process with the new set of leaves
         graph = self._pkgSource.pkgQueue
+        total = len(list(graph.iterNodes()))
+        count = 0
         leaves = set(graph.getLeaves())
         while leaves:
             job = set()               # set of leaves we can build together
@@ -250,10 +252,9 @@ class Updater(UpdaterSuperClass):
                     raise
 
                 if buildLeaf:
-                    # defer this leaf to the next round if there is already a
-                    # leaf of the same name in the job or if any of this leaf's
-                    # dependencies have the same name as other dependencies but
-                    # a different version
+                    # defer this leaf to the next round if another
+                    # version of the leaf or of any of the leaf's
+                    # dependencies are building this round
                     if leaf.name in jobNames:
                         deferLeaf = True
                     elif any((d not in jobBuildReqs and d.name in jobBuildReqNames)
@@ -264,16 +265,22 @@ class Updater(UpdaterSuperClass):
 
                     if not deferLeaf:
                         # add this leaf to the job
+                        log.info("Building %s", leaf)
                         job.add((leaf, version))
                         jobNames.add(leaf.name)  # and its name
                         jobBuildReqs.update(set(leaf.dependencies))  # and deps
                         jobBuildReqNames.update(  # and their names
                             set([d.name for d in leaf.dependencies]))
                         graph.delete(leaf)
+                        count += 1
+                else:
+                    graph.delete(leaf)
+                    count += 1
 
             leaves = set(graph.getLeaves())
             if job:
                 trvMap.update(self._build(job, jobBuildReqs, verCache))
+                log.info("Built %s of %s", count, total)
 
                 # update the version cache
                 verCache = self._createVerCache(troveList)
