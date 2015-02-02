@@ -108,18 +108,18 @@ class Client(object):
                       extension='pom', relative=False):
         """Construct a maven 2 path
 
-        @param groupId: group name
-        @type groupId: string
-        @param artifactId: artifact name
-        @type artifactId: string
-        @param version: (None) version of artifact
-        @type version: string
-        @param artifactName: (None) artifact name if not the artifactId
-        @type artifactName: string
-        @param extension: (pom) file extention of artifact
-        @type extension: string
-        @param relative: (False) generate a relative path
-        @type relative: bool
+        :param groupId: group name
+        :type groupId: string
+        :param artifactId: artifact name
+        :type artifactId: string
+        :param version: (None) version of artifact
+        :type version: string
+        :param artifactName: (None) artifact name if not the artifactId
+        :type artifactName: string
+        :param extension: (pom) file extention of artifact
+        :type extension: string
+        :param relative: (False) generate a relative path
+        :type relative: bool
         """
         path = '/{0}/{1}'
         if relative:
