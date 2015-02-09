@@ -93,6 +93,7 @@ class GemManifest(cfg.ConfigFile):
     gem_uri = cfg.CfgString
     api = (cfg.CfgString, 'https://rubygems.org/api/v1/gems/')
     build_requires = cfg.CfgLineList(cfg.CfgString)
+    gem_requires = cfg.CfgLineList(cfg.CfgString)
     environment = cfg.CfgDict(cfg.CfgString)
     require_exceptions = cfg.CfgQuotedLineList(cfg.CfgString)
 
@@ -220,7 +221,7 @@ class GemUpdater(object):
 
 
 
-logfile = '%s_%s.log' % (sys.argv[0], time.strftime('%Y-%m-%d_%H%M%S'))
+logfile = '%s_%s.log' % (sys.argv[0][:-3], time.strftime('%Y-%m-%d_%H%M%S'))
 
 log.addRootLogger(logfile)
 
