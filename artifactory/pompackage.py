@@ -266,7 +266,7 @@ class PomPackage(object):
                                 version = mavenMetadata.findtext('latest')
                             else:
                                 versions = [Version(v.text.strip()) for v in
-                                            mavenMetadata.findall('version')]
+                                            mavenMetadata.iter('version')]
                                 version = pickVersion(version, versions)
                                 if version is None:
                                     raise errors.ArtifactoryError(
