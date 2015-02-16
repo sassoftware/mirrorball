@@ -118,10 +118,12 @@ class Updater(UpdaterSuperClass):
         """
         # unpack buildSet into nvf tuples
         nvfs = []
+        buildPackages = []
         resolveTroves = set()
 
         for package, version in buildSet:
             nvfs.append((package.name, version, None))
+            buildPackages.append(package)
 
         # get our base rmakeCfg
         rmakeCfg = Builder(self._cfg, self._ui)._getRmakeConfig()
@@ -130,6 +132,7 @@ class Updater(UpdaterSuperClass):
         resolveTroves.update(set([
             (dep.name, rmakeCfg.buildLabel, dep.getConaryVersion())
             for dep in buildReqs
+            if dep not in buildPackages
             ]))
 
         rmakeCfg.configKey(
@@ -234,15 +237,17 @@ class Updater(UpdaterSuperClass):
         # walk our dependency graph by getting all of the current leaves,
         # figuring out which can built together, building those and then
         # reiterating the process with the new set of leaves
+        addedAny = False
         graph = self._pkgSource.pkgQueue
         total = len(list(graph.iterNodes()))
         count = 0
         leaves = set(graph.getLeaves())
+        job = set()               # set of leaves we can build together
+        jobNames = set()          # names of leaves and their deps in job
+        jobBuildReqs = set()      # leaves' build reqs
+        jobBuildReqNames = set()  # names of leaves' build reqs
         while leaves:
-            job = set()               # set of leaves we can build together
-            jobNames = set()          # names of leaf nodes in job
-            jobBuildReqs = set()      # package objects of build reqs
-            jobBuildReqNames = set()  # names of all build reqs
+            addedAny = False
             for leaf in leaves:
                 try:
                     version, buildLeaf = self._buildLeaf(
@@ -253,12 +258,12 @@ class Updater(UpdaterSuperClass):
 
                 if buildLeaf:
                     # defer this leaf to the next round if another
-                    # version of the leaf or of any of the leaf's
+                    # version of the leaf or of any of its
                     # dependencies are building this round
-                    if leaf.name in jobNames:
-                        deferLeaf = True
-                    elif any((d not in jobBuildReqs and d.name in jobBuildReqNames)
-                             for d in leaf.dependencies):
+                    if leaf.name in jobNames or any(
+                            (d.name in jobNames.union(jobBuildReqNames)
+                             and d not in jobBuildReqs)
+                            for d in leaf.dependencies):
                         deferLeaf = True
                     else:
                         deferLeaf = False
@@ -267,22 +272,35 @@ class Updater(UpdaterSuperClass):
                         # add this leaf to the job
                         log.info("Building %s", leaf)
                         job.add((leaf, version))
-                        jobNames.add(leaf.name)  # and its name
-                        jobBuildReqs.update(set(leaf.dependencies))  # and deps
-                        jobBuildReqNames.update(  # and their names
+                        jobNames.add(leaf.name)
+                        jobBuildReqs.update(set(leaf.dependencies))
+                        jobBuildReqNames.update(
                             set([d.name for d in leaf.dependencies]))
                         graph.delete(leaf)
                         count += 1
+                        addedAny = True
                 else:
                     graph.delete(leaf)
                     count += 1
 
             leaves = set(graph.getLeaves())
-            if job:
+            if not addedAny or len(job) >= self._cfg.chunkSize:
                 trvMap.update(self._build(job, jobBuildReqs, verCache))
                 log.info("Built %s of %s", count, total)
 
                 # update the version cache
                 verCache = self._createVerCache(troveList)
+
+                # clear the job
+                job = set()
+                jobNames = set()
+                jobBuildReqs = set()
+                jobBuildReqNames = set()
+                addedAny = False
+
+        # build the last job
+        if job:
+            trvMap.update(self._build(job, jobBuildReqs, verCache))
+            log.info("Processed %s of %s", count, total)
 
         return trvMap, fail
