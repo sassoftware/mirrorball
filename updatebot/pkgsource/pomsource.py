@@ -90,8 +90,10 @@ class PomSource(object):
 
         return gavMap
 
-    def _iterPackages(self, client, repo):
-        searchKwargs = {'repos': repo}
+    def _iterPackages(self, client, repo=None):
+        searchKwargs = {}
+        if repo:
+            searchKwargs = {'repos': repo}
         if self._inclusions:
             searchFunc = client.gavc_search
             searchArgs = [package.split(':') for package in self._cfg.package]
@@ -141,16 +143,14 @@ class PomSource(object):
     @loaded
     def load(self):
         client = artifactory.Client(self._cfg)
-        for repo in self._cfg.repositoryPaths:
-            log.info('loading repository data %s' % repo)
-            archStr = self._cfg.repositoryArch.get(repo, None)
-            self.loadFromClient(client, repo, archStr=archStr)
-
+        log.info('loading repository data %s' % self._cfg.repositoryPath)
+        archStr = self._cfg.repositoryArch.get(self._cfg.repositoryPath, None)
+        self.loadFromClient(client, archStr=archStr)
         self.finalize()
         self._loaded = True
 
-    def loadFromClient(self, client, repo, archStr=None):
-        for result in self._iterPackages(client, repo):
+    def loadFromClient(self, client, repo=None, archStr=None):
+        for result in self._iterPackages(client):
             # process path into group, artifact, verstion tuple
             path = result['path'][1:]  # strip the leading /
             # split path and strip file
