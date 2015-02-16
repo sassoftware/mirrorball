@@ -186,7 +186,7 @@ class PomPackage(object):
 
     @property
     def name(self):
-        return str(self.artifactId)
+        return str("__".join([self.groupId, self.artifactId]))
 
     @property
     def nevra(self):
