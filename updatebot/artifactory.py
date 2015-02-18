@@ -245,7 +245,6 @@ class Updater(UpdaterSuperClass):
         job = set()               # set of leaves we can build together
         jobNames = set()          # names of leaves and their deps in job
         jobBuildReqs = set()      # leaves' build reqs
-        jobBuildReqNames = set()  # names of leaves' build reqs
         while leaves:
             addedAny = False
             for leaf in leaves:
@@ -260,13 +259,11 @@ class Updater(UpdaterSuperClass):
                     # defer this leaf to the next round if another
                     # version of the leaf or of any of its
                     # dependencies are building this round
+                    deferLeaf = False
                     if leaf.name in jobNames or any(
-                            (d.name in jobNames.union(jobBuildReqNames)
-                             and d not in jobBuildReqs)
+                            (d.name in jobNames and d not in jobBuildReqs)
                             for d in leaf.dependencies):
                         deferLeaf = True
-                    else:
-                        deferLeaf = False
 
                     if not deferLeaf:
                         # add this leaf to the job
@@ -274,7 +271,7 @@ class Updater(UpdaterSuperClass):
                         job.add((leaf, version))
                         jobNames.add(leaf.name)
                         jobBuildReqs.update(set(leaf.dependencies))
-                        jobBuildReqNames.update(
+                        jobNames.update(
                             set([d.name for d in leaf.dependencies]))
                         graph.delete(leaf)
                         count += 1
