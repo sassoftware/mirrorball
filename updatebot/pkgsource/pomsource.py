@@ -152,6 +152,7 @@ class PomSource(object):
 
     def loadFromClient(self, client, repo=None, archStr=None):
         for result in self._iterPackages(client):
+            log.debug('loading %s', result['path'])
             # process path into group, artifact, verstion tuple
             path = result['path'][1:]  # strip the leading /
             # split path and strip file
