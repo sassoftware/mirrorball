@@ -99,7 +99,7 @@ class PomSource(object):
             searchArgs = [package.split(':') for package in self._cfg.package]
         else:
             searchFunc = client.quick_search
-            searchArgs = ["*.pom"]
+            searchArgs = [ ["*.pom"], ]
 
         for args in searchArgs:
             for result in searchFunc(*args, **searchKwargs):
