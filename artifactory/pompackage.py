@@ -160,6 +160,10 @@ class PomPackage(object):
         return PROPERTY_RE.sub(subfunc, text)
 
     @property
+    def arch(self):
+        return "x86_64"
+
+    @property
     def checksum(self):
         return None
 
@@ -265,8 +269,9 @@ class PomPackage(object):
                             elif version == 'latest.integration':
                                 version = mavenMetadata.findtext('latest')
                             else:
-                                versions = [Version(v.text.strip()) for v in
-                                            mavenMetadata.iter('version')]
+                                versions = [Version(v.text.strip())
+                                            for v in mavenMetadata.findall(
+                                                "versioning/versions/version")]
                                 version = pickVersion(version, versions)
                                 if version is None:
                                     raise errors.ArtifactoryError(

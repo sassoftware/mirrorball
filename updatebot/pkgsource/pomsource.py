@@ -143,14 +143,12 @@ class PomSource(object):
     @loaded
     def load(self):
         client = artifactory.Client(self._cfg)
-        for path in self._cfg.repositoryPaths:
-            log.info('loading repository data %s', path)
-            archStr = self._cfg.repositoryArch.get(path, None)
-            self.loadFromClient(client, archStr=archStr)
+        log.info('loading repository data')
+        self.loadFromClient(client)
         self.finalize()
         self._loaded = True
 
-    def loadFromClient(self, client, repo=None, archStr=None):
+    def loadFromClient(self, client):
         for result in self._iterPackages(client):
             log.debug('loading %s', result['path'])
             # process path into group, artifact, verstion tuple
