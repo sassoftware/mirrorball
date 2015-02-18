@@ -160,6 +160,10 @@ class PomPackage(object):
         return PROPERTY_RE.sub(subfunc, text)
 
     @property
+    def arch(self):
+        return "x86_64"
+
+    @property
     def checksum(self):
         return None
 
