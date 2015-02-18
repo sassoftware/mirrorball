@@ -284,7 +284,7 @@ class VersionRange(object):
         else:
             version = Version(_spec)
             # add the "everything" restriction
-            restrictions.add(Restriction(None, False, None, False))
+            restrictions.append(Restriction(None, False, None, False))
 
         return Version(version, restrictions)
 
