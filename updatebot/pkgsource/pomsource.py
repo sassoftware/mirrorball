@@ -143,9 +143,10 @@ class PomSource(object):
     @loaded
     def load(self):
         client = artifactory.Client(self._cfg)
-        log.info('loading repository data %s' % self._cfg.repositoryPath)
-        archStr = self._cfg.repositoryArch.get(self._cfg.repositoryPath, None)
-        self.loadFromClient(client, archStr=archStr)
+        for path in self._cfg.repositoryPaths:
+            log.info('loading repository data %s', path)
+            archStr = self._cfg.repositoryArch.get(path, None)
+            self.loadFromClient(client, archStr=archStr)
         self.finalize()
         self._loaded = True
 
