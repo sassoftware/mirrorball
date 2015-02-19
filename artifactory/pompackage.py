@@ -5,10 +5,10 @@
 import logging
 import re
 
+from libmaven.versioning import Version, VersionRange
 from lxml import etree
 
 from . import errors
-from .versioning import Version, VersionRange
 
 
 POM_PARSER = etree.XMLParser(
