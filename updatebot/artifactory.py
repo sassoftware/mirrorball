@@ -288,9 +288,9 @@ class Updater(UpdaterSuperClass):
                     count += 1
 
             leaves = set(graph.getLeaves())
-            if not addedAny or len(job) >= self._cfg.chunkSize:
+            if job and (not addedAny or len(job) >= self._cfg.chunkSize):
                 trvMap.update(self._build(job, jobBuildReqs, verCache))
-                log.info("Built %s of %s", count, total)
+                log.info("Processed %s of %s", count, total)
 
                 # update the version cache
                 verCache = self._createVerCache(troveList)
