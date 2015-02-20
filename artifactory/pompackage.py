@@ -392,6 +392,8 @@ class PomPackage(object):
             version = pom.findtext('parent/version')
 
         # built-in properties
+        properties['artifactId'] = artifactId
+        properties['groupId'] = groupId
         properties['version'] = version
         properties['project.artifactId'] = artifactId
         properties['project.groupId'] = groupId
