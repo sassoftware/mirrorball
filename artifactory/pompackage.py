@@ -134,18 +134,6 @@ class PomPackage(object):
     def __str__(self):
         return ':'.join(self.getGAV())
 
-    def _processVersion(self, gav):
-        group, artifact, version = gav
-        if version is None:
-            if (group, artifact) in self.dependencyManagement:
-                version = self.dependencyManagement[(group, artifact)]
-            else:
-                version = self.parent.version
-
-        version = self._replaceProperties(version)
-
-        return group, artifact, version
-
     def _replaceProperties(self, text, properties=None):
         if properties is None:
             properties = self.properties
