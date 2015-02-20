@@ -196,8 +196,15 @@ class Updater(UpdaterSuperClass):
                 artifacts=p.artifacts,
                 )
             self._conaryhelper.setJsonManifest(p.name, manifest)
-            version = self._conaryhelper.commit(
-                p.name, commitMessage=self._cfg.commitMessage)
+            if version:
+                version = self._conaryhelper.commit(
+                    p.name,
+                    version=version,
+                    commitMessage=self._cfg.commitMessage,
+                    )
+            else:
+                version = self._conaryhelper.commit(
+                    p.name, commitMessage=self._cfg.commitMessage)
         else:
             log.info("not importing %s", p)
 
