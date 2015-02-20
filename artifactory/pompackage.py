@@ -278,7 +278,8 @@ class PomPackage(object):
                                         "No vaild versions for this range")
                         else:
                             raise RuntimeError("Cannot find maven-metadata.xml"
-                                               " for project %s" % self)
+                                    " for project %s:%s"
+                                    % (groupId, artifactId))
                     try:
                         dep_pom = createPomPackage(
                             groupId, artifactId, version, client, cache)
