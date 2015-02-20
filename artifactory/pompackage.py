@@ -311,6 +311,22 @@ class PomPackage(object):
                 else:
                     dependencies.add(import_pom)
 
+        # process distributionManagement for relocation
+        relocation = pom.find("distributionManagement/relocation")
+        if relocation is not None:
+            groupId = self._replaceProperties(relocation.findtext("groupId"))
+            artifactId = self._replaceProperties(relocation.findtext("artifactId"))
+            try:
+                relocate_pom = createPomPackage(groupId, artifactId,
+                                                self.version, client, cache)
+            except errors.MissingProjectError:
+                log.warning('%s missing relocation project: %s',
+                    ':'.join(self.getGAV()),
+                    ':'.join([groupId, artifactId, self.version]),
+                    )
+            else:
+                dependencies.add(relocate_pom)
+
         self.dependencies = dependencies
 
     def setDependencyManagement(self, pom, client, cache=None):
