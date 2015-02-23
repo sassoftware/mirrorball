@@ -196,8 +196,15 @@ class Updater(UpdaterSuperClass):
                 artifacts=p.artifacts,
                 )
             self._conaryhelper.setJsonManifest(p.name, manifest)
-            version = self._conaryhelper.commit(
-                p.name, commitMessage=self._cfg.commitMessage)
+            if version:
+                version = self._conaryhelper.commit(
+                    p.name,
+                    version=version,
+                    commitMessage=self._cfg.commitMessage,
+                    )
+            else:
+                version = self._conaryhelper.commit(
+                    p.name, commitMessage=self._cfg.commitMessage)
         else:
             log.info("not importing %s", p)
 
@@ -281,9 +288,9 @@ class Updater(UpdaterSuperClass):
                     count += 1
 
             leaves = set(graph.getLeaves())
-            if not addedAny or len(job) >= self._cfg.chunkSize:
+            if job and (not addedAny or len(job) >= self._cfg.chunkSize):
                 trvMap.update(self._build(job, jobBuildReqs, verCache))
-                log.info("Built %s of %s", count, total)
+                log.info("Processed %s of %s", count, total)
 
                 # update the version cache
                 verCache = self._createVerCache(troveList)

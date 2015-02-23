@@ -70,11 +70,6 @@ class Client(object):
         self._url = cfg.repositoryUrl + '/'
         self._api_url = urljoin(self._url, "api/")
 
-        self._session = requests.Session()
-        self._session.auth = cfg.artifactoryUser.find(cfg.repositoryUrl)
-        if headers:
-            self._session.headers.update(headers)
-
     def _get(self, uri, **kwargs):
         res = self._request('GET', uri, **kwargs)
         return res
@@ -89,13 +84,16 @@ class Client(object):
 
     def _request(self, method, uri, return_json=True, **kwargs):
         url = urljoin(self._url, uri)
-        res = self._session.request(method, url, **kwargs)
+        res = requests.request(method, url, **kwargs)
         if return_json:
             return res.json()
         return res
 
     def _search(self, path, **kwargs):
         log.debug("search(%s, kwargs=%s)", path, kwargs)
+        if 'auth' not in kwargs:
+            kwargs['auth'] = self._cfg.artifactoryUser.find(self._cfg.repositoryUrl)
+
         res = self._get(urljoin("api/search/", path), **kwargs)
         urls = [r['uri'] for r in res.get('results', [])]
 

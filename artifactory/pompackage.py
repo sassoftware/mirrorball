@@ -134,18 +134,6 @@ class PomPackage(object):
     def __str__(self):
         return ':'.join(self.getGAV())
 
-    def _processVersion(self, gav):
-        group, artifact, version = gav
-        if version is None:
-            if (group, artifact) in self.dependencyManagement:
-                version = self.dependencyManagement[(group, artifact)]
-            else:
-                version = self.parent.version
-
-        version = self._replaceProperties(version)
-
-        return group, artifact, version
-
     def _replaceProperties(self, text, properties=None):
         if properties is None:
             properties = self.properties
@@ -311,6 +299,22 @@ class PomPackage(object):
                         )
                 else:
                     dependencies.add(import_pom)
+
+        # process distributionManagement for relocation
+        relocation = pom.find("distributionManagement/relocation")
+        if relocation is not None:
+            groupId = self._replaceProperties(relocation.findtext("groupId"))
+            artifactId = self._replaceProperties(relocation.findtext("artifactId"))
+            try:
+                relocate_pom = createPomPackage(groupId, artifactId,
+                                                self.version, client, cache)
+            except errors.MissingProjectError:
+                log.warning('%s missing relocation project: %s',
+                    ':'.join(self.getGAV()),
+                    ':'.join([groupId, artifactId, self.version]),
+                    )
+            else:
+                dependencies.add(relocate_pom)
 
         self.dependencies = dependencies
 
