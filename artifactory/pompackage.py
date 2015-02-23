@@ -302,8 +302,16 @@ class PomPackage(object):
         # process distributionManagement for relocation
         relocation = pom.find("distributionManagement/relocation")
         if relocation is not None:
-            groupId = self._replaceProperties(relocation.findtext("groupId"))
-            artifactId = self._replaceProperties(relocation.findtext("artifactId"))
+            groupId = relocation.findtext("groupId")
+            if groupId is None:
+               groupId = self.groupId
+            groupId = self._replaceProperties(groupId)
+
+            artifactId = relocation.findtext("artifactId")
+            if artifactId is None:
+                artifactId = self.artifactId
+            artifactId = self._replaceProperties(artifactId)
+
             try:
                 relocate_pom = createPomPackage(groupId, artifactId,
                                                 self.version, client, cache)
