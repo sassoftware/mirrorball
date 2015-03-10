@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 #
 # Copyright (c) SAS Institute, Inc.
 #
@@ -47,4 +47,4 @@ bot = current.Bot(cfg)
 pkgMap = bot.update(fltr=fltr)
 #bot.buildgroups()
 
-import epdb; epdb.st()
+#import epdb; epdb.st()

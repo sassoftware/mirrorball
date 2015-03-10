@@ -756,7 +756,7 @@ class Updater(object):
         """
 
         # W0612 - Unused variable
-        # pylint: disable-msg=W0612
+        # pylint: disable=W0612
 
         try:
             return dict([(n.split(':')[0], pkgs) for (n, v, f), pkgs in

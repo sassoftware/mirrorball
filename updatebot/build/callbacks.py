@@ -29,7 +29,7 @@ class StatusOnlyDisplay(monitor.JobLogDisplay):
     """
 
     # R0901 - Too many ancestors
-    # pylint: disable-msg=R0901
+    # pylint: disable=R0901
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         """

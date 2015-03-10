@@ -96,7 +96,8 @@ class ConaryHelper(object):
 
         if not self._cache.sharedTmpDir:
             self._cache.sharedTmpDir = tempfile.mkdtemp(
-                prefix='conaryhelper-tmpdir-')
+                prefix='conaryhelper-tmpdir-',
+                dir='/var/tmp')
 
         conaryCfgFile = util.join(cfg.configPath, 'conaryrc')
         if conaryCfgFile in self._cache.conaryConfigCache:
@@ -213,7 +214,7 @@ class ConaryHelper(object):
         """
 
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
-        # pylint: disable-msg=E1101
+        # pylint: disable=E1101
 
         try:
             trvlst = self._repos.findTrove(self._ccfg.buildLabel, group)
@@ -289,7 +290,7 @@ class ConaryHelper(object):
 
         # W0212 - Access to a protected member _TROVEINFO_TAG_SOURCENAME of a
         #         client class
-        # pylint: disable-msg=W0212
+        # pylint: disable=W0212
 
         name, version, flavor = troveSpec
         cl = [ (name, (None, None), (version, flavor), True) ]
@@ -998,7 +999,7 @@ class ConaryHelper(object):
         """
 
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
-        # pylint: disable-msg=E1101
+        # pylint: disable=E1101
 
         label = self._ccfg.buildLabel
 

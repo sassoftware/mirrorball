@@ -254,7 +254,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     """
 
     # R0904 - to many public methods
-    # pylint: disable-msg=R0904
+    # pylint: disable=R0904
 
     # Mode that updatebot is running in. (possible values ar
     # 'ordered' and 'latest'.
@@ -636,10 +636,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     gemPackage          = (CfgList(CfgString), [])
 
     # Gem Package Prefix to use for packages
-    # because we need to know what the gem name is 
+    # because we need to know what the gem name is
     # without checking out the manifest
     # so we will strip off the prefix
     gemPrefix   = (CfgString, None)
+
+
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """

@@ -20,7 +20,7 @@ Module for common utility functions.
 """
 
 # W0611 - Unused import rmtree
-# pylint: disable-msg=W0611
+# pylint: disable=W0611
 
 import os
 import epdb

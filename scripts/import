@@ -18,6 +18,7 @@
 
 import os
 import sys
+#import time
 
 sys.path.insert(0, os.path.abspath('../'))
 
@@ -26,7 +27,11 @@ sys.excepthook = util.genExcepthook()
 
 from updatebot import bot, config, log
 
+#logfile = '%s_%s.log' % (sys.argv[0], time.strftime('%Y-%m-%d_%H%M%S'))
+#log.addRootLogger(logfile)
 log.addRootLogger()
+
+
 cfg = config.UpdateBotConfig()
 cfg.read(os.path.abspath('../') + '/config/%s/updatebotrc' % sys.argv[1])
 obj = bot.Bot(cfg)

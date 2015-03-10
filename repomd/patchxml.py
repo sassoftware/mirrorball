@@ -37,7 +37,7 @@ class _Patch(SlotNode):
     """
 
     # R0902 - Too many instance attributes
-    # pylint: disable-msg=R0902
+    # pylint: disable=R0902
 
     __slots__ = ('name', 'summary', 'description', 'version',
                  'release', 'requires', 'recommends', 'rebootNeeded',
@@ -57,7 +57,7 @@ class _Patch(SlotNode):
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__
-    # pylint: disable-msg=W0201
+    # pylint: disable=W0201
 
     def addChild(self, child):
         """
@@ -65,7 +65,7 @@ class _Patch(SlotNode):
         """
 
         # R0912 - Too many branches
-        # pylint: disable-msg=R0912
+        # pylint: disable=R0912
 
         n = child.getName()
         if n == 'yum:name':
