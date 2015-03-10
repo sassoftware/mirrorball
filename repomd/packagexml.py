@@ -57,7 +57,7 @@ class _Package(SlotNode, PackageCompare):
     """
 
     # R0902 - Too many instance attributes
-    # pylint: disable-msg=R0902
+    # pylint: disable=R0902
 
     __slots__ = ('name', 'arch', 'epoch', 'version', 'release',
                  'checksum', 'checksumType', 'summary', 'description',
@@ -70,7 +70,7 @@ class _Package(SlotNode, PackageCompare):
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__
-    # pylint: disable-msg=W0201
+    # pylint: disable=W0201
 
 
     def addChild(self, child):
@@ -79,14 +79,14 @@ class _Package(SlotNode, PackageCompare):
         """
 
         # R0912 - Too many branches
-        # pylint: disable-msg=R0912
+        # pylint: disable=R0912
 
         # R0915 - Too many statements
-        # pylint: disable-msg=R0915
+        # pylint: disable=R0915
 
         # E0203 - Access to member 'files' before its definition line 84
         # files is set to None by the superclasses __init__
-        # pylint: disable-msg=E0203
+        # pylint: disable=E0203
 
         n = child.getName()
         if n == 'name':

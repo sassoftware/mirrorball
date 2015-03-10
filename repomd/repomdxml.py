@@ -44,7 +44,7 @@ class _RepoMd(SlotNode):
         """
 
         # W0212 - Access to a protected member _parser of a client class
-        # pylint: disable-msg=W0212
+        # pylint: disable=W0212
 
         name = child.getName()
         if name == 'revision':
@@ -101,7 +101,7 @@ class _RepoMdDataElement(SlotNode):
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__
-    # pylint: disable-msg=W0201
+    # pylint: disable=W0201
 
     def addChild(self, child):
         """

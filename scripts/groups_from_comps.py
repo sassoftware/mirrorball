@@ -14,7 +14,7 @@ from conary.lib import util
 
 from conary import versions
 
-from updatebot import bot, config, log
+from updatebot import bot, current, config, log
 
 from updatebot import groupmgr
 
@@ -46,6 +46,163 @@ class PACKAGE(namedtuple('package', 'name flavor use version')):
         etree.SubElement(node, 'version').text = self.version
         return node
 
+GROUP_STANDARD = [
+            'acl',
+            'audit',
+            'authconfig',
+            'avahi-autoipd',
+            'basesystem',
+            'bash',
+            'biosdevname',
+            'binutils',
+            'bzip2',
+            'ca-certificates',
+            'centos-logos',
+            'centos-release',
+            'chkconfig',
+            'coreutils',
+            'cpio',
+            'cracklib',
+            'cracklib-dicts',
+            'cronie',
+            'cronie-anacron',
+            'crontabs',
+            'curl',
+            'dbus',
+            'dbus-glib',
+            'dbus-python',
+            'device-mapper',
+            'device-mapper-event',
+            'device-mapper-persistent-data',
+            'dhclient',
+            'dhcp-common',
+            'diffutils',
+            'dnsmasq',
+            'dracut',
+            'dracut-config-rescue',
+            'e2fsprogs',
+            'ebtables',
+            'elfutils-libelf',
+            'expat',
+            'file',
+            'filesystem',
+            'findutils',
+            'fipscheck',
+            'firewalld',
+            'freetype',
+            'gawk',
+            'gdbm',
+            'gettext',
+            'glib-networking',
+            'glib2',
+            'glibc',
+            'glibc-common',
+            'gmp',
+            'gnupg2',
+            'gnutls',
+            'gobject-introspection',
+            'gpgme',
+            'grep',
+            'groff-base',
+            'grub2',
+            'grub2-tools',
+            'grubby',
+            'gsettings-desktop-schemas',
+            'gzip',
+            'hardlink',
+            'hostname',
+            'hwdata',
+            'info',
+            'initscripts',
+            'iproute',
+            'iptables',
+            'iputils',
+            'kbd',
+            'kbd-misc',
+            'kernel',
+            'kmod',
+            'kpartx',
+            'less',
+            'linux-firmware',
+            'lua',
+            'lvm2',
+            'make',
+            'man-db',
+            'mozjs17',
+            'ncurses',
+            'ncurses-base',
+            'nettle',
+            'newt',
+            'newt-python',
+            'nspr',
+            'nss',
+            'nss-softokn',
+            'nss-softokn-freebl',
+            'nss-sysinit',
+            'nss-tools',
+            'nss-util',
+            'openldap',
+            'openssh',
+            'openssh-clients',
+            'openssh-server',
+            'openssl',
+            'os-prober',
+            'p11-kit',
+            'p11-kit-trust',
+            'pam',
+            'parted',
+            'patch',
+            'passwd',
+            'pcre',
+            'pinentry',
+            'pkgconfig',
+            'plymouth',
+            'plymouth-scripts',
+            'policycoreutils',
+            'polkit',
+            'polkit-pkla-compat',
+            'popt',
+            'ppp',
+            'procps-ng',
+            'pth',
+            'pygobject3-base',
+            'pygpgme',
+            'pyliblzma',
+            'python',
+            'python-decorator',
+            'python-iniparse',
+            'python-pycurl',
+            'python-six',
+            'python-slip',
+            'python-slip-dbus',
+            'python-urlgrabber',
+            'pyxattr',
+            'readline',
+            'rootfiles',
+            'rpm',
+            'rpm-python',
+            'sed',
+            'selinux-policy',
+            'selinux-policy-targeted',
+            'setup',
+            'shadow-utils',
+            'shared-mime-info',
+            'slang',
+            'sqlite',
+            'sudo',
+            'systemd',
+            'sysvinit-tools',
+            'tzdata',
+            'ustr',
+            'util-linux',
+            'vim-minimal',
+            'which',
+            'xz',
+            'yum',
+            'yum-metadata-parser',
+            'zlib',
+        ]
+
 
 
 class CompsReader(object):
@@ -74,16 +231,19 @@ class CompsReader(object):
 
     depCheckMap = {
         'group-core' : '1',
+        'group-standard' : '1',
         'group-critical-path-base' : '1',
         }
 
     byDefaultMap = {        
         'group-core' : '1',
+        'group-standard' : '1',
         'group-critical-path-base' : '1',
         }
 
     checkPathConflictMap = {        
         'group-core' : '1',
+        'group-standard' : '1',
         'group-critical-path-base' : '1',
         }
 
@@ -91,7 +251,8 @@ class CompsReader(object):
         self.compsfile = compsfile
         self.cfg = config.UpdateBotConfig()
         self.cfg.read(mirrorballDir + '/config/%s/updatebotrc' % cfg)
-        self.bot = bot.Bot(self.cfg)
+        #self.bot = bot.Bot(self.cfg)
+        self.bot = current.Bot(self.cfg)
         #self.pkgSource = self.upbot._pkgSource
         #self.pkgSource.load()
 
@@ -105,9 +266,11 @@ class CompsReader(object):
         self.group_everything = self.groupEverything(self.troves, self.allTroves)
 
 
-    def groupEverything(self, troves, allTroves):
+    def groupEverything(self, trvs, alltrvs):
         everything = {}
         import itertools
+        troves = dict((x,y) for x,y in trvs.iteritems() if not x.startswith('group-'))
+        allTroves = dict((x,y) for x,y in alltrvs.iteritems() if not x.startswith('group-'))
         for k1, k2 in itertools.izip(sorted(troves), sorted(allTroves)):
             assert k1 == k2
             a = troves[k1]
@@ -150,6 +313,19 @@ class CompsReader(object):
             nvfs.add((pkg, None, None))
         return nvfs
 
+    def getStandardPackageMap(self):
+        pkgMap = {}
+        pkgList = []
+        if not self.group_everything:
+            self.group_everything = self.groupEverything(self.troves, self.allTroves)
+        for name, nvfs in self.group_everything.iteritems():
+            if nvfs and name in GROUP_STANDARD:
+                pkgList.append((name, self.byDefault.get('default')))
+        if pkgList:
+            pkgMap['group-standard'] = pkgList
+        return pkgMap
+
+
     def getEverythingPackageMap(self):
         pkgMap = {}
         pkgList = []
@@ -159,7 +335,7 @@ class CompsReader(object):
             if nvfs:
                 pkgList.append((name, self.byDefault.get('optional')))
         if pkgList:
-            pkgMap['group-everything'] = pkgList
+            pkgMap['group-packages'] = pkgList
         return pkgMap
 
     def getPackageMap(self, groups):
@@ -245,6 +421,7 @@ class CompsReader(object):
         langpacks = r.find('langpacks')
         pkgMap = self.getPackageMap(groups)
         pkgMap.update(self.getEverythingPackageMap())
+        pkgMap.update(self.getStandardPackageMap())
         grpMap = self.getGroupMap(environments, categories)
         data = self.createAllXml(pkgMap, grpMap)
         return data

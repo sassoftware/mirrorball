@@ -32,7 +32,8 @@ import sys
 from conary.deps import deps
 
 from updatebot import config
-from updatebot import OrderedBot
+#from updatebot import OrderedBot
+from updatebot import bot as Bot
 
 log = logging.getLogger('mkbuildreqsmap')
 
@@ -41,7 +42,7 @@ log = logging.getLogger('mkbuildreqsmap')
 DEP_CLASSES = (deps.PythonDependencies, deps.PerlDependencies)
 
 def main():
-    bot = getBot(OrderedBot, None)
+    bot = getBot(Bot, None)
     helper = bot._updater._conaryhelper
 
     log.info("Collecting RPM list")

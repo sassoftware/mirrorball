@@ -1,0 +1,65 @@
+#!/usr/bin/python
+
+
+from _scriptsetup import mirrorballDir
+
+import os
+import sys
+import time
+
+from subprocess import call
+
+def usage():
+    print 'Create a list of sources of the binaries we list'
+    print 'usage: %s <platform> <pkg_name> <pkg_name> ... ' % sys.argv[0]
+    print 'platform -- directory name for the mirrorball configs'
+    print 'pkg_name -- name of pakcages to create manifest for' 
+    print 'optional if not specified builds all packages in updatebotrc'
+    sys.exit(1)
+
+if len(sys.argv) < 2:
+    usage()
+
+from conary.lib import util
+sys.excepthook = util.genExcepthook()
+
+from updatebot import current, bot, config, log
+
+logger = log.logging
+
+logfile = '%s_%s.log' % (sys.argv[0], time.strftime('%Y-%m-%d_%H%M%S'))
+log.addRootLogger(logfile)
+cfg = config.UpdateBotConfig()
+cfg.read(mirrorballDir + '/config/%s/updatebotrc' % sys.argv[1])
+obj = current.Bot(cfg)
+
+obj._pkgSource.load()
+
+pkgNames = sys.argv[2:]
+
+workdir = os.getcwd()
+
+if not pkgNames:
+    pkgNames = cfg.package
+ 
+# Have to look up the src to get the src package name right
+# So we look all the bins and create a srcMap this way if we ask 
+# for python-slip-dbus we create a src for python-slip which in 
+# turn produces python-slip and python-slip-dbus binaries.
+   
+srcMap = {}
+for pkgName in pkgNames:
+    if pkgName not in obj._updater._pkgSource.binNameMap:
+        logger.warn('no package named %s found in package source' % pkgName)
+        continue
+    srcPkg = obj._updater._getPackagesToImport(pkgName)
+    srcMap.setdefault(srcPkg, set()).add(pkgName)
+
+print srcMap
+
+for rpm in sorted(srcMap):
+    print 'package %s' % rpm.name
+
+for rpm in sorted(srcMap):
+    print '%s' % rpm.name
+import epdb;epdb.st()

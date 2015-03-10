@@ -49,7 +49,7 @@ class XmlFileParser(object):
         """
 
         # W0212 - Access to a protected member _parser of a client class
-        # pylint: disable-msg=W0212
+        # pylint: disable=W0212
 
         fn = self._repository.get(self._path)
         data = self._databinder.parseFile(fn)

@@ -158,7 +158,6 @@ class Bot(BotSuperClass):
                 for pkgs in remPkgs[pkg]:
                     removePackages.setdefault(pkg, []).append(pkgs)
 
-
         # Don't taint group model unless something has actually changed.
         if addPackages or removePackages:
             log.info('modifying group model')
@@ -466,9 +465,8 @@ class Bot(BotSuperClass):
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
         toUpdate = set()
-        toUpdateMap = {}
 
-        kernels = []
+        toUpdateMap = {}
 
         for binPkg, srcPkg in self._pkgSource.binPkgMap.iteritems():
 
@@ -493,10 +491,12 @@ class Bot(BotSuperClass):
             #if 'kernel' in binPkg.getNevra():
             #    kernels.append(binPkg)
 
-            if binPkg.getNevra() not in sourceLatest:
-                #log.info('UPDATING : %s' % binPkg)
+            #if binPkg.getNevra() not in sourceLatest:
+            if NEVRA(*binPkg.getNevra()) not in sourceLatest:
+                #log.debug('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
+
 
         #import epdb;epdb.st()
 
@@ -518,6 +518,7 @@ class Bot(BotSuperClass):
                     log.warn('addSource failed for %s' % str(sPkg))
 
         log.info('Elapsed Time : %s' % (time.time() - start))
+
 
         return UpdateSet(toUpdate)
 
@@ -654,6 +655,8 @@ class Bot(BotSuperClass):
         # Figure out what packages need to be updated.
         # These will be used later so lets do this once
         sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
+
+
         updatePkgs = self._getUpdatePackages(sourceNevras, sourceLatest)
 
         # remove packages from config
@@ -673,10 +676,10 @@ class Bot(BotSuperClass):
         # Update package set.
         pkgMap = {}
         if updatePkgs:
+
             updatePkgs.filterPkgs(kwargs.pop('fltr', None))
 
-
-            for updateSet in sorted(updatePkgs):
+            for updateSet in updatePkgs:
 
                 log.info('running update')
 
@@ -1176,7 +1179,9 @@ class Bot(BotSuperClass):
 
         # Mangle the devel group to ref packages on the prod label
         # so we can promote...
-        self._mangleGroups(group)
+        if max(self._cfg.sourceLabel) != self._cfg.targetLabel:
+            log.info('Target and Source labels differ... mangling group')
+            self._mangleGroups(group)
 
         # Modify any extra groups to match config.
         self._modifyGroups(updateId, group)
@@ -1192,21 +1197,23 @@ class Bot(BotSuperClass):
         group.version = version
         group = group.commit()
         grpTrvMap = group.build()
+        trvMap = {}
+        promoted = None
 
         # Promote groups
-        log.info('promoting group %s ' % group.version)
-        toPromote = []
-        for grpPkgs in grpTrvMap.itervalues():
-            for grpPkg in grpPkgs:
-                toPromote.append((grpPkg[0],grpPkg[1],grpPkg[2]))
+        if max(self._cfg.sourceLabel) != self._cfg.targetLabel:
+            log.info('promoting group %s ' % group.version)
+            toPromote = []
+            for grpPkgs in grpTrvMap.itervalues():
+                for grpPkg in grpPkgs:
+                    toPromote.append((grpPkg[0],grpPkg[1],grpPkg[2]))
 
-        promoted = self._updater.publish(toPromote, toPromote, self._cfg.targetLabel)
+            promoted = self._updater.publish(toPromote, toPromote, self._cfg.targetLabel)
 
-        trvMap = {}
-
-        for trv in promoted:
-            n, v , f = trv
-            trvMap.setdefault(n, set()).add((n,v,f))
+        if promoted:
+            for trv in promoted:
+                n, v , f = trv
+                trvMap.setdefault(n, set()).add((n,v,f))
 
         # Report timings
         advTime = time.strftime('%m-%d-%Y %H:%M:%S',

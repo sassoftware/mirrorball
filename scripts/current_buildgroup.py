@@ -48,4 +48,4 @@ bot = current.Bot(cfg)
 
 pkgMap = bot.buildgroups()
 
-import epdb; epdb.st()
+#import epdb; epdb.st()

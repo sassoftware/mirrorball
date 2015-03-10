@@ -88,7 +88,7 @@ class _Update(SlotNode):
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__
-    # pylint: disable-msg=W0201
+    # pylint: disable=W0201
 
     def addChild(self, child):
         """
@@ -246,7 +246,7 @@ class _UpdateInfoPackage(SlotNode, PackageCompare):
     # All attributes are defined in __init__ by iterating over __slots__,
     # this confuses pylint.
     # W0201 - Attribute $foo defined outside __init__
-    # pylint: disable-msg=W0201
+    # pylint: disable=W0201
 
     def addChild(self, child):
         """
