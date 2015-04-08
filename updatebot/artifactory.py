@@ -188,8 +188,8 @@ class Updater(UpdaterSuperClass):
         :param version: conary version of existing source
         :type version: conary version object or None
         :param bool recreate: re-import the package if True
-        :returns: True if the package was imported, False otherwise
-        :rtype: bool
+        :returns: the conary source version to build
+        :rtype: conary version object
         """
         if not version or recreate:
             log.info("attempting to import %s", p)
@@ -199,16 +199,15 @@ class Updater(UpdaterSuperClass):
                 build_requires=p.buildRequires,
                 artifacts=p.artifacts,
                 )
+
+            if version and recreate:
+                origManifest = self._conaryhelper.getJsonManifest(p.name, version)
+                if manifest == origManifest:
+                    return version
+
             self._conaryhelper.setJsonManifest(p.name, manifest)
-            if version:
-                version = self._conaryhelper.commit(
-                    p.name,
-                    version=version,
-                    commitMessage=self._cfg.commitMessage,
-                    )
-            else:
-                version = self._conaryhelper.commit(
-                    p.name, commitMessage=self._cfg.commitMessage)
+            version = self._conaryhelper.commit(
+                p.name, commitMessage=self._cfg.commitMessage)
         else:
             log.info("not importing %s", p)
 
