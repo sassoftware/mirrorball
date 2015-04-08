@@ -260,9 +260,9 @@ class PomPackage(object):
                         if mavenMetadata is not None:
                             mavenMetadata = etree.fromstring(mavenMetadata)
                             if version == 'latest.release':
-                                version = mavenMetadata.findtext('release')
+                                version = mavenMetadata.findtext('versioning/release')
                             elif version == 'latest.integration':
-                                version = mavenMetadata.findtext('latest')
+                                version = mavenMetadata.findtext('versioning/latest')
                             else:
                                 versions = [Version(v.text.strip())
                                             for v in mavenMetadata.findall(
