@@ -151,7 +151,11 @@ class Updater(UpdaterSuperClass):
                 log.debug("Resolve troves: \n%s",
                           "\n".join("%s=%s/%s" % r for r in resolveTroves))
                 trvMap = builder.build(nvfs)
-            except JobFailedError:
+            except JobFailedError, e:
+                # Commit partial job
+                log.info('committing partial job %s', e.jobId)
+                trvMap = builder._commitJob(e.jobId)
+                break
                 if tries > 1:
                     raise
                 tries += 1
@@ -289,7 +293,8 @@ class Updater(UpdaterSuperClass):
 
             leaves = set(graph.getLeaves())
             if job and (not addedAny or len(job) >= self._cfg.chunkSize):
-                trvMap.update(self._build(job, jobBuildReqs, verCache))
+                results = self._build(job, jobBuildReqs, verCache)
+                trvMap.update(results)
                 log.info("Processed %s of %s", count, total)
 
                 # update the version cache
