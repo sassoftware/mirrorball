@@ -3,8 +3,12 @@
 #
 
 from urlparse import urljoin
+import hashlib
+import json
 import logging
 import os
+
+from conary.lib import util
 
 import requests
 
@@ -48,6 +52,48 @@ def repos(func):
     return wrapper
 
 
+class Struct(object):
+    def __init__(self):
+        self.status_code = None
+        self.text = None
+
+    def json(self):
+        return json.loads(self.text)
+
+
+class Cache(object):
+    def __init__(self, cacheDir='/tmp/artifactory_cache'):
+        self.cacheDir = cacheDir
+        util.mkdirChain(self.cacheDir)
+
+    def cache(self, method, uri, res=None):
+        key = method + uri
+        h = hashlib.sha1(key).hexdigest()
+        dh = '%s.data' % h
+
+        hpath = os.path.join(self.cacheDir, h)
+        dhpath = os.path.join(self.cacheDir, dh)
+
+        if os.path.exists(hpath) and os.path.exists(dhpath) and not res:
+            data = json.load(open(dhpath))
+            data['text'] = open(hpath).read().decode('utf-8')
+            res = Struct()
+            for k, v in data.iteritems():
+                setattr(res, k, v)
+
+        elif res is not None:
+            with open(hpath, 'wb') as fh:
+                fh.write(res.text.encode('utf-8'))
+            with open(dhpath, 'wb') as fh:
+                json.dump({
+                    'status_code': res.status_code,
+                    'method': method,
+                    'uri': uri,
+                }, fh)
+
+        return res
+
+
 class Client(object):
     """
     Client for talking to artfactory api
@@ -70,6 +116,8 @@ class Client(object):
         self._url = cfg.repositoryUrl + '/'
         self._api_url = urljoin(self._url, "api/")
 
+        self._cache = Cache()
+
     def _get(self, uri, **kwargs):
         res = self._request('GET', uri, **kwargs)
         return res
@@ -84,7 +132,13 @@ class Client(object):
 
     def _request(self, method, uri, return_json=True, **kwargs):
         url = urljoin(self._url, uri)
-        res = requests.request(method, url, **kwargs)
+        res = self._cache.cache(method, uri)
+        if not res:
+            log.debug('requesting %s %s', method, url)
+            res = requests.request(method, url, **kwargs)
+            self._cache.cache(method, uri, res)
+        else:
+            log.debug('hit %s %s', method, url)
         if return_json:
             return res.json()
         return res
@@ -98,8 +152,11 @@ class Client(object):
         urls = [r['uri'] for r in res.get('results', [])]
 
         for url in urls:
-            res = self._get(url)
-            yield res
+            res = self._get(url, return_json=False)
+            if res.status_code == requests.codes.not_found:
+                log.warn('error fetching %s', url)
+                continue
+            yield res.json()
 
     @staticmethod
     def constructPath(groupId, artifactId, version=None, artifactName=None,
