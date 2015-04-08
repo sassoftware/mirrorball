@@ -21,11 +21,8 @@ Module for interacting with packages defined by pom files
 
 import logging
 
-from artifactory.pompackage import POM_PARSER
-from artifactory.pompackage import STRIP_NAMESPACE_RE
 from artifactory.pompackage import createPomPackage
 from conary.lib import graph
-from lxml import etree
 import artifactory
 
 from ..lib import util
