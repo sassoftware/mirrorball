@@ -187,7 +187,7 @@ class PomPackage(object):
 
     def setArtifactId(self, pom):
         artifactId = self._replaceProperties(pom.findtext('artifactId'))
-        self.artifactId = artifactId
+        self.artifactId = artifactId.strip()
 
     def setArtifacts(self, gavc, client):
         self.artifacts = [dict(
@@ -205,7 +205,7 @@ class PomPackage(object):
         if groupId is None:
             groupId = pom.findtext('parent/groupId')
         groupId = self._replaceProperties(groupId)
-        self.groupId = groupId
+        self.groupId = groupId.strip()
 
     def setDependencies(self, pom, client, cache=None):
         depMgmt = self.dependencyManagement
@@ -423,4 +423,4 @@ class PomPackage(object):
         if version is None:
             version = pom.findtext('parent/version')
         version = self._replaceProperties(version)
-        self.version = version
+        self.version = version.strip()
