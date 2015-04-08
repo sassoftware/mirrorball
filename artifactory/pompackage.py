@@ -284,7 +284,8 @@ class PomPackage(object):
                             ':'.join([groupId, artifactId, version]),
                             )
                     else:
-                        dependencies.add(dep_pom)
+                        if dep_pom is not None:
+                            dependencies.add(dep_pom)
 
         # process depMgmt dependencies to find imports
         dependencyManagementDependencies = pom.findall(
