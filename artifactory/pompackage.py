@@ -41,7 +41,8 @@ def createPomPackage(groupId, artifactId, version, client,
         pom = client.retrieve_artifact(location)
         if pom is not None:
             pomEtree = etree.fromstring(
-                STRIP_NAMESPACE_RE.sub('<project>', pom, 1),
+                    STRIP_NAMESPACE_RE.sub('<project>',
+                        pom[pom.find('<project'):], 1),
                 parser=POM_PARSER,
                 )
             pom = PomPackage(pomEtree, location, client, cache)
