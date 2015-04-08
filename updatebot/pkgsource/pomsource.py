@@ -166,6 +166,9 @@ class PomSource(object):
             else:
                 pkg = self._pkgMap[gav]
 
+            if not pkg:
+                continue
+
             self.pkgQueue.addNode(pkg)
             for dep in util.recurseDeps(pkg):
                 self.pkgQueue.addNode(dep)
