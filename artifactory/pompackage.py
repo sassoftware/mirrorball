@@ -232,8 +232,14 @@ class PomPackage(object):
             # process compile deps
             if optional is None or optional == 'false':
                 if version is None:
-                    version = depMgmt[(groupId, artifactId)][0]
-                    version = self._replaceProperties(version)
+                    if (groupId, artifactId) in depMgmt:
+                        version = depMgmt[(groupId, artifactId)][0]
+                        version = self._replaceProperties(version)
+                    else:
+                        # FIXME: Default to the latest released version if no
+                        # version is specified. I'm not sure if this is the
+                        # correct behavior, but let's try it for now.
+                        version = 'latest.release'
 
                 if scope is None:
                     if (groupId, artifactId) in depMgmt:
