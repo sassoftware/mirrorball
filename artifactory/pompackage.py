@@ -321,9 +321,14 @@ class PomPackage(object):
                 artifactId = self.artifactId
             artifactId = self._replaceProperties(artifactId)
 
+            version = reloaction.findtext("version")
+            if version is None:
+                version = self.version
+            version = self._replaceProperties(version)
+
             try:
-                relocate_pom = createPomPackage(groupId, artifactId,
-                                                self.version, client, cache)
+                relocate_pom = createPomPackage(groupId, artifactId, version,
+                                                client, cache)
             except errors.MissingProjectError:
                 log.warning('%s missing relocation project: %s',
                     ':'.join(self.getGAV()),
