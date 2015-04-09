@@ -68,17 +68,7 @@ class PkgCacheLoader(object):
         for path, pkg in self.pkgSource.locationMap.iteritems():
             repo = self._findRepo(pkg, repos)
 
-            p = AttrDict({
-                'location': pkg.location,
-                'hash': self._getChecksum(pkg),
-                'nevra': AttrDict({
-                    'name': pkg.name,
-                    'epoch': pkg.epoch,
-                    'version': pkg.version,
-                    'release': pkg.release,
-                    'arch': pkg.arch,
-                }),
-            })
+            p = self._convertPackage(pkg)
 
             if p.nevra.arch != 'src':
                 srcPkg = self.pkgSource.binPkgMap.get(pkg)
@@ -94,6 +84,29 @@ class PkgCacheLoader(object):
         self._repos = repos
         self._packages = packages
         self._sourcePackages = sourcePackages
+
+    def _convertPackage(self, pkg):
+        _pkg = AttrDict({
+                'location': pkg.location,
+                'hash': self._getChecksum(pkg),
+                'nevra': AttrDict({
+                    'name': pkg.name,
+                    'epoch': pkg.epoch,
+                    'version': pkg.version,
+                    'release': pkg.release,
+                    'arch': pkg.arch,
+                }),
+            })
+
+        if hasattr(pkg, 'buildRequires') and pkg.buildRequires:
+            _pkg.setdefault('keyvalues', AttrDict())['buildRequires'] = \
+                    ','.join(pkg.buildRequires)
+
+        if hasattr(pkg, 'artifacts') and pkg.artifacts:
+            _pkg.setdefault('keyvalues', AttrDict())['artifacts'] = \
+                    ','.join(a['downloadUri'] for a in pkg.artifacts)
+
+        return _pkg
 
     def _getChecksum(self, pkg):
         return (pkg.checksum or hashlib.sha256(pkg.location + pkg.name +

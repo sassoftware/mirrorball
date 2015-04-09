@@ -23,7 +23,7 @@ import os
 
 from conary.lib import cfg
 from conary import versions
-from conary.conarycfg import CfgFlavor, CfgLabel
+from conary.conarycfg import CfgFlavor, CfgLabel, CfgUserInfo
 from conary.lib.cfgtypes import ParseError
 from conary.lib.cfgtypes import CfgInt, CfgQuotedLineList
 from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict
@@ -122,7 +122,7 @@ class CfgFlavorFilter(CfgRegExp, CfgFlavor):
                 flavor = CfgFlavor.parseString(self, flavorStr)
                 # ...but it *can* handle regexes containing spaces:
                 fltrStr = ' '.join(splt[2:])
-                fltr = CfgRegExp.parseString(self, fltrStr) 
+                fltr = CfgRegExp.parseString(self, fltrStr)
             return context, flavor, fltr
         except versions.ParseError, e:
             raise ParseError, e
@@ -472,7 +472,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Sometimes, we synthesize a source for a nosrc rpm, because we
     # really don't know any better.  When we find out that, in fact,
     # the nosrc rpm belongs to a src rpm with a _different_ version,
-    # the only way to resolve it is by an explicit merging of the two 
+    # the only way to resolve it is by an explicit merging of the two
     # source packages.
     mergeSources = (CfgList(CfgNevraTuple), [])
 
@@ -488,7 +488,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # at a specified timestamp, which is useful if recent errata are
     # broken and some sort of catch-up run is being done.
     lastErrata = CfgInt
-    
+
     # Timestamp after which errata promotions begin.  This is useful in
     # cases where the baseline distribution must be split across
     # multiple updateId's in order to de-dupe the package list.
@@ -538,7 +538,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
     # updateId sourceNevra
-    # As of updateId, remove resulting binaries from source package 
+    # As of updateId, remove resulting binaries from source package
     # specified by sourceNevra used when new pkg exists but has different
     # srpm than older pkg
     removeObsoletedSource = (CfgIntDict(CfgList(CfgNevra)), {})
@@ -620,7 +620,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     pkgcacheUri = CfgString
 
     # Set the number of troves to send to rmake at the same time in current mode
-    # It was hardwired to 1 now it is configurable. Be careful. 
+    # It was hardwired to 1 now it is configurable. Be careful.
     # If you don't know then don't change it
     chunkSize = (CfgInt, 1)
 
@@ -641,6 +641,11 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # so we will strip off the prefix
     gemPrefix   = (CfgString, None)
 
+    # user config for artifactory api
+    artifactoryUser = CfgUserInfo
+
+    # allow rmake to commit outdated sources
+    commitOutdatedSources = (CfgBool, False)
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):

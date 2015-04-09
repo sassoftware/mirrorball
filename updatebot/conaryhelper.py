@@ -20,6 +20,7 @@ Module to wrap around conary api. Maybe this could be replaced by rbuild at
 some point.
 """
 
+import json
 import os
 import time
 import logging
@@ -639,6 +640,29 @@ class ConaryHelper(object):
         manifest = [ x.strip() for x in open(manifestFileName) ]
         return manifest
 
+    def getJsonManifest(self, pkgname, version=None):
+        """
+        Get the contents of the manifest file from the source component for a
+        given package.
+
+        @param pkgname: name of the package to retrieve
+        @type pkgname: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
+        @return manifest for pkgname
+        """
+
+        log.info('retrieving json manifest for %s' % pkgname)
+        recipeDir = self._edit(pkgname, version=version)
+        manifestFileName = util.join(recipeDir, 'manifest')
+
+        if not os.path.exists(manifestFileName):
+            raise NoManifestFoundError(pkgname=pkgname, dir=recipeDir)
+
+        with open(manifestFileName) as fh:
+            manifest = json.load(fh)
+        return manifest
+
     def setManifest(self, pkgname, manifest):
         """
         Create/Update a manifest file.
@@ -658,6 +682,28 @@ class ConaryHelper(object):
         manifestfh.write('\n'.join(manifest))
         manifestfh.write('\n')
         manifestfh.close()
+
+        # Make sure manifest file has been added.
+        self._addFile(recipeDir, 'manifest')
+
+    def setJsonManifest(self, pkgname, manifest):
+        """
+        Create/update a json manifest file.
+
+        @param pkgname: name of the package
+        @type pkgname: string
+        @param manifest: an json-serializable object
+        @type manifest: object
+        """
+        log.info('setting json manifest for %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+
+        # update manifest file
+        manifestFileName = util.join(recipeDir, 'manifest')
+        with open(manifestFileName, 'w') as fh:
+            json.dump(manifest, fh, indent=4)
+            fh.write('\n')
 
         # Make sure manifest file has been added.
         self._addFile(recipeDir, 'manifest')
@@ -1061,7 +1107,7 @@ class ConaryHelper(object):
             versions.remove(latest)
             for version in versions:
                 for flavor in verDict[version]:
-                    log.warn('removing extra version of %s=%s[%s]' % 
+                    log.warn('removing extra version of %s=%s[%s]' %
                              (name, version, flavor))
                 del trvMap[name][version]
 

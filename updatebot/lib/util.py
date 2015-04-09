@@ -219,6 +219,20 @@ def setproctitle(title):
     except:
         pass
 
+def recurseDeps(pkg):
+    deps = []
+    seen = set()
+    def _helper(p):
+        if p in seen:
+            return
+        seen.add(p)
+        for d in p.dependencies:
+            _helper(d)
+            if d not in deps:
+                deps.append(d)
+    _helper(pkg)
+    return deps
+
 class BoundedCounter(object):
     """
     Basic counter that can be incremented and decremented while enforcing
