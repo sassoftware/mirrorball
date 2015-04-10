@@ -1,0 +1,11 @@
+hg
+*.pyc
+*~
+*,cover
+*.swp
+*.orig
+*/.times
+*/.coverage/.*
+pylint/reports
+config
+include
