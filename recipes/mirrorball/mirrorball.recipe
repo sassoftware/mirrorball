@@ -44,4 +44,6 @@ class MirrorBall(PackageRecipe):
         r.Install('scripts/auto_current_buildgroups', '%(bindir)s/current-buildgroups', mode=0755)
         r.Install('scripts/*', '%(datadir)s/%(name)s/')
 
+        r.Install('scripts/auto_artifactory_import', '%(bindir)s/artifactory_import', mode=0755)
+
         r.Install('rbuild/*', '%(datadir)s/rbuild/plugins/')
