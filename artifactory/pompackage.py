@@ -321,7 +321,7 @@ class PomPackage(object):
                 artifactId = self.artifactId
             artifactId = self._replaceProperties(artifactId)
 
-            version = reloaction.findtext("version")
+            version = relocation.findtext("version")
             if version is None:
                 version = self.version
             version = self._replaceProperties(version)
