@@ -19,6 +19,7 @@
 Configuration module for updatebot.
 """
 
+import fnmatch
 import os
 
 from conary.lib import cfg
@@ -246,6 +247,132 @@ class CfgStringFourTuple(CfgString):
         for val in splt:
             vals.append(CfgString.parseString(self, val))
         return tuple(vals)
+
+
+class CfgMavenCoordinate(CfgString):
+    """
+    Class for parsing maven cooridinates
+    """
+    def parseString(self, str):
+        try:
+            group, artifact, version = str.split(':')
+        except ValueError:
+            raise ParseError("Invalid maven coordinate '%s'" % str)
+        else:
+            return group, artifact, version
+
+    def format(self, val, displayOptions=None):
+        return ':'.join(val)
+
+
+class MavenCoordinateGlobList(object):
+    """ A list-like object that is searchable via shell-style globs
+    """
+    def __init__(self, items=None):
+        self._exact = {}
+        self._globs = []
+        if items:
+            self.extend(items)
+
+    def __iter__(self):
+        for glob, item in sorted(self._exact.iteritems()):
+            yield glob, item
+
+        for glob, item in self._globs:
+            yield glob, item
+
+    def __nonzero__(self):
+        return bool(self._exact) or bool(self._globs)
+
+    def __contains__(self, value):
+        return bool(self.find(value))
+
+    def __eq__(self, other):
+        return list(self) == list(other)
+
+    def __ne__(self, other):
+        return list(self) != list(other)
+
+    def find(self, value):
+        result = self._exact.get(value)
+        if result:
+            return result
+
+        for glob, result in self._globs:
+            if fnmatch.fnmatchcase(value, glob):
+                return result
+
+    def append(self, item):
+        if len(item) == 2:
+            glob, value = item
+        else:
+            glob = item
+            value = True
+
+        if not any(x in glob for x in '*?['):
+            self._exact[glob] = value
+        else:
+            idx = None
+            replace = False
+            for i, (oldGlob, oldValue) in enumerate(self._globs):
+                if fnmatch.fnmatchcase(glob, oldGlob):
+                    if glob == oldGlob:
+                        replace = True
+                    idx = i
+                    break
+
+            if idx is None:
+                self._globs.append((glob, value))
+            elif replace:
+                self._globs[idx] = (glob, value)
+            else:
+                self._globs.insert(idx, (glob, value))
+
+    def extend(self, items):
+        for item in reversed(list(items)):
+            self.append(item)
+
+    def clear(self):
+        self._exact.clear()
+        del self._globs[:]
+
+    def copy(self):
+        l = MavenCoordinateGlobList()
+        l._exact = self._exact.copy()
+        l._globs = self._globs[:]
+        return l
+
+
+class CfgMavenCoordinateList(CfgList):
+    def __init__(self, default=None):
+        if default is None:
+            default = []
+        CfgList.__init__(self, CfgString, MavenCoordinateGlobList,
+                         default)
+
+
+class CfgRelocatePomItem(CfgString):
+    def parseString(self, value):
+        try:
+            glob, coordinate = value.split()
+        except ValueError:
+            raise ParseError("expected <cooridinateglob> <coordinate>")
+        coordinate = CfgMavenCoordinate().parseString(coordinate)
+
+        return glob, coordinate
+
+    def format(self, val, displayOptions=None):
+        return "%s %s" % val
+
+
+class CfgRelocatePomList(CfgList):
+    """ Config class to represent pom relocation
+    """
+    def __init__(self, default=None):
+        if default is None:
+            default = []
+        CfgList.__init__(self, CfgRelocatePomItem, MavenCoordinateGlobList,
+                         default)
 
 
 class UpdateBotConfigSection(cfg.ConfigSection):
@@ -646,6 +773,12 @@ class UpdateBotConfigSection(cfg.ConfigSection):
 
     # allow rmake to commit outdated sources
     commitOutdatedSources = (CfgBool, False)
+
+    # pom exclusion
+    excludePoms = (CfgMavenCoordinateList, [])
+
+    # pom relocation
+    relocatePoms = (CfgRelocatePomList, [])
 
 
 class UpdateBotConfig(cfg.SectionedConfigFile):
