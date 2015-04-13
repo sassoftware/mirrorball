@@ -134,6 +134,7 @@ class PomSource(object):
                 # this is a new package
                 pkg = createPomPackage(*gav, client=client, cache=self._pkgMap)
             else:
+                log.debug("already processed %s", ':'.join(gav))
                 pkg = self._pkgMap[gav]
 
             if not pkg:
