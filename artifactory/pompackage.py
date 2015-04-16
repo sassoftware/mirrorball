@@ -146,7 +146,8 @@ class PomPackage(object):
             else:
                 return matchobj.group(0)
 
-        return PROPERTY_RE.sub(subfunc, text)
+        result = PROPERTY_RE.sub(subfunc, text)
+        return result.strip()
 
     @property
     def arch(self):
@@ -371,8 +372,14 @@ class PomPackage(object):
         parent = pom.find('parent')
         if parent is not None:
             groupId = parent.findtext('groupId')
+            if groupId is not None:
+                groupId = groupId.strip()
             artifactId = parent.findtext('artifactId')
+            if artifactId is not None:
+                artifactId = artifactId.strip()
             version = parent.findtext('version')
+            if version is not None:
+                version = version.strip()
 
             try:
                 parent_pom = createPomPackage(groupId, artifactId, version,
