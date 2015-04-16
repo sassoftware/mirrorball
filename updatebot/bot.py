@@ -1,16 +1,19 @@
-#a
-# Copyright (c) 2008-2010 rPath, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Module for driving the update process.
@@ -24,7 +27,6 @@ from updatebot import build
 from updatebot import update
 from updatebot import cmdline
 from updatebot import pkgsource
-from updatebot import advisories
 
 from updatebot.errors import InvalidUpdateModeError
 
@@ -48,10 +50,6 @@ class Bot(object):
         self._pkgSource = pkgsource.PackageSource(self._cfg, self._ui)
         self._updater = update.Updater(self._cfg, self._ui, self._pkgSource)
         self._builder = build.Builder(self._cfg, self._ui)
-
-        if not self._cfg.disableAdvisories:
-            self._advisor = advisories.Advisor(self._cfg, self._pkgSource,
-                                               self._cfg.platformName)
 
     @classmethod
     def _validateMode(cls, cfg):
@@ -124,7 +122,8 @@ class Bot(object):
                     log.warn('not packaging %s, not found in srcPkgMap' % latestSrc.name)
                     continue
 
-                if latestSrc.name in self._cfg.excludePackages:
+                if (latestSrc.name in self._cfg.excludePackages or
+                    latestSrc.name in self._cfg.package):
                     log.warn('ignoring %s due to exclude rule' % latestSrc.name)
                     continue
 
@@ -210,7 +209,21 @@ class Bot(object):
             updateTroves = set(((x.name, None, None), x) for x in updatePkgs)
 
         start = time.time()
-        log.info('starting update')
+        log.info('starting update : %s' % start)
+
+        if not expectedRemovals:
+            ##
+            # We are going to put together a list of all the removed pkgs
+            # it is needed to check the group for stuff we want out
+            ##
+
+            removeObsoleted = set([ x for x in
+                itertools.chain(*self._cfg.removeObsoleted.values()) ])
+            updateRemovesPackage = set([ x for x in
+                itertools.chain(*self._cfg.updateRemovesPackages.values()) ])
+
+            expectedRemovals = removeObsoleted | updateRemovesPackage
+
 
         if not expectedRemovals:
             ##
@@ -236,6 +249,8 @@ class Bot(object):
             allowPackageDowngrades=allowPackageDowngrades,
             keepRemovedPackages=keepRemovedPackages)
 
+        log.info('Found %s updates : %s' % (len(toUpdate), time.time()))
+ 
         # If forcing an update, make sure that all packages are listed in
         # toAdvise and toUpdate as needed.
         if force:
@@ -253,14 +268,6 @@ class Bot(object):
         if len(toAdvise) == 0:
             log.info('no updates available')
             return
-
-        if not self._cfg.disableAdvisories:
-            # Populate patch source now that we know that there are updates
-            # available.
-            self._advisor.load()
-
-            # Check to see if advisories exist for all required packages.
-            self._advisor.check(toAdvise)
 
         # Update source
         parentPackages = set()
@@ -297,23 +304,21 @@ class Bot(object):
         # Updates for centos 5 unencap require grpbuild and promote
         if self._cfg.updateMode == 'latest' and self._cfg.platformName == 'centos':
             # Build group.
+            log.info('Building group : %s' %  self._cfg.topSourceGroup.asString())
             grpTrvs = (self._cfg.topSourceGroup, )
             grpTrvMap = self._builder.build(grpTrvs)
 
             # Promote group.
             # We expect that everything that was built will be published.
-            expected = self._flattenSetDict(trvMap)
-            toPublish = self._flattenSetDict(grpTrvMap)
-            newTroves = self._updater.publish(toPublish, expected,
-                                              self._cfg.targetLabel)
+            if self._cfg.targetLabel != self._cfg.sourceLabel[-1]:
+                expected = self._flattenSetDict(trvMap)
+                toPublish = self._flattenSetDict(grpTrvMap)
+                newTroves = self._updater.publish(toPublish, expected,
+                                               self._cfg.targetLabel)
 
             # Disabled handled in seperate job
-            # Mirror out content
+            # Mirror out what we have done
             #self._updater.mirror()
-
-        if not self._cfg.disableAdvisories:
-            # Send advisories.
-            self._advisor.send(toAdvise, newTroves)
 
 
         log.info('update completed successfully')

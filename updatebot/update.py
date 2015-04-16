@@ -1,22 +1,26 @@
 #
-# Copyright (c) 2008-2010 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Module for finding packages to update and updating them.
 """
 
 import os
+import time
 import copy
 import logging
 import itertools
@@ -76,7 +80,8 @@ class Updater(object):
                 to update
         """
 
-        log.info('searching for packages to update')
+        start = time.time()
+        log.info('Searching for packages to update : %s' % start)
 
         assert updateTroves is None or len(updateTroves)
 
@@ -107,8 +112,9 @@ class Updater(object):
                 toAdvise.append(((nvf[0], version, nvf[2]), srpm))
 
 
-        log.info('found %s troves to update, and %s troves to send advisories'
+        log.info('Found %s troves to update, and %s troves to send advisories'
                  % (len(toUpdate), len(toAdvise)))
+        log.info('Elapsed Time : %s' % (time.time() - start))
         return toAdvise, toUpdate
 
     def _fltrPkg(self, pkgname):
@@ -364,6 +370,9 @@ class Updater(object):
         @raises UpdateRemovesPackageError
         """
 
+        start = time.time()
+        log.info('Starting Sanitize Trove : %s' % start)
+
         keepRemovedPackages = keepRemovedPackages or []
         needsUpdate = False
         newNames = [ (x.name, x.arch) for x in self._pkgSource.srcPkgMap[srpm] ]
@@ -399,7 +408,13 @@ class Updater(object):
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             elif (line.strip().endswith('.src.rpm') and
                   self._cfg.synthesizeSources):
+                log.info("This is a fake source %s" % line)
                 # this is a fake source.  Move on.
+                continue
+            elif self._cfg.disableOldVersionCheck:
+                # For epel support since the repo does not
+                # keep old versions at all.
+                log.warn("Disabled OldVersionNotFoundError in config")
                 continue
             else:
                 if metadata is None:
@@ -532,6 +547,8 @@ class Updater(object):
 
         if len(manifest) < self._getManifestFromPkgSource(srpm):
             needsUpdate = True
+
+        log.debug('Elapsed Time Sanitize Trove : %s' % (time.time() - start))
 
         return needsUpdate
 
@@ -739,7 +756,7 @@ class Updater(object):
         """
 
         # W0612 - Unused variable
-        # pylint: disable-msg=W0612
+        # pylint: disable=W0612
 
         try:
             return dict([(n.split(':')[0], pkgs) for (n, v, f), pkgs in
@@ -812,8 +829,18 @@ class Updater(object):
             log.info('using version from parent platform %s' % parentVersion)
             return parentVersion
 
-        manifest = self._getManifestFromPkgSource(srcPkg)
-        self._conaryhelper.setManifest(nvf[0], manifest)
+        # artifactory packages use a completely
+        # different manifest format
+        if self._cfg.repositoryFormat == 'artifactory':
+            manifest = dict(
+                version=srcPkg.version,
+                build_requires=srcPkg.buildRequires,
+                artifacts=srcPkg.artifacts,
+            )
+            self._conaryhelper.setJsonManifest(nvf[0], manifest)
+        else:
+            manifest = self._getManifestFromPkgSource(srcPkg)
+            self._conaryhelper.setManifest(nvf[0], manifest)
 
         if self._cfg.writePackageVersion:
             self._conaryhelper.setVersion(nvf[0], '%s_%s'
@@ -947,14 +974,11 @@ class Updater(object):
         else:
             manifestPkgs = list(self._pkgSource.srcPkgMap[srcPkg])
             for pkg in self._getLatestOfAvailableArches(manifestPkgs):
-                if hasattr(pkg, 'location'):
-                    arch = self._getRepositoryArch(pkg.location)
-                    location = pkg.location
-                    if arch:
-                        location += '?arch=%s' % arch
-                    manifest.append(location)
-                elif hasattr(pkg, 'files'):
-                    manifest.extend(pkg.files)
+                arch = self._getRepositoryArch(pkg.location)
+                location = pkg.location
+                if arch:
+                    location += '?arch=%s' % arch
+                manifest.append(location)
         return manifest
 
     def getPackageFileNames(self, srcPkg):

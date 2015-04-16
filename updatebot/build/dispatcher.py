@@ -1,16 +1,19 @@
 #
-# Copyright (c) 2009-2010 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 New implementation of builder module that uses rMake's message bus for job
@@ -31,7 +34,7 @@ from updatebot.build.monitor import JobRebuildStarter
 from updatebot.build.monitor import JobPromoter
 from updatebot.build.constants import JobStatus
 
-
+from updatebot.errors import JobsFailedError
 from updatebot.errors import JobNotCompleteError
 
 log = logging.getLogger('updatebot.build')
@@ -43,9 +46,10 @@ class AbstractDispatcher(object):
 
     _completed = ()
 
-    def __init__(self, builder, maxSlots):
+    def __init__(self, builder, maxSlots, retries=0):
         self._builder = builder
         self._slots = util.BoundedCounter(0, maxSlots, maxSlots)
+        self._retries = retries
 
         # jobId: (trv, status, commitData)
         self._jobs = {}
@@ -61,14 +65,16 @@ class AbstractDispatcher(object):
             if self._jobs[x][1] not in self._completed]))
 
         if not len(self._jobs):
-            log.warn('_jobs empty... guess we need to wait')
-            log.warn('%s' % str(self._jobs))
+            log.debug('_jobs empty... guess we need to wait')
+            log.debug('%s' % str(self._jobs))
             return False
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
-            log.warn('STATUS: %s' % status)
+            log.debug('STATUS: %s' % status)
+            if status == buildjob.JOB_STATE_FAILED:
+                log.error('[%s] failed job: %s' % (jobId, trove))
             if status not in self._completed:
-                log.warn('%s %s %s not in _completed' % (jobId, str(status), str(result)))
+                log.debug('%s %s %s not in _completed' % (jobId, str(status), str(result)))
                 return False
 
         return True
@@ -104,16 +110,19 @@ class Dispatcher(AbstractDispatcher):
     _monitorClass = JobMonitor
     _committerClass = JobCommitter
 
-    def __init__(self, builder, maxSlots):
-        AbstractDispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, retries=0):
+        AbstractDispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         self._startSlots = util.BoundedCounter(0, 10, 10)
         #self._commitSlots = util.BoundedCounter(0, 2, 2)
         self._commitSlots = util.BoundedCounter(0, 1, 1)
 
-        self._starter = self._starterClass(self._builder)
-        self._monitor = self._monitorClass(self._builder._helper.client)
-        self._committer = self._committerClass(self._builder)
+        self._starter = self._starterClass((self._builder, ),
+                retries=self._retries)
+        self._monitor = self._monitorClass((self._builder._helper.client, ),
+                retries=self._retries)
+        self._committer = self._committerClass((self._builder, ),
+                retries=self._retries)
 
     def buildmany(self, troveSpecs):
         """
@@ -128,6 +137,7 @@ class Dispatcher(AbstractDispatcher):
         # Sort troves into buckets.
         troves = self._builder.orderJobs(troveSpecs)
 
+
         while troves or not self._jobDone():
             # Only create more jobs once the last batch has been started.
             if self._startSlots == self._startSlots.upperlimit:
@@ -136,7 +146,6 @@ class Dispatcher(AbstractDispatcher):
                        self._availableFDs()):
                     # get trove to work on
                     trove = troves.pop(0)
-
                     # start build job
                     self._starter.startJob(trove)
                     self._slots -= 1
@@ -261,8 +270,8 @@ class NonCommittalDispatcher(Dispatcher):
         buildjob.JOB_STATE_BUILT,
     )
 
-    def __init__(self, builder, maxSlots):
-        Dispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, retries=0):
+        Dispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         # Disable commits by removing all commit slots.
         self._commitSlots = util.BoundedCounter(0, 0, 0)
@@ -280,7 +289,11 @@ class NonCommittalDispatcher(Dispatcher):
         results, self._failures = Dispatcher.buildmany(self, troveSpecs)
 
         # Make sure there are no failures.
-        assert not self._failures
+        if self._failures:
+            for failure in self._failures:
+                log.error('failed: %s' % (failure, ))
+            raise JobsFailedError(jobIds=self._failures, why='Failed to build '
+                'all troves, refusing to commit')
 
         for jobId, (trove, status, result) in self._jobs.iteritems():
             # Make sure all jobs are built.
@@ -324,8 +337,8 @@ class MultiVersionDispatcher(Dispatcher):
     versions of the same package.
     """
 
-    def __init__(self, builder, maxSlots, waitForAllVersions=False):
-        Dispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, waitForAllVersions=False, retries=0):
+        Dispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         self._waitForAllVersions = waitForAllVersions
 
@@ -421,9 +434,9 @@ class RebuildDispatcher(MultiVersionDispatcher):
     _starterClass = JobRebuildStarter
 
     def __init__(self, builder, maxSlots, useLatest=None,
-        additionalResolveTroves=None):
+        additionalResolveTroves=None, retries=0):
         MultiVersionDispatcher.__init__(self, builder, maxSlots,
-            waitForAllVersions=True)
+            waitForAllVersions=True, retries=retries)
 
         self._starter = self._starterClass((builder, useLatest,
             additionalResolveTroves))
@@ -445,13 +458,13 @@ class PromoteDispatcher(Dispatcher):
 
     _promoterClass = JobPromoter
 
-    def __init__(self, builder, maxSlots):
-        Dispatcher.__init__(self, builder, maxSlots)
+    def __init__(self, builder, maxSlots, retries=0):
+        Dispatcher.__init__(self, builder, maxSlots, retries=retries)
 
         self._promoteSlots = util.BoundedCounter(0, 1, 1)
 
         self._promoter = self._promoterClass((self._builder._conaryhelper,
-            self._builder._cfg.targetLabel))
+            self._builder._cfg.targetLabel), retries=retries)
 
         self._status = {}
 
@@ -499,7 +512,6 @@ class PromoteDispatcher(Dispatcher):
 
                 self._promoteSlots -= 1
                 self._promoter.promoteJob(toPromote)
-
 
         # Gather results
         for result in self._promoter.getStatus():

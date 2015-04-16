@@ -1,16 +1,19 @@
 #
-# Copyright (c) 2008-2010 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Configuration module for updatebot.
@@ -20,7 +23,7 @@ import os
 
 from conary.lib import cfg
 from conary import versions
-from conary.conarycfg import CfgFlavor, CfgLabel
+from conary.conarycfg import CfgFlavor, CfgLabel, CfgUserInfo
 from conary.lib.cfgtypes import ParseError
 from conary.lib.cfgtypes import CfgInt, CfgQuotedLineList
 from conary.lib.cfgtypes import CfgString, CfgList, CfgRegExp, CfgBool, CfgDict
@@ -119,7 +122,7 @@ class CfgFlavorFilter(CfgRegExp, CfgFlavor):
                 flavor = CfgFlavor.parseString(self, flavorStr)
                 # ...but it *can* handle regexes containing spaces:
                 fltrStr = ' '.join(splt[2:])
-                fltr = CfgRegExp.parseString(self, fltrStr) 
+                fltr = CfgRegExp.parseString(self, fltrStr)
             return context, flavor, fltr
         except versions.ParseError, e:
             raise ParseError, e
@@ -251,7 +254,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     """
 
     # R0904 - to many public methods
-    # pylint: disable-msg=R0904
+    # pylint: disable=R0904
 
     # Mode that updatebot is running in. (possible values ar
     # 'ordered' and 'latest'.
@@ -469,7 +472,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # Sometimes, we synthesize a source for a nosrc rpm, because we
     # really don't know any better.  When we find out that, in fact,
     # the nosrc rpm belongs to a src rpm with a _different_ version,
-    # the only way to resolve it is by an explicit merging of the two 
+    # the only way to resolve it is by an explicit merging of the two
     # source packages.
     mergeSources = (CfgList(CfgNevraTuple), [])
 
@@ -485,7 +488,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # at a specified timestamp, which is useful if recent errata are
     # broken and some sort of catch-up run is being done.
     lastErrata = CfgInt
-    
+
     # Timestamp after which errata promotions begin.  This is useful in
     # cases where the baseline distribution must be split across
     # multiple updateId's in order to de-dupe the package list.
@@ -535,7 +538,7 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     removeSource = (CfgIntDict(CfgList(CfgNevra)), {})
 
     # updateId sourceNevra
-    # As of updateId, remove resulting binaries from source package 
+    # As of updateId, remove resulting binaries from source package
     # specified by sourceNevra used when new pkg exists but has different
     # srpm than older pkg
     removeObsoletedSource = (CfgIntDict(CfgList(CfgNevra)), {})
@@ -613,18 +616,45 @@ class UpdateBotConfigSection(cfg.ConfigSection):
     # to import the same package version more than once.
     recreate = (CfgBool, False)
 
+    # uri to a pkgcache server
+    pkgcacheUri = CfgString
+
+    # Set the number of troves to send to rmake at the same time in current mode
+    # It was hardwired to 1 now it is configurable. Be careful.
+    # If you don't know then don't change it
+    chunkSize = (CfgInt, 1)
+
+
+    # Disable OldVersion check for repos that only move forward.
+    # Added to support epel
+    disableOldVersionCheck = (CfgBool, False)
+
+    # Gem Factory to use for importing
+    gemPackageFactory   = (CfgString, None)
+
+    # Gem Packages to import
+    gemPackage          = (CfgList(CfgString), [])
+
+    # Gem Package Prefix to use for packages
+    # because we need to know what the gem name is
+    # without checking out the manifest
+    # so we will strip off the prefix
+    gemPrefix   = (CfgString, None)
+
+    # user config for artifactory api
+    artifactoryUser = CfgUserInfo
+
+    # allow rmake to commit outdated sources
+    commitOutdatedSources = (CfgBool, False)
+
+
 class UpdateBotConfig(cfg.SectionedConfigFile):
     """
     Config object for UpdateBot.
     """
 
     _defaultSectionType = UpdateBotConfigSection
-
-    def __init__(self):
-        cfg.SectionedConfigFile.__init__(self)
-        for info in self._defaultSectionType._getConfigOptions():
-            if info[0] not in self:
-                self.addConfigOption(*info)
+    _cfg_bases = [ UpdateBotConfigSection ]
 
     def read(self, *args, **kwargs):
         """

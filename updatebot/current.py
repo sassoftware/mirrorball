@@ -1,16 +1,19 @@
 #
-# Copyright (c) 2009-2011 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Module for doing updates by importing all of the available packages and then
@@ -154,7 +157,6 @@ class Bot(BotSuperClass):
             for pkg in remPkgs:
                 for pkgs in remPkgs[pkg]:
                     removePackages.setdefault(pkg, []).append(pkgs)
-
 
         # Don't taint group model unless something has actually changed.
         if addPackages or removePackages:
@@ -394,6 +396,12 @@ class Bot(BotSuperClass):
 
         helper = self._updater._conaryhelper
 
+        toPromote = set()
+
+        if self._cfg.targetLabel.label() == helper._ccfg.buildLabel:
+            log.info('Target and Source labels match... no need to promote')
+            return toPromote
+
         # Get all of the nevras for the target and source labels.
         log.info('querying target nevras')
         targetNevras = self._getNevrasForLabel(self._cfg.targetLabel)
@@ -414,7 +422,7 @@ class Bot(BotSuperClass):
         # Now diff the two maps. We are looking for things that have been
         # updated on the source label, that have not made it to the target
         # label.
-        toPromote = set()
+
         for nevra, nvfs in sourceLatest.iteritems():
             # nevra has not been promoted.
             if nevra not in targetLatest:
@@ -425,25 +433,21 @@ class Bot(BotSuperClass):
                 if nvf not in targetClonedFrom:
                     toPromote.add(nvf)
 
-        #import epdb;epdb.st()
-
-
         return toPromote
 
-    def _getUpdatePackages(self):
+    def _getUpdatePackages(self, sourceNevras=None, sourceLatest=None):
         """
         Compare the upstream yum repository and the conary repository to figure
         out what sources need to be updated.
         """
 
-        log.info('finding updates')
+        start = time.time()
 
         # Get a mapping of nvf -> nevra
-        sourceNevras = self._getNevrasForLabel(
-            self._updater._conaryhelper._ccfg.buildLabel)
+        # And reverse the map and filter out old conary versions.
+        if not sourceNevras or not sourceLatest:
+            sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
 
-        # Reverse the map and filter out old conary versions.
-        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
 
         # HACK FOR RHEL5CLIENT
         # Another hack for rhel 5 client workstation
@@ -460,7 +464,9 @@ class Bot(BotSuperClass):
         # Iterate over all of the available source rpms to find any versions
         # that have not been imported into the conary repository.
         toUpdate = set()
+
         toUpdateMap = {}
+
         for binPkg, srcPkg in self._pkgSource.binPkgMap.iteritems():
 
             # Skip updating pkg if explicitly ignored
@@ -481,9 +487,9 @@ class Bot(BotSuperClass):
                     continue
 
 
-
-            if binPkg.getNevra() not in sourceLatest:
-                log.info('UPDATING : %s' % binPkg)
+            #if binPkg.getNevra() not in sourceLatest:
+            if NEVRA(*binPkg.getNevra()) not in sourceLatest:
+                log.debug('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
 
@@ -504,22 +510,58 @@ class Bot(BotSuperClass):
                 else:
                     log.warn('addSource failed for %s' % str(sPkg))
 
+        log.info('Elapsed Time : %s' % (time.time() - start))
+
+
         return UpdateSet(toUpdate)
 
-    def _getPreviousNVFForSrcPkg(self, srcPkg):
+
+    def _getSourceNevraLatestMaps(self):
+        """
+        Return sourceNevra and sourceLatest maps
+        """
+
+        start = time.time()
+
+        log.info('Creating sourceNevras Map : %s' % start)
+
+        # Get a mapping of nvf -> nevra
+        sourceNevras = self._getNevrasForLabel(
+                self._updater._conaryhelper._ccfg.buildLabel)
+
+        log.info('Found sourceNevras : %s' % (time.time() - start))
+
+        # Reverse the map and filter out old conary versions.
+        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+
+        log.info('Created sourceLatest : %s' % (time.time() - start))
+
+        return sourceNevras, sourceLatest
+
+    def _getUpdateTroveSets(self, srcPkgs, sourceNevras=None, sourceLatest=None):
+        """
+        Takes a list of srcsPkgs 
+        Figures out what this source package was meant to update.
+        """
+
+        if not sourceNevras or not sourceLatest:
+            sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
+
+        updateSet = set()
+        
+        for srcPkg in srcPkgs:
+            updateSet.add((self._getPreviousNVFForSrcPkg(srcPkg, sourceNevras, sourceLatest), srcPkg))
+        #import epdb;epdb.st()
+        log.info('Update Set contains %s pkgs' % len(updateSet))
+        return updateSet
+
+    def _getPreviousNVFForSrcPkg(self, srcPkg, sourceNevras=None, sourceLatest=None):
         """
         Figure out what this source package was meant to update.
         """
 
-        # FIXME: Should make this take a list of srcPkgs so that we can
-        #        avoid multiple repository calls.
-
-        # Get a mapping of nvf -> nevra
-        sourceNevras = self._getNevrasForLabel(
-            self._updater._conaryhelper._ccfg.buildLabel)
-
-        # Reverse the map and filter out old conary versions.
-        sourceLatest = self._getLatestNevraPackageMap(sourceNevras)
+        if not sourceNevras or not sourceLatest:
+            sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
 
         # Find the previous nevra
         srcPkgs = sorted(self._pkgSource.srcNameMap.get(srcPkg.name))
@@ -604,7 +646,10 @@ class Bot(BotSuperClass):
 
 
         # Figure out what packages need to be updated.
-        updatePkgs = self._getUpdatePackages()
+        # These will be used later so lets do this once
+        sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
+
+        updatePkgs = self._getUpdatePackages(sourceNevras, sourceLatest)
 
         # remove packages from config
         removePackages = self._cfg.updateRemovesPackages.get(updateId, [])
@@ -623,44 +668,34 @@ class Bot(BotSuperClass):
         # Update package set.
         pkgMap = {}
         if updatePkgs:
+
             updatePkgs.filterPkgs(kwargs.pop('fltr', None))
 
             for updateSet in updatePkgs:
-                log.info('building set of update troves')
-
-                #updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
-                #    for x in updateSet])
 
                 log.info('running update')
 
                 log.info('WORKING ON %s UPDATES' % len(updateSet))
 
-                #DEBUG RHEL5CLIENT
-                log.warn('DEBUG THREADING')
-                #import epdb;epdb.st()
-
-                chunks = 1
+                chunks = self._cfg.chunkSize
 
                 chunk = lambda ulist, step:  map(lambda i: ulist[i:i+step],
                             xrange(0, len(ulist), step))
-
+                
+                log.info('building set of update troves')
 
                 for upSet in chunk(updateSet, chunks):
+                    
+                    log.info('Working on upSet : %s' % len(upSet))
 
-                    updateTroves = set([ (self._getPreviousNVFForSrcPkg(x), x)
-                        for x in upSet])
+                    updateTroves = self._getUpdateTroveSets(upSet, sourceNevras, sourceLatest)
 
-
-                    #import epdb;epdb.st()
+                    log.info('Current Chunk Size : %s' % len(updateTroves))
 
                     pkgMap.update(self._update(*args, updateTroves=updateTroves,
                         updatePkgs=True, expectedRemovals=expectedRemovals,
                         keepRemovedPackages=keepRemoved,
                         **kwargs))
-
-                    #import epdb;epdb.st()
-
-                # HACK FOR RHEL 5 CLIENT
 
                 # The NEVRA maps will be changing every time through. Make sure
                 # the clear the cache.
@@ -880,6 +915,14 @@ class Bot(BotSuperClass):
         removed = removeObsoleted | updateRemovesPackage
 
         ##
+        # TODO: Need to add function for updateReplacesPackages
+        ##
+        updateReplacesPackage = set([ x for x in
+            itertools.chain(*self._cfg.updateReplacesPackages.values()) ])
+
+        #log.info(updateReplacesPackage)
+
+        ##
         # Iterate over the group contents, looking for any packages that may
         # have been rebuilt, but the nevra stayed the same.
         ##
@@ -945,8 +988,6 @@ class Bot(BotSuperClass):
             if name in newPkgs:
                 rem = toAdd.pop(newPkgs[name])
                 removedPkgs.append((name, rem))
-
-
 
         ##
         # Remove any packages that were flagged for removal.
@@ -1099,6 +1140,7 @@ class Bot(BotSuperClass):
         # For debuging
         self._updateId = updateId
         log.info('UpdateID is %s' % self._updateId)
+
         # Figure out what packages still need to be promoted.
         promotePkgs = self._getPromotePackages()
 
@@ -1129,7 +1171,9 @@ class Bot(BotSuperClass):
 
         # Mangle the devel group to ref packages on the prod label
         # so we can promote...
-        self._mangleGroups(group)
+        if max(self._cfg.sourceLabel) != self._cfg.targetLabel:
+            log.info('Target and Source labels differ... mangling group')
+            self._mangleGroups(group)
 
         # Modify any extra groups to match config.
         self._modifyGroups(updateId, group)
@@ -1140,28 +1184,28 @@ class Bot(BotSuperClass):
         # same day...
         version = time.strftime('%Y.%m.%d_%H%M.%S', time.gmtime(time.time()))
 
-        #import epdb;epdb.st()
-
         # Build groups.
         log.info('setting version %s' % version)
         group.version = version
         group = group.commit()
         grpTrvMap = group.build()
+        trvMap = {}
+        promoted = None
 
         # Promote groups
-        log.info('promoting group %s ' % group.version)
-        toPromote = []
-        for grpPkgs in grpTrvMap.itervalues():
-            for grpPkg in grpPkgs:
-                toPromote.append((grpPkg[0],grpPkg[1],grpPkg[2]))
+        if max(self._cfg.sourceLabel) != self._cfg.targetLabel:
+            log.info('promoting group %s ' % group.version)
+            toPromote = []
+            for grpPkgs in grpTrvMap.itervalues():
+                for grpPkg in grpPkgs:
+                    toPromote.append((grpPkg[0],grpPkg[1],grpPkg[2]))
 
-        promoted = self._updater.publish(toPromote, toPromote, self._cfg.targetLabel)
+            promoted = self._updater.publish(toPromote, toPromote, self._cfg.targetLabel)
 
-        trvMap = {}
-
-        for trv in promoted:
-            n, v , f = trv
-            trvMap.setdefault(n, set()).add((n,v,f))
+        if promoted:
+            for trv in promoted:
+                n, v , f = trv
+                trvMap.setdefault(n, set()).add((n,v,f))
 
         # Report timings
         advTime = time.strftime('%m-%d-%Y %H:%M:%S',

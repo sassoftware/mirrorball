@@ -1,16 +1,19 @@
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Module for common abstract classes.
@@ -129,7 +132,7 @@ class AbstractStatusMonitor(object):
 
     workerClass = None
 
-    def __init__(self, threadArgs):
+    def __init__(self, threadArgs, retries=0):
         if type(threadArgs) not in (list, tuple, set):
             threadArgs = (threadArgs, )
         self._threadArgs = threadArgs
@@ -137,6 +140,8 @@ class AbstractStatusMonitor(object):
         self._status = self.workerClass.queueClass()
         self._workers = {}
         self._errors = []
+
+        self._retries = Retries(retries)
 
     def addJob(self, job):
         """
@@ -160,6 +165,7 @@ class AbstractStatusMonitor(object):
             return
 
         self._workers[worker.workerId] = worker
+        self._retries.addJob(worker.workerId)
         worker.daemon = True
         worker.start()
 
@@ -198,24 +204,25 @@ class AbstractStatusMonitor(object):
         data = []
         mtype, payload = msg
         # DEBUG
-        log.warn('mtype is %s' % str(mtype))
+
+        log.debug('mtype is %s' % str(mtype))
         if mtype == MessageTypes.LOG:
             # mtype == 0 in this situation
-            log.info('MessageTypes.LOG')
+            #log.info('MessageTypes.LOG')
             log.info(payload)
         elif mtype == MessageTypes.DATA:
             # mytpe == 1 in this situation
-            log.warn('DATA recieved: %s ' % str(payload))
+            log.info('DATA recieved: %s ' % str(payload))
             data.append(payload)
         elif mtype == MessageTypes.THREAD_DONE:
             # mtype == 2 in this situation
-            log.warn('Job done -- I should delete the worker')
-            log.warn('Job done payload is %s' % str(payload))
+            log.debug('Job done -- I should delete the worker')
+            log.info('Job done payload is %s' % str(payload))
             job = payload
             #assert not self._workers[job].isAlive()
             if job in self._workers:
-                log.warn('Worker I am looking to del %s' % str(self._workers[job]))
-                log.warn('WORKERS: %s' % str(self._workers))
+                log.debug('Worker I am looking to del %s' % str(self._workers[job]))
+                log.debug('WORKERS: %s' % str(self._workers))
                 del self._workers[job]
             else:
                 log.critical('JOB NOT FOUND %s' % (job, ))
@@ -224,6 +231,28 @@ class AbstractStatusMonitor(object):
             #assert not self._workers[job].isAlive()
             #raise error
             log.error('[%s] FAILED with exception: %s' % (job, error))
-            self._errors.append((job, error))
+
+            workerId = self._workers[job].workerId
+            if self._retries.retry(workerId):
+                log.info('retrying %s' % (job, ))
+                self._workers.pop(job, None)
+                self.addJob(workerId)
+            else:
+                self._errors.append((job, error))
 
         return data
+
+
+class Retries(object):
+    def __init__(self, retries):
+        self.retries = retries
+        self._jobs = {}
+
+    def addJob(self, jobId):
+        if jobId not in self._jobs:
+            self._jobs[jobId] = 0
+
+    def retry(self, jobId):
+        if self._jobs[jobId] + 1 > self.retries:
+            return False
+        self._jobs[jobId] += 1

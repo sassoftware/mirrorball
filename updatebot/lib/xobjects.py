@@ -1,16 +1,19 @@
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Module for serializable representations of repository metadata.
@@ -19,9 +22,6 @@ Module for serializable representations of repository metadata.
 from xobj import xobj
 
 import conary
-
-from aptmd.packages import _Package
-from aptmd.sources import _SourcePackage
 
 class XDocManager(xobj.Document):
     """
@@ -56,35 +56,6 @@ class XDocManager(xobj.Document):
         xml = self.toxml()
         fObj.write(xml)
         fObj.close()
-
-
-class XMetadata(object):
-    """
-    Representation of repository data.
-    """
-
-    binaryPackages = [ _Package ]
-    sourcePackage = _SourcePackage
-
-
-class XMetadataDoc(XDocManager):
-    """
-    Document class for repository data.
-    """
-
-    data = XMetadata
-
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        XDocManager.__init__(self, *args, **kwargs)
-        if data is not None:
-            self.data = XMetadata()
-            self.data.binaryPackages = []
-            for pkg in data:
-                if pkg.arch == 'src':
-                    self.data.sourcePackage = pkg
-                else:
-                    self.data.binaryPackages.append(pkg)
 
 
 class XDictItem(object):

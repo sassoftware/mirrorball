@@ -1,16 +1,19 @@
 #
-# Copyright (c) 2008-2009 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Builder object implementation.
@@ -98,14 +101,17 @@ class Builder(object):
     @type ui: cmdline.ui.UserInterface
     """
 
-    def __init__(self, cfg, ui, rmakeCfgFn=None):
+    def __init__(self, cfg, ui, rmakeCfgFn=None, conaryCfg=None, rmakeCfg=None):
         self._cfg = cfg
         self._ui = ui
 
-        self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
-        self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
-        self._ccfg.dbPath = ':memory:'
-        self._ccfg.initializeFlavors()
+        if conaryCfg:
+            self._ccfg = conaryCfg
+        else:
+            self._ccfg = conarycfg.ConaryConfiguration(readConfigFiles=False)
+            self._ccfg.read(util.join(self._cfg.configPath, 'conaryrc'))
+            self._ccfg.dbPath = ':memory:'
+            self._ccfg.initializeFlavors()
 
         self._client = conaryclient.ConaryClient(self._ccfg)
 
@@ -119,6 +125,21 @@ class Builder(object):
         self._sanityCheckChangesets = self._cfg.sanityCheckChangesets
         self._sanityCheckCommits = self._cfg.sanityCheckCommits
 
+        if rmakeCfg:
+            self._rmakeCfg = rmakeCfg
+        else:
+            self._rmakeCfg = self._getRmakeConfig(rmakeCfgFn=rmakeCfgFn)
+
+        self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
+
+        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput,
+                       LocalDispatcher(self, 12))
+
+        self._asyncDispatcher = OrderedCommitDispatcher(self, 30)
+
+        self._conaryhelper = ConaryHelper(self._cfg)
+
+    def _getRmakeConfig(self, rmakeCfgFn=None):
         # Get default pluginDirs from the rmake cfg object, setup the plugin
         # manager, then create a new rmake config object so that rmakeUser
         # will be parsed correctly.
@@ -142,22 +163,18 @@ class Builder(object):
             else:
                 log.warn('%s not found, falling back to rmakerc' % rmakeCfgFn)
 
-        self._rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
-        self._rmakeCfg.read(util.join(self._cfg.configPath, rmakerc))
-        self._rmakeCfg.useConaryConfig(self._ccfg)
-        self._rmakeCfg.copyInConfig = False
-        self._rmakeCfg.strictMode = True
+        rmakeCfg = buildcfg.BuildConfiguration(readConfigFiles=False)
+        rmakeCfg.read(util.join(self._cfg.configPath, rmakerc))
+        rmakeCfg.useConaryConfig(self._ccfg)
+        rmakeCfg.copyInConfig = False
+        rmakeCfg.strictMode = True
 
         # Use default tmpDir when building with rMake since the specified
         # tmpDir may not exist in the build root.
-        self._rmakeCfg.resetToDefault('tmpDir')
 
-        self._helper = helper.rMakeHelper(buildConfig=self._rmakeCfg)
+        rmakeCfg.resetToDefault('tmpDir')
 
-        self.cvc = Cvc(self._cfg, self._ccfg, self._formatInput,
-                       LocalDispatcher(self, 12))
-
-        self._asyncDispatcher = OrderedCommitDispatcher(self, 30)
+        return rmakeCfg
 
         self._conaryhelper = ConaryHelper(self._cfg)
 
@@ -180,7 +197,8 @@ class Builder(object):
         ret = self._formatOutput(trvMap)
         return ret
 
-    def buildmany(self, troveSpecs, lateCommit=False):
+    def buildmany(self, troveSpecs, lateCommit=False, workers=None,
+            retries=None):
         """
         Build many troves in separate jobs.
         @param troveSpecs: list of trove specs
@@ -191,13 +209,22 @@ class Builder(object):
         @return troveMap: dictionary of troveSpecs to built troves
         """
 
-        workers = 30
+        if not workers:
+            workers = 30
+
+        if not retries:
+            retries = 0
+
+
         if self._cfg.updateMode == 'current':
-            dispatcher = PromoteDispatcher(self, workers)
+            if self._cfg.targetLabel == self._cfg.sourceLabel[-1]:
+                dispatcher = Dispatcher(self, workers, retries=retries)
+            else:
+                dispatcher = PromoteDispatcher(self, workers, retries=retries)
         elif not lateCommit:
-            dispatcher = Dispatcher(self, workers)
+            dispatcher = Dispatcher(self, workers, retries=retries)
         else:
-            dispatcher = NonCommittalDispatcher(self, workers)
+            dispatcher = NonCommittalDispatcher(self, workers, retries=retries)
         return dispatcher.buildmany(troveSpecs)
 
     def buildsplitarch(self, troveSpecs):
@@ -576,6 +603,8 @@ class Builder(object):
                     if not [ x for x in binaryNames if fltr[1].match(x) ]:
                         troves.remove((name, version, flavor, context))
 
+            assert troves
+
         return sorted(set(troves))
 
     @jobInfoExceptionHandler
@@ -906,11 +935,13 @@ class Builder(object):
         writeToFile = self._saveChangeSets and csfn or None
 
         self._helper.client.startCommit(jobIds)
-        succeeded, data = commit.commitJobs(self._helper.getConaryClient(),
-                                            jobs,
-                                            self._rmakeCfg.reposName,
-                                            self._cfg.commitMessage,
-                                            writeToFile=writeToFile)
+        succeeded, data = commit.commitJobs(
+            self._helper.getConaryClient(),
+            jobs,
+            self._rmakeCfg.reposName,
+            self._cfg.commitMessage,
+            commitOutdatedSources=self._cfg.commitOutdatedSources,
+            writeToFile=writeToFile)
 
         if not succeeded:
             self._helper.client.commitFailed(jobIds, data)

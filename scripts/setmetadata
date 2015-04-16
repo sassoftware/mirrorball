@@ -1,17 +1,20 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 import os
 import sys
@@ -19,48 +22,62 @@ from conary.lib import util as cutil
 
 sys.excepthook = cutil.genExcepthook()
 
-sys.path.insert(0, os.environ['HOME'] + '/hg/mirrorball')
-
-cfgDir = os.environ['HOME'] + '/hg/mirrorball/config'
-
-platform = sys.argv[1]
-
-from conary import versions
+from _scriptsetup import mirrorballDir
 
 from updatebot import log
 from updatebot import config
 from updatebot import update
-from udpatebot import cmdline
+from updatebot import cmdline
 from updatebot import pkgsource
-from updatebot.lib import util
+
+from conary import versions
 
 log.addRootLogger()
 
 import logging
 slog = logging.getLogger('script')
 
+
+def usage():
+    print 'Set Metadata for Conary Trove'
+    print 'usage: %s <platform> <pkg_name>' % sys.argv[0]
+    sys.exit(1)
+
+if len(sys.argv) < 3:
+    usage()
+
+platform = sys.argv[1]
+if platform not in os.listdir(mirrorballDir + '/config'):
+    usage()
+
+
+confDir = mirrorballDir + '/config/' + platform
+
 cfg = config.UpdateBotConfig()
-cfg.read(util.join(cfgDir, platform, 'updatebotrc'))
+cfg.read(confDir + '/updatebotrc')
 
 # set metadata on the taget label
 topGroups = [ (cfg.topGroup[0], cfg.targetLabel, cfg.topGroup[2]),
-              (cfg.topGroup[0], versions.VersionFromString('/' + cfg.topGroup[1]), cfg.topGroup[2]), ]
+              (cfg.topGroup[0], versions.VersionFromString('/' + cfg.topGroup[1]), 
+              cfg.topGroup[2]), ]
 
 ui = cmdline.UserInterface()
 
-pkgSource = pkgsource.PackageSource(cfg, ui)
-updater = update.Updater(cfg, ui, pkgSource)
+#pkgSource = pkgsource.PackageSource(cfg, ui)
+#updater = update.Updater(cfg, ui, pkgSource)
 helper = updater._conaryhelper
 
-pkgSource.load()
+#pkgSource.load()
 
 for topGroup in topGroups:
     for srcTroveSpec, binSet in helper.getSourceTroves(topGroup).iteritems():
         name = srcTroveSpec[0].split(':')[0]
-        if name not in pkgSource.srcNameMap:
-            slog.warn('%s not found in package source, not setting metadata' % name)
-            continue
+        #if name not in pkgSource.srcNameMap:
+        #    slog.warn('%s not found in package source, not setting metadata' % name)
+        #    continue
         if srcTroveSpec[1].getHost() != topGroup[1].getHost():
             slog.warn('not setting metadata for %s, not on same label' % name)
             continue
-        updater.setTroveMetadata(srcTroveSpec, binSet)
+        #updater.setTroveMetadata(srcTroveSpec, binSet)
+
+import epdb;epdb.st()

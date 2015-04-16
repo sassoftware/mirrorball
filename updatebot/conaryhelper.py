@@ -1,22 +1,26 @@
 #
-# Copyright (c) 2008-2010 rPath, Inc.
+# Copyright (c) SAS Institute, Inc.
 #
-# This program is distributed under the terms of the Common Public License,
-# version 1.0. A copy of this license should have been distributed with this
-# source file in a file called LICENSE. If it is not present, the license
-# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful, but
-# without any warranty; without even the implied warranty of merchantability
-# or fitness for a particular purpose. See the Common Public License for
-# full details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 
 """
 Module to wrap around conary api. Maybe this could be replaced by rbuild at
 some point.
 """
 
+import json
 import os
 import time
 import logging
@@ -93,7 +97,8 @@ class ConaryHelper(object):
 
         if not self._cache.sharedTmpDir:
             self._cache.sharedTmpDir = tempfile.mkdtemp(
-                prefix='conaryhelper-tmpdir-')
+                prefix='conaryhelper-tmpdir-',
+                dir='/var/tmp')
 
         conaryCfgFile = util.join(cfg.configPath, 'conaryrc')
         if conaryCfgFile in self._cache.conaryConfigCache:
@@ -210,7 +215,7 @@ class ConaryHelper(object):
         """
 
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
-        # pylint: disable-msg=E1101
+        # pylint: disable=E1101
 
         try:
             trvlst = self._repos.findTrove(self._ccfg.buildLabel, group)
@@ -286,7 +291,7 @@ class ConaryHelper(object):
 
         # W0212 - Access to a protected member _TROVEINFO_TAG_SOURCENAME of a
         #         client class
-        # pylint: disable-msg=W0212
+        # pylint: disable=W0212
 
         name, version, flavor = troveSpec
         cl = [ (name, (None, None), (version, flavor), True) ]
@@ -635,6 +640,29 @@ class ConaryHelper(object):
         manifest = [ x.strip() for x in open(manifestFileName) ]
         return manifest
 
+    def getJsonManifest(self, pkgname, version=None):
+        """
+        Get the contents of the manifest file from the source component for a
+        given package.
+
+        @param pkgname: name of the package to retrieve
+        @type pkgname: string
+        @param version optional source version to checkout.
+        @type version conary.versions.Version
+        @return manifest for pkgname
+        """
+
+        log.info('retrieving json manifest for %s' % pkgname)
+        recipeDir = self._edit(pkgname, version=version)
+        manifestFileName = util.join(recipeDir, 'manifest')
+
+        if not os.path.exists(manifestFileName):
+            raise NoManifestFoundError(pkgname=pkgname, dir=recipeDir)
+
+        with open(manifestFileName) as fh:
+            manifest = json.load(fh)
+        return manifest
+
     def setManifest(self, pkgname, manifest):
         """
         Create/Update a manifest file.
@@ -654,6 +682,28 @@ class ConaryHelper(object):
         manifestfh.write('\n'.join(manifest))
         manifestfh.write('\n')
         manifestfh.close()
+
+        # Make sure manifest file has been added.
+        self._addFile(recipeDir, 'manifest')
+
+    def setJsonManifest(self, pkgname, manifest):
+        """
+        Create/update a json manifest file.
+
+        @param pkgname: name of the package
+        @type pkgname: string
+        @param manifest: an json-serializable object
+        @type manifest: object
+        """
+        log.info('setting json manifest for %s' % pkgname)
+
+        recipeDir = self._edit(pkgname)
+
+        # update manifest file
+        manifestFileName = util.join(recipeDir, 'manifest')
+        with open(manifestFileName, 'w') as fh:
+            json.dump(manifest, fh, indent=4)
+            fh.write('\n')
 
         # Make sure manifest file has been added.
         self._addFile(recipeDir, 'manifest')
@@ -995,7 +1045,7 @@ class ConaryHelper(object):
         """
 
         # E1101 - Instance of 'ConaryConfiguration' has no 'buildLabel' member
-        # pylint: disable-msg=E1101
+        # pylint: disable=E1101
 
         label = self._ccfg.buildLabel
 
@@ -1057,7 +1107,7 @@ class ConaryHelper(object):
             versions.remove(latest)
             for version in versions:
                 for flavor in verDict[version]:
-                    log.warn('removing extra version of %s=%s[%s]' % 
+                    log.warn('removing extra version of %s=%s[%s]' %
                              (name, version, flavor))
                 del trvMap[name][version]
 
