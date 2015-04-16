@@ -122,7 +122,12 @@ class PomSource(object):
             # process path into group, artifact, verstion tuple
             path = result['path'][1:]  # strip the leading /
             # split path and strip file
-            group, artifact, version = path.rsplit('/', 3)[:-1]
+            segments = path.rsplit('/', 3)
+            if len(segments) == 4:
+                group, artifact, version, _ = segments
+            else:
+                group, artifact, _ = segments
+                version = ''
             group = group.replace('/', '.')  # replace / with . in group
             gav = (group, artifact, version)
 
