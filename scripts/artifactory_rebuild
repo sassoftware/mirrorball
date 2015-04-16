@@ -20,7 +20,18 @@ import logging
 import os
 import sys
 
-import _scriptsetup
+mirrorballDir = os.path.realpath(os.path.dirname(__file__) + '/..')
+sys.path.insert(0, mirrorballDir)
+sys.path.insert(0, mirrorballDir + '/include')
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+
+import conary
+import updatebot
+
+print >>sys.stderr, 'using conary from', os.path.dirname(conary.__file__)
+print >>sys.stderr, 'using updatebot from', os.path.dirname(updatebot.__file__)
 
 from conary.lib import util
 sys.excepthook = util.genExcepthook()
@@ -28,10 +39,14 @@ import epdb
 
 from updatebot.artifactory import Bot
 from updatebot import config
+from updatebot import log as logSetup
 
 
-log = logging.getLogger(__name__)
+log = logSetup.addRootLogger()
 
+if '--debug' in sys.argv:
+    sys.argv.remove('--debug')
+    log.setLevel(logging.DEBUG)
 
 cfg = config.UpdateBotConfig()
 cfg.read(os.path.abspath('../') + '/config/%s/updatebotrc' % sys.argv[1])
