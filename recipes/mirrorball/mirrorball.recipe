@@ -32,7 +32,7 @@ class MirrorBall(PackageRecipe):
 
         r.addGitSnapshot('http://scc.unx.sas.com/git/mirrorball.git', branch=r.branch)
 
-        for mod in ('repomd', 'rpmutils', 'updatebot', ):
+        for mod in ('repomd', 'rpmutils', 'updatebot', 'artifactory'):
             r.Install(mod, '%(sitepkgs)s/')
             r.CompilePython('%%(sitepkgs)s/%s' % mod)
 
