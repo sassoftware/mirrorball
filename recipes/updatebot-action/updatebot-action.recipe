@@ -30,6 +30,7 @@ class UpdateBotAction(PackageRecipe):
                         'python-urlgrabber', 
                         'python-iniparse', 
                         'python-psycopg2', 
+                        'libmaven',
                     ]
 
     platform = None
