@@ -135,6 +135,13 @@ class PomPackage(object):
     def __str__(self):
         return ':'.join(self.getGAV())
 
+    @staticmethod
+    def _findall(elem, text):
+        value = elem.findall(text)
+        if value is not None:
+            return value
+        return []
+
     def _replaceProperties(self, text, properties=None):
         if properties is None:
             properties = self.properties
@@ -143,11 +150,9 @@ class PomPackage(object):
             key = matchobj.group(1)
             if key in properties:
                 return properties[key]
-            else:
-                return matchobj.group(0)
 
         result = PROPERTY_RE.sub(subfunc, text)
-        while PROPERTY_RE.match(result):
+        while result and PROPERTY_RE.match(result):
             result = PROPERTY_RE.sub(subfunc, result)
         return result.strip()
 
@@ -459,6 +464,13 @@ class PomPackage(object):
         properties['pom.artifactId'] = artifactId
         properties['pom.groupId'] = groupId
         properties['pom.version'] = version
+
+        # get prerequisites
+        prereqs = pom.find("prerequisites")
+        if prereqs is not None:
+            for elem in prereqs:
+                properties['prerequisites.' + elem.tag] = elem.text
+                properties['project.prerequisites.' + elem.tag] = elem.text
 
         self.properties = properties
 
