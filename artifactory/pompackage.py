@@ -435,6 +435,9 @@ class PomPackage(object):
             properties['parent.groupId'] = self.parent.groupId
             properties['parent.artifactId'] = self.parent.artifactId
             properties['parent.version'] = self.parent.version
+            properties['project.parent.groupId'] = self.parent.groupId
+            properties['project.parent.artifactId'] = self.parent.artifactId
+            properties['project.parent.version'] = self.parent.version
 
 
         # maven built-in properties
