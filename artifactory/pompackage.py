@@ -147,6 +147,8 @@ class PomPackage(object):
                 return matchobj.group(0)
 
         result = PROPERTY_RE.sub(subfunc, text)
+        while PROPERTY_RE.match(result):
+            result = PROPERTY_RE.sub(subfunc, result)
         return result.strip()
 
     @property
@@ -226,6 +228,26 @@ class PomPackage(object):
             version = dep.findtext('version')
             if version is not None:
                 version = self._replaceProperties(version)
+
+            coordinate = ':'.join([groupId, artifactId, version if version else ''])
+            # check config for relocated pom files
+            relocation = client._cfg.relocatePoms.find(coordinate)
+            if relocation is not None:
+                log.debug("Relocating %s with relocation %s", coordinate,
+                          ':'.join(relocation))
+                if relocation[0]:
+                    groupId = relocation[0]
+                if relocation[1]:
+                    artifactId = relocation[1]
+                if relocation[2]:
+                    version = relocation[2]
+                log.info("Relocated %s to %s", coordinate,
+                         ':'.join([groupId, artifactId, version if version else '']))
+
+            if client._cfg.excludePoms.find(coordinate):
+                log.info("Not adding dependency %s, explicitly excluded",
+                         coordinate)
+                continue
 
             scope = dep.findtext('scope')
             optional = dep.findtext('optional')
