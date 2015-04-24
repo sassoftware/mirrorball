@@ -218,10 +218,8 @@ class PomPackage(object):
 
         dependencies = set()
 
-        p = self.parent
-        while p is not None:
-            dependencies.add(p)
-            p = p.parent
+        if self.parent:
+            dependencies.add(self.parent)
 
         # process actual dependencies
         dependency_elems = pom.findall('dependencies/dependency')
