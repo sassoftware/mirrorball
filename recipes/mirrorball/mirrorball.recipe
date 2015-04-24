@@ -19,6 +19,7 @@ class MirrorBall(PackageRecipe):
                         'rmake:python',
                         'xobj:python',
                         'python-dateutil:rpm',
+                        'python-requests:python',
                     ]
 
 
