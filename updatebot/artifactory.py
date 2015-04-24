@@ -195,6 +195,7 @@ class Updater(UpdaterSuperClass):
             log.info("attempting to import %s", p)
 
             manifest = dict(
+                manifest_version="1",
                 version=p.getConaryVersion(),
                 build_requires=p.buildRequires,
                 artifacts=p.artifacts,
