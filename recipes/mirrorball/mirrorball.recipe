@@ -20,6 +20,7 @@ class MirrorBall(PackageRecipe):
                         'xobj:python',
                         'python-dateutil:rpm',
                         'python-requests:python',
+                        'libmaven:python',
                     ]
 
 
