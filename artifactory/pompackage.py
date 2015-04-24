@@ -124,7 +124,7 @@ class PomPackage(object):
         self.setArtifactId(pomEtree)
         self.setGroupId(pomEtree)
         self.setVersion(pomEtree)
-
+        self.setProfile(pomEtree)
         self.setDependencyManagement(pomEtree, client, cache)
 
         self.setArtifacts((self.groupId, self.artifactId, self.version), client)
@@ -421,6 +421,37 @@ class PomPackage(object):
                     ':'.join([groupId, artifactId, version]),
                     )
         self.parent = parent_pom
+
+    def setProfile(self, pom):
+        activeProfiles = []
+        defaultProfiles = []
+        for p in pom.findall("profiles/profile"):
+            if p.findtext("activation/activeByDefault") == "true":
+                defaultProfiles.append(p)
+            else:
+                jdk = p.findtext("activation/jdk")
+                if jdk is not None:
+                    if jdk.startswith('!'):
+                        vr = VersionRange.fromstring(jdk[1:])
+                        if (vr.version and "1.8" != vr.version) \
+                                or (not vr.version and "1.8" not in vr):
+                            activeProfiles.append(p)
+                    else:
+                        vr = VersionRange.fromstring(jdk)
+                        if (vr.version and "1.8" == vr.version) \
+                                or (not vr.version and "1.8" in vr):
+                            activeProfiles.append(p)
+
+        if activeProfiles:
+            profiles = activeProfiles
+        else:
+            profiles = defaultProfiles
+
+        for profile in profiles:
+            properties = profile.find("properties")
+            if properties is not None:
+                for prop in properties.iterchildren():
+                    self.properties[prop.tag] = prop.text
 
     def setProperties(self, pom):
         properties = {}
