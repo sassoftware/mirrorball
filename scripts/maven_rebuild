@@ -57,6 +57,6 @@ trvMap, fail = obj.create(rebuild=True, recreate=recreate)
 epdb.st()
 
 for source in sorted(trvMap.keys()):
-    for binanry in job[source]:
+    for binary in trvMap[source]:
         if ':' not in binary[0]:
             print '%s=%s[%s]' % binary
