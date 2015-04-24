@@ -427,6 +427,11 @@ class PomPackage(object):
             else:
                 jdk = p.findtext("activation/jdk")
                 if jdk is not None:
+                    # attempt some clean update
+                    if jdk.startswith('[') and jdk.endswith(','):
+                        # assume they left off the )
+                        jdk += ')'
+
                     if jdk.startswith('!'):
                         vr = VersionRange.fromstring(jdk[1:])
                         if (vr.version and "1.8" != vr.version) \
