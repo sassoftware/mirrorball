@@ -290,20 +290,23 @@ class Updater(UpdaterSuperClass):
                     graph.delete(leaf)
                     count += 1
 
-                if job and (not addedAny or len(job) >= self._cfg.chunkSize):
-                    results = self._build(job, jobBuildReqs, verCache)
-                    trvMap.update(results)
-                    log.info("Processed %s of %s", count, total)
+                if job and len(job) >= self._cfg.chunkSize:
+                    break
 
-                    # update the version cache
-                    verCache = self._createVerCache(troveList)
+            if job and not addedAny:
+                results = self._build(job, jobBuildReqs, verCache)
+                trvMap.update(results)
+                log.info("Processed %s of %s", count, total)
 
-                    # clear the job
-                    job = set()
-                    jobNames = set()
-                    jobBuildReqs = set()
-                    jobBuildReqNames = set()
-                    addedAny = False
+                # update the version cache
+                verCache = self._createVerCache(troveList)
+
+                # clear the job
+                job = set()
+                jobNames = set()
+                jobBuildReqs = set()
+                jobBuildReqNames = set()
+                addedAny = False
 
             leaves = set(graph.getLeaves())
 
