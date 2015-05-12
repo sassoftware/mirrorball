@@ -95,16 +95,18 @@ def main(obj):
         name = srcTup[0]
         assert name.endswith(':source')
         name = name.split(':')[0]
-
+        binNames = [ x[0].split(':')[0] for x in binTups ]
         reqTroves = set()
         for binTup in binTups:
             for dep in reqMap[binTup]:
                 for provTup in provMap.get(dep, set()):
-                    if provTup[0].split(':')[0] == name:
+                    pname = provTup[0].split(':')[0]
+                    if pname == name or pname in binNames:
                         # Reqs between subpackages of the same source aren't
                         # interesting for build requirements, because neither has been
                         # built yet.
                         continue
+
                     reqTroves.add(provTup[0])
 
         reqTroves.discard('perl:rpm')
