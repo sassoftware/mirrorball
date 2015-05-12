@@ -19,8 +19,9 @@ all: default-subdirs default-all
 
 export TOPDIR = $(shell pwd)
 export DISTDIR = $(TOPDIR)/mirrorball-$(VERSION)
+export CHANGESET = $(shell ./scripts/changeset-version.sh)
 
-SUBDIRS=updatebot repomd rpmimport pylint test
+SUBDIRS=updatebot repomd rpmutils artifactory 
 
 extra_files = \
 	Make.rules 		\
@@ -45,6 +46,14 @@ dist:
 	$(MAKE) forcedist
 
 
+version:
+	$(SED) -i 's/@NEW@/$(VERSION)/g' NEWS
+
+show-version:
+	@echo $(VERSION)
+
+
+
 archive: $(dist_files)
 	rm -rf $(DISTDIR)
 	mkdir $(DISTDIR)
@@ -58,11 +67,11 @@ archive: $(dist_files)
 forcedist: archive
 
 tag:
-	hg tag -f rbuild-$(VERSION)
+	git tag mirrorball-$(VERSION)
 
 clean: clean-subdirs default-clean
 
 include Make.rules
 include Make.defs
  
-# vim: set sts=8 sw=8 noexpandtab :
+# vim: set sts=4 sw=4 noexpandtab :
