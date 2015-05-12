@@ -20,7 +20,7 @@ all: default-subdirs default-all
 export TOPDIR = $(shell pwd)
 export DISTDIR = $(TOPDIR)/mirrorball-$(VERSION)
 
-SUBDIRS=updatebot repomd rpmimport pylint test
+SUBDIRS=updatebot repomd rpmimport pylint artifactory
 
 extra_files = \
 	Make.rules 		\
