@@ -5,7 +5,7 @@
 import logging
 import re
 
-from libmaven.versioning import Version, VersionRange
+from pymaven.versioning import Version, VersionRange
 from lxml import etree
 
 from . import errors
