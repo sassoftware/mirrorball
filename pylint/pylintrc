@@ -27,7 +27,8 @@ good-names=log,_
 [REPORTS]
 files-output=yes
 reports=yes
-include-ids=yes
+#include-ids=yes
 
 [MESSAGES CONTROL]
 disable-msg=W0102,W0142,I0011,R0903
+disable=R0801

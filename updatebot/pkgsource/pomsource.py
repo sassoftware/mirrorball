@@ -25,6 +25,7 @@ from artifactory.pompackage import createPomPackage
 from conary.lib import graph
 import artifactory
 
+from ..config import MavenCoordinateGlobList
 from ..lib import util
 
 
@@ -48,44 +49,20 @@ class PomSource(object):
         self._cfg = cfg
         self._ui = ui
 
+        self._exclusions = cfg.excludePoms.copy()
+        self._inclusions = MavenCoordinateGlobList()
+
         # process excludePackages
         if cfg.packageAll:
             # cfg.package is an additional exclude list
-            excludePackages = cfg.excludePackages + cfg.package
-            includePackages = []
+            self._exclusions.extend(cfg.package)
         else:
             # cfg.package is an explicity include list
-            excludePackages = cfg.excludePackages
-            includePackages = cfg.package
+            self._inclusions.extend(cfg.package)
 
-        self._exclusions = self._buildGAVMap(excludePackages)
-        self._inclusions = self._buildGAVMap(includePackages)
         self._pkgMap = {}  # map group, artifact, version to package
         self.pkgQueue = graph.DirectedGraph()
         self._loaded = False
-
-    def _buildGAVMap(self, packages):
-        gavMap = {}
-        for package in packages:
-            gav = package.split(':')
-            if len(gav) == 1:
-                group = gav
-                artifact = '*'
-                version = '*'
-            elif len(gav) == 2:
-                group, artifact = gav
-                version = '*'
-            elif len(gav) == 3:
-                group, artifact, version = gav
-            else:
-                raise ValueError(
-                    'no more than 3 components to package spec: %s' % package)
-
-            gavMap.setdefault(group, {}
-                ).setdefault(artifact, set()
-                ).add(version)
-
-        return gavMap
 
     def _iterPackages(self, client, repo=None):
         searchKwargs = {}
@@ -111,26 +88,20 @@ class PomSource(object):
         be included if cfg.packageAll is False, otherwise it should not be
         included.
 
-        @param path: path to filter
-        @type path: str
-        @return: True if result should be included
-        @rtype: bool
+        :param path: path to filter
+        :type path: str
+        :return: True if result should be included
+        :rtype: bool
         """
-        exclusion = self._exclusions.get(group, {})
-        exclusion = exclusion.get(artifact) or exclusion.get('*')
-        if exclusion and (version in exclusion or '*' in exclusion):
+        coordinate = ':'.join((group, artifact, version))
+        if coordinate in self._exclusions:
             return False
 
         if self._cfg.packageAll:
             # cfg.package already mapped into exclusions
             return True
         else:
-            # only package what's in _inclusions
-            inclusion = self._inclusions.get(group, {})
-            inclusion = inclusion.get(artifact) or inclusion.get('*')
-            if inclusion and (version in inclusion or '*' in inclusion):
-                return True
-            return False
+            return coordinate in self._inclusions
 
     @loaded
     def finalize(self):
@@ -147,23 +118,28 @@ class PomSource(object):
 
     def loadFromClient(self, client):
         for result in self._iterPackages(client):
-            log.debug('loading %s', result['path'])
+            log.info('loading %s', result['path'])
             # process path into group, artifact, verstion tuple
             path = result['path'][1:]  # strip the leading /
             # split path and strip file
-            group, artifact, version = path.rsplit('/', 3)[:-1]
+            segments = path.rsplit('/', 3)
+            if len(segments) == 4:
+                group, artifact, version, _ = segments
+            else:
+                group, artifact, _ = segments
+                version = ''
             group = group.replace('/', '.')  # replace / with . in group
             gav = (group, artifact, version)
 
-            if self._inclusions and not \
-                    self._includeResult(group, artifact, version):
-                log.debug('excluding %s from package source', ':'.join(gav))
+            if not self._includeResult(*gav):
+                log.info('excluding %s from package source', ':'.join(gav))
                 continue
 
             if gav not in self._pkgMap:
                 # this is a new package
                 pkg = createPomPackage(*gav, client=client, cache=self._pkgMap)
             else:
+                log.debug("already processed %s", ':'.join(gav))
                 pkg = self._pkgMap[gav]
 
             if not pkg:

@@ -66,8 +66,14 @@ class Cache(object):
         self.cacheDir = cacheDir
         util.mkdirChain(self.cacheDir)
 
-    def cache(self, method, uri, res=None):
-        key = method + uri
+    def cache(self, method, uri, query_params=None, res=None):
+        if query_params is None:
+            query_params = {}
+
+        key = method + ' ' + uri
+        if query_params:
+            key += '?' + '&'.join(('%s=%s' % kv for kv in query_params.iteritems()))
+
         h = hashlib.sha1(key).hexdigest()
         dh = '%s.data' % h
 
@@ -75,6 +81,7 @@ class Cache(object):
         dhpath = os.path.join(self.cacheDir, dh)
 
         if os.path.exists(hpath) and os.path.exists(dhpath) and not res:
+            log.debug('hit %s with key %s', key, h)
             data = json.load(open(dhpath))
             data['text'] = open(hpath).read().decode('utf-8')
             res = Struct()
@@ -82,6 +89,7 @@ class Cache(object):
                 setattr(res, k, v)
 
         elif res is not None:
+            log.debug("Caching response %s with key %s", key, h)
             with open(hpath, 'wb') as fh:
                 fh.write(res.text.encode('utf-8'))
             with open(dhpath, 'wb') as fh:
@@ -89,6 +97,7 @@ class Cache(object):
                     'status_code': res.status_code,
                     'method': method,
                     'uri': uri,
+                    'param': query_params,
                 }, fh)
 
         return res
@@ -132,13 +141,11 @@ class Client(object):
 
     def _request(self, method, uri, return_json=True, **kwargs):
         url = urljoin(self._url, uri)
-        res = self._cache.cache(method, uri)
+        res = self._cache.cache(method, uri, kwargs.get('params'))
         if not res:
             log.debug('requesting %s %s', method, url)
             res = requests.request(method, url, **kwargs)
-            self._cache.cache(method, uri, res)
-        else:
-            log.debug('hit %s %s', method, url)
+            self._cache.cache(method, uri, kwargs.get('params'), res)
         if return_json:
             return res.json()
         return res

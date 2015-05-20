@@ -5,7 +5,7 @@
 import logging
 import re
 
-from libmaven.versioning import Version, VersionRange
+from pymaven.versioning import Version, VersionRange
 from lxml import etree
 
 from . import errors
@@ -124,7 +124,7 @@ class PomPackage(object):
         self.setArtifactId(pomEtree)
         self.setGroupId(pomEtree)
         self.setVersion(pomEtree)
-
+        self.setProfile(pomEtree)
         self.setDependencyManagement(pomEtree, client, cache)
 
         self.setArtifacts((self.groupId, self.artifactId, self.version), client)
@@ -135,6 +135,13 @@ class PomPackage(object):
     def __str__(self):
         return ':'.join(self.getGAV())
 
+    @staticmethod
+    def _findall(elem, text):
+        value = elem.findall(text)
+        if value is not None:
+            return value
+        return []
+
     def _replaceProperties(self, text, properties=None):
         if properties is None:
             properties = self.properties
@@ -143,10 +150,11 @@ class PomPackage(object):
             key = matchobj.group(1)
             if key in properties:
                 return properties[key]
-            else:
-                return matchobj.group(0)
 
-        return PROPERTY_RE.sub(subfunc, text)
+        result = PROPERTY_RE.sub(subfunc, text)
+        while result and PROPERTY_RE.match(result):
+            result = PROPERTY_RE.sub(subfunc, result)
+        return result.strip()
 
     @property
     def arch(self):
@@ -186,8 +194,7 @@ class PomPackage(object):
         return self
 
     def setArtifactId(self, pom):
-        artifactId = self._replaceProperties(pom.findtext('artifactId'))
-        self.artifactId = artifactId.strip()
+        self.artifactId = self._replaceProperties(pom.findtext('artifactId'))
 
     def setArtifacts(self, gavc, client):
         self.artifacts = [dict(
@@ -204,18 +211,15 @@ class PomPackage(object):
         groupId = pom.findtext('groupId')
         if groupId is None:
             groupId = pom.findtext('parent/groupId')
-        groupId = self._replaceProperties(groupId)
-        self.groupId = groupId.strip()
+        self.groupId = self._replaceProperties(groupId)
 
     def setDependencies(self, pom, client, cache=None):
         depMgmt = self.dependencyManagement
 
         dependencies = set()
 
-        p = self.parent
-        while p is not None:
-            dependencies.add(p)
-            p = p.parent
+        if self.parent:
+            dependencies.add(self.parent)
 
         # process actual dependencies
         dependency_elems = pom.findall('dependencies/dependency')
@@ -225,6 +229,26 @@ class PomPackage(object):
             version = dep.findtext('version')
             if version is not None:
                 version = self._replaceProperties(version)
+
+            coordinate = ':'.join([groupId, artifactId, version if version else ''])
+            # check config for relocated pom files
+            relocation = client._cfg.relocatePoms.find(coordinate)
+            if relocation is not None:
+                log.debug("Relocating %s with relocation %s", coordinate,
+                          ':'.join(relocation))
+                if relocation[0]:
+                    groupId = relocation[0]
+                if relocation[1]:
+                    artifactId = relocation[1]
+                if relocation[2]:
+                    version = relocation[2]
+                log.info("Relocated %s to %s", coordinate,
+                         ':'.join([groupId, artifactId, version if version else '']))
+
+            if client._cfg.excludePoms.find(coordinate):
+                log.info("Not adding dependency %s, explicitly excluded",
+                         coordinate)
+                continue
 
             scope = dep.findtext('scope')
             optional = dep.findtext('optional')
@@ -321,7 +345,7 @@ class PomPackage(object):
                 artifactId = self.artifactId
             artifactId = self._replaceProperties(artifactId)
 
-            version = reloaction.findtext("version")
+            version = relocation.findtext("version")
             if version is None:
                 version = self.version
             version = self._replaceProperties(version)
@@ -371,8 +395,14 @@ class PomPackage(object):
         parent = pom.find('parent')
         if parent is not None:
             groupId = parent.findtext('groupId')
+            if groupId is not None:
+                groupId = groupId.strip()
             artifactId = parent.findtext('artifactId')
+            if artifactId is not None:
+                artifactId = artifactId.strip()
             version = parent.findtext('version')
+            if version is not None:
+                version = version.strip()
 
             try:
                 parent_pom = createPomPackage(groupId, artifactId, version,
@@ -387,6 +417,42 @@ class PomPackage(object):
                     ':'.join([groupId, artifactId, version]),
                     )
         self.parent = parent_pom
+
+    def setProfile(self, pom):
+        activeProfiles = []
+        defaultProfiles = []
+        for p in pom.findall("profiles/profile"):
+            if p.findtext("activation/activeByDefault") == "true":
+                defaultProfiles.append(p)
+            else:
+                jdk = p.findtext("activation/jdk")
+                if jdk is not None:
+                    # attempt some clean update
+                    if jdk.startswith('[') and jdk.endswith(','):
+                        # assume they left off the )
+                        jdk += ')'
+
+                    if jdk.startswith('!'):
+                        vr = VersionRange.fromstring(jdk[1:])
+                        if (vr.version and "1.8" != vr.version) \
+                                or (not vr.version and "1.8" not in vr):
+                            activeProfiles.append(p)
+                    else:
+                        vr = VersionRange.fromstring(jdk)
+                        if (vr.version and "1.8" == vr.version) \
+                                or (not vr.version and "1.8" in vr):
+                            activeProfiles.append(p)
+
+        if activeProfiles:
+            profiles = activeProfiles
+        else:
+            profiles = defaultProfiles
+
+        for profile in profiles:
+            properties = profile.find("properties")
+            if properties is not None:
+                for prop in properties.iterchildren():
+                    self.properties[prop.tag] = prop.text
 
     def setProperties(self, pom):
         properties = {}
@@ -406,6 +472,9 @@ class PomPackage(object):
             properties['parent.groupId'] = self.parent.groupId
             properties['parent.artifactId'] = self.parent.artifactId
             properties['parent.version'] = self.parent.version
+            properties['project.parent.groupId'] = self.parent.groupId
+            properties['project.parent.artifactId'] = self.parent.artifactId
+            properties['project.parent.version'] = self.parent.version
 
 
         # maven built-in properties
@@ -428,11 +497,17 @@ class PomPackage(object):
         properties['pom.groupId'] = groupId
         properties['pom.version'] = version
 
+        # get prerequisites
+        prereqs = pom.find("prerequisites")
+        if prereqs is not None:
+            for elem in prereqs:
+                properties['prerequisites.' + elem.tag] = elem.text
+                properties['project.prerequisites.' + elem.tag] = elem.text
+
         self.properties = properties
 
     def setVersion(self, pom):
         version = pom.findtext('version')
         if version is None:
             version = pom.findtext('parent/version')
-        version = self._replaceProperties(version)
-        self.version = version.strip()
+        self.version = self._replaceProperties(version)

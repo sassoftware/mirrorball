@@ -19,6 +19,8 @@ class MirrorBall(PackageRecipe):
                         'rmake:python',
                         'xobj:python',
                         'python-dateutil:rpm',
+                        'python-requests:python',
+                        'pymaven:python',
                     ]
 
 
@@ -32,7 +34,7 @@ class MirrorBall(PackageRecipe):
 
         r.addGitSnapshot('http://scc.unx.sas.com/git/mirrorball.git', branch=r.branch)
 
-        for mod in ('repomd', 'rpmutils', 'updatebot', 'artifactory' ):
+        for mod in ('repomd', 'rpmutils', 'updatebot', 'artifactory'):
             r.Install(mod, '%(sitepkgs)s/')
             r.CompilePython('%%(sitepkgs)s/%s' % mod)
 
@@ -45,6 +47,6 @@ class MirrorBall(PackageRecipe):
         r.Install('scripts/auto_current_buildgroups', '%(bindir)s/current-buildgroups', mode=0755)
         r.Install('scripts/*', '%(datadir)s/%(name)s/')
 
-        r.Install('scripts/auto_artifactory_import', '%(bindir)s/artifactory_import', mode=0755)
+        r.Install('scripts/auto_maven_import', '%(bindir)s/maven_import', mode=0755)
 
         r.Install('rbuild/*', '%(datadir)s/rbuild/plugins/')

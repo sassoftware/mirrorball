@@ -195,6 +195,7 @@ class Updater(UpdaterSuperClass):
             log.info("attempting to import %s", p)
 
             manifest = dict(
+                manifest_version="1",
                 version=p.getConaryVersion(),
                 build_requires=p.buildRequires,
                 artifacts=p.artifacts,
@@ -290,8 +291,10 @@ class Updater(UpdaterSuperClass):
                     graph.delete(leaf)
                     count += 1
 
-            leaves = set(graph.getLeaves())
-            if job and (not addedAny or len(job) >= self._cfg.chunkSize):
+                if job and len(job) >= self._cfg.chunkSize:
+                    break
+
+            if job and not addedAny:
                 results = self._build(job, jobBuildReqs, verCache)
                 trvMap.update(results)
                 log.info("Processed %s of %s", count, total)
@@ -305,6 +308,8 @@ class Updater(UpdaterSuperClass):
                 jobBuildReqs = set()
                 jobBuildReqNames = set()
                 addedAny = False
+
+            leaves = set(graph.getLeaves())
 
         # build the last job
         if job:

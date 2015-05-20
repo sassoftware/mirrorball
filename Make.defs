@@ -15,20 +15,21 @@
 #
 
 
-VERSION=0.1
-# XVERSION can be overridden by snapshot builds to force incompatible versions
+VERSION=0.1.1
 
-export prefix = /usr
-export bindir = $(prefix)/bin
-export sbindir = $(prefix)/sbin
-export libdir = $(prefix)/lib
+export $(VERSION)
+
+export install_dir ?=
+export prefix ?= $(install_dir)/usr
+export sysconfdir ?= $(install_dir)/etc
+export lib ?= $(shell arch | $(SED) -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
+export bindir ?= $(prefix)/bin
+export libdir ?= $(prefix)/$(lib)
 export libexecdir = $(prefix)/libexec
 export datadir = $(prefix)/share
 export mandir = $(datadir)/man
-export sitedir = $(libdir)/python$(PYVERSION)/site-packages/
+export sitedir = $(libdir)/python$(PYVER)/site-packages/
+export initdir = $(sysconfdir)/rc.d/init.d
 export rbuilddir = $(sitedir)/rbuild
 export plugindir = $(datadir)/rbuild/plugins/
-export initdir = /etc/init.d
-export sysconfdir = /etc/sysconfig
 
-export $(VERSION)
