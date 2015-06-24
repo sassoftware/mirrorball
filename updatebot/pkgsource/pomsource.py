@@ -21,6 +21,7 @@ Module for interacting with packages defined by pom files
 
 import logging
 
+from artifactory.errors import MissingProjectError
 from artifactory.pompackage import createPomPackage
 from conary.lib import graph
 import artifactory
@@ -73,7 +74,7 @@ class PomSource(object):
             searchArgs = [package.split(':') for package in self._cfg.package]
         else:
             searchFunc = client.quick_search
-            searchArgs = [ ["*.pom"], ]
+            searchArgs = (["*.pom"],)
 
         for args in searchArgs:
             for result in searchFunc(*args, **searchKwargs):
@@ -118,7 +119,7 @@ class PomSource(object):
 
     def loadFromClient(self, client):
         for result in self._iterPackages(client):
-            log.info('loading %s', result['path'])
+            log.debug("loading %s", result["path"])
             # process path into group, artifact, verstion tuple
             path = result['path'][1:]  # strip the leading /
             # split path and strip file
@@ -137,7 +138,12 @@ class PomSource(object):
 
             if gav not in self._pkgMap:
                 # this is a new package
-                pkg = createPomPackage(*gav, client=client, cache=self._pkgMap)
+                try:
+                    pkg = createPomPackage(*gav, client=client,
+                                           cache=self._pkgMap)
+                except MissingProjectError:
+                    log.error("Could not load %s:%s:%s", *gav)
+                    continue
             else:
                 log.debug("already processed %s", ':'.join(gav))
                 pkg = self._pkgMap[gav]

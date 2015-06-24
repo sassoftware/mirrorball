@@ -165,9 +165,8 @@ class Client(object):
                 continue
             yield res.json()
 
-    @staticmethod
-    def constructPath(groupId, artifactId, version=None, artifactName=None,
-                      extension='pom', relative=False):
+    def constructPath(self, groupId, artifactId, version=None,
+                      artifactName=None, extension='pom', relative=False):
         """Construct a maven 2 path
 
         :param groupId: group name
@@ -195,7 +194,7 @@ class Client(object):
         else:
             path += '/{1}-{2}.{4}'
 
-        return path.format(
+        path = path.format(
             groupId.replace('.', '/'),
             artifactId,
             version,
@@ -203,18 +202,26 @@ class Client(object):
             extension,
             )
 
+        for repo in self._cfg.repositoryPaths:
+            if relative:
+                uri = repo + '/' + path
+            else:
+                uri = repo + path
+
+            if self._head(uri).status_code == requests.codes.ok:
+                return uri
+
     def artifactUrl(self, group, artifact, version, extension='pom'):
         path = self.constructPath(group, artifact, version, extension=extension,
                                   relative=True)
-        uri = urljoin('repo/', path)
-        return urljoin(self._url, uri)
+        return urljoin(self._url, path)
 
     def checkJar(self, group, artifact, version):
         path = self.constructPath(group, artifact, version, extension='jar',
                                   relative=True)
-        uri = urljoin('repo/', path)
-        res = self._head(uri)
-        return res.status_code == requests.codes.ok
+        if path:
+            return True
+        return False
 
     @repos
     @detail
@@ -306,8 +313,7 @@ class Client(object):
         return self._search('versions/', **kwargs)
 
     def retrieve_artifact(self, path, stream=False):
-        url = path.replace(':', '', 1)
-        res = self._request('GET', url, stream=stream, return_json=False)
+        res = self._request('GET', path, stream=stream, return_json=False)
         if res.status_code == requests.codes.ok:
             if stream:
                 return res.raw
