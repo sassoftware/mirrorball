@@ -72,7 +72,8 @@ class Cache(object):
 
         key = method + ' ' + uri
         if query_params:
-            key += '?' + '&'.join(('%s=%s' % kv for kv in query_params.iteritems()))
+            key += '?' + '&'.join(('%s=%s' % kv
+                                   for kv in query_params.iteritems()))
 
         h = hashlib.sha1(key).hexdigest()
         dh = '%s.data' % h
@@ -153,7 +154,8 @@ class Client(object):
     def _search(self, path, **kwargs):
         log.debug("search(%s, kwargs=%s)", path, kwargs)
         if 'auth' not in kwargs:
-            kwargs['auth'] = self._cfg.artifactoryUser.find(self._cfg.repositoryUrl)
+            kwargs['auth'] = self._cfg.artifactoryUser.find(
+                self._cfg.repositoryUrl)
 
         res = self._get(urljoin("api/search/", path), **kwargs)
         urls = [r['uri'] for r in res.get('results', [])]
@@ -201,7 +203,9 @@ class Client(object):
             artifactName,
             extension,
             )
+        return path
 
+    def checkPath(self, path, relative=False):
         for repo in self._cfg.repositoryPaths:
             if relative:
                 uri = repo + '/' + path
@@ -214,11 +218,13 @@ class Client(object):
     def artifactUrl(self, group, artifact, version, extension='pom'):
         path = self.constructPath(group, artifact, version, extension=extension,
                                   relative=True)
+        path = self.checkPath(path, relative=True)
         return urljoin(self._url, path)
 
     def checkJar(self, group, artifact, version):
         path = self.constructPath(group, artifact, version, extension='jar',
                                   relative=True)
+        path = self.checkPath(path, relative=True)
         if path:
             return True
         return False
