@@ -24,27 +24,23 @@ class ArtifactoryError(Exception):
     Base Artifactory error
     """
 
-    _params = []
-    _template = "An unkown error has occured"
+    _template = None
 
-    def __init__(self, **kwargs):
-        super(ArtifactoryError, self).__init__()
-
-        self._kwargs = kwargs
-
-        for key in self._params:
-            setattr(self, key, kwargs[key])
-
-    def __str__(self):
-        return self._template % self.__dict__
-
-    def __repr__(self):
-        params = ', '.join('%s=%r' % x for x in self._kwargs.items())
-        return '%s(%s)' % (self.__class__, params)
+    def __init__(self, *args, **kwargs):
+        if self._template is None:
+            super(ArtifactoryError, self).__init__(*args, **kwargs)
+        else:
+            super(ArtifactoryError, self).__init__(
+                self._template.format(*args, **kwargs))
 
 
 class MissingProjectError(ArtifactoryError):
     """Raised when a required pom file is missing from the repository"""
 
-    _params = ['project']
-    _template = '%(project)s'
+    _template = 'Missing pom: {0}'
+
+
+class MissingArtifactError(ArtifactoryError):
+    """Raised when a required artifact file is missing from the repository"""
+
+    _template = 'No such file found: {0}'

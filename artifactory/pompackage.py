@@ -3,109 +3,26 @@
 #
 
 import logging
-import re
 
-from pymaven.versioning import Version, VersionRange
-from lxml import etree
+from pymaven import errors as merrors
+from pymaven.pom import Pom
 
 from . import errors
-
-
-POM_PARSER = etree.XMLParser(
-    recover=True,
-    remove_comments=True,
-    remove_pis=True,
-    )
-PROPERTY_RE = re.compile(r'\$\{(.*?)\}')
-STRIP_NAMESPACE_RE = re.compile(r"<project(.|\s)*?>")
 
 
 log = logging.getLogger(__name__)
 
 
-def createPomPackage(groupId, artifactId, version, client,
-                     cache=None):
-    """Create a PomPackage object for the artifact `groupId:artifactId:version`
-
-    :param str groupId: group identifier
-    :param str artifactId: artifact identifier
-    :param str version: artifact version
-    :param MavenClient client: a maven client
-    :param dict cache: optional package cache
-    """
-    if cache is not None and (groupId, artifactId, version) in cache:
-        pom = cache[(groupId, artifactId, version)]
-    else:
-        log.info("Creating pom package for %s:%s:%s", groupId, artifactId,
-                 version)
-        location = client.constructPath(groupId, artifactId, version)
-        if location is None:
-            raise errors.MissingProjectError(
-                project=':'.join([groupId, artifactId, version]),
-                )
-
-        log.debug("Found pom at %s", location)
-        pom = client.retrieve_artifact(location)
-        pomEtree = etree.fromstring(
-            STRIP_NAMESPACE_RE.sub(
-                '<project>',
-                pom[pom.find('<project'):],
-                1,
-                ),
-            parser=POM_PARSER,
-            )
-        try:
-            pom = PomPackage(pomEtree, location, client, cache)
-            if cache is not None:
-                cache[(groupId, artifactId, version)] = pom
-            pom.setDependencies(pomEtree)
-        except errors.MissingProjectError:
-            if (groupId, artifactId, version) in cache:
-                del cache[(groupId, artifactId, version)]
-            raise
-    return pom
-
-
-def pickVersion(spec, availableVersions):
-    """Pick a version from availableVersions according to the range versionRange
-
-    If spec contains a '+', then it is a gradle dyanmic version, and we return
-    the newest version in `availableVersions` that starts with `spec`.
-
-    Otherwise, convert spec into maven version range and return the first
-    version in availableVersions that is within the range.
-
-    :param str spec: a maven version range spec or gradle dynamic version
-    :param availableVersions: list of available versions for this artifact
-    :type availableVersions: [artifactory.versioning.Version, ...]
-    :return: the newest version that matches the spec
-    :rtype: str or None
-    """
-    if '+' in spec:
-        # this is a gradle dynamic version
-        for version in availableVersions:
-            if str(version).startswith(spec[:-1]):
-                return str(version)
-    else:
-        versionRange = VersionRange.fromstring(spec)
-        for version in sorted(availableVersions, reverse=True):
-            if version in versionRange:
-                return str(version)
-
-
-class PomPackage(object):
+class PomPackage(Pom):
     """Abstracts away processing pom xml
     """
-    __slots__ = ('dependencies', 'dependencyManagement', 'parent', 'properties',
-                 'artifactId', '_artifacts', 'children', 'groupId', 'location',
-                 'version', '_client', '_cache')
+    __slots__ = ('location', '_cache', '_artifacts')
 
-    def __init__(self, pomEtree, location, client, cache):
+    def __init__(self, coordinate, location, client, cache):
         """
         Create a PomPackage
 
-        :param pomEtree: pom
-        :type pomEtree: lxml.ElementTree
+        :param str coordinate: pom coordinate
         :param location: location string
         :type location: str
         :param parent: parent project
@@ -115,63 +32,58 @@ class PomPackage(object):
         :param arch: architecture string
         :type arch: str or None
         """
+        super(PomPackage, self).__init__(coordinate, client)
         self.location = location
-        self._client = client
         self._cache = cache
-
-        self.dependencies = []
-        self.dependencyManagement = {}
-        self.parent = None
-        self.properties = {}
-        self.artifactId = None
-        self.groupId = None
-        self.version = None
         self._artifacts = None
-        self.children = []
-
-        self.setParent(pomEtree)
-
-        self.setProperties(pomEtree)
-
-        self.setArtifactId(pomEtree)
-        self.setGroupId(pomEtree)
-        self.setVersion(pomEtree)
-        self.setProfile(pomEtree)
-        self.setDependencyManagement(pomEtree)
-
-        self.setArtifacts((self.groupId, self.artifactId, self.version))
 
     def __repr__(self):
-        return '<pomsource.Package(%r, %r, %r)>' % self.getGAV()
+        return '<pomsource.Package(%r, %r, %r)>' % (self.coordinate,
+                                                    self._client, self._cache)
 
     def __str__(self):
-        return ':'.join(self.getGAV())
+        return self.coordinate
 
-    @staticmethod
-    def _findall(elem, text):
-        value = elem.findall(text)
-        if value is not None:
-            return value
-        return []
+    def _pom_factory(self, *gav):
+        if self._cache is not None and gav in self._cache:
+            return self._cache[gav]
 
-    def _replaceProperties(self, text, properties=None):
-        if properties is None:
-            properties = self.properties
+        log.info("Creating pom package for %s:%s:%s", *gav)
+        location = self._client.constructPath(*gav)
+        location = self._client.checkPath(location)
+        if location is None:
+            raise errors.MissingProjectError(':'.join(gav))
 
-        def subfunc(matchobj):
-            key = matchobj.group(1)
-            if key in properties:
-                return properties[key]
-
-        result = PROPERTY_RE.sub(subfunc, text)
-        while result and PROPERTY_RE.match(result):
-            result = PROPERTY_RE.sub(subfunc, result)
-        return result.strip()
+        log.debug("Found pom at %s", location)
+        try:
+            pom = PomPackage("%s:%s:pom:%s" % gav, location, self._client,
+                             self._cache)
+            if self._cache is not None:
+                self._cache[gav] = pom
+        except merrors.MissingArtifactError:
+            if self._cache is not None and gav in self._cache:
+                del self._cache[gav]
+                raise errors.MissingProjectError(':'.join(gav))
+        return pom
 
     @property
     def arch(self):
         return "x86_64"
 
+    @property
+    def artifacts(self):
+        if self._artifacts is None:
+            gavc = self.getGAV()
+            self._artifacts = [dict(
+                downloadUri=self._client.artifactUrl(*gavc),
+                path=self._client.constructPath(*gavc),
+                )]
+            if self._client.checkJar(*gavc):
+                self._artifacts.append(dict(
+                    downloadUri=self._client.artifactUrl(*gavc, extension='jar'),
+                    path=self._client.constructPath(*gavc, extension='jar'),
+                    ))
+        return self._artifacts
     @property
     def checksum(self):
         return None
@@ -182,349 +94,50 @@ class PomPackage(object):
 
     @property
     def buildRequires(self):
-        return [d.name for d in self.dependencies]
+        return sorted([d.name for d in self.dependencies])
 
     @property
     def release(self):
         return ''
 
     def getConaryVersion(self):
-        return str(self.version.replace('-', '_'))
+        assert self.version.version is not None
+        return str(self.version.version).replace('-', '_')
 
     def getGAV(self):
-        return self.groupId, self.artifactId, self.version
+        return self.group_id, self.artifact_id, self.version
 
     def getNevra(self):
         return self.name, self.epoch, self.version, self.release, self.arch
 
     @property
     def name(self):
-        return str("__".join([self.groupId, self.artifactId]))
+        return str("__".join([self.group_id, self.artifact_id]))
 
     @property
     def nevra(self):
         return self
 
-    def setArtifactId(self, pom):
-        self.artifactId = self._replaceProperties(pom.findtext('artifactId'))
+    def pick_version(self, spec, artifacts):
+        """Pick a version from *versions* according to the spec
 
-    def setArtifacts(self, gavc):
-        self.artifacts = [dict(
-            downloadUri=self._client.artifactUrl(*gavc),
-            path=self._client.constructPath(*gavc),
-            )]
-        if self._client.checkJar(*gavc):
-            self.artifacts.append(dict(
-                downloadUri=self._client.artifactUrl(*gavc, extension='jar'),
-                path=self._client.constructPath(*gavc, extension='jar'),
-                ))
+        If spec contains a '+', then it is a gradle dyanmic version, and we
+        return the newest version in `availableVersions` that starts with
+        `spec`.
 
-    def setGroupId(self, pom):
-        groupId = pom.findtext('groupId')
-        if groupId is None:
-            groupId = pom.findtext('parent/groupId')
-        self.groupId = self._replaceProperties(groupId)
+        Otherwise, convert spec into maven version range and return the first
+        version in *versions* that is within the range.
 
-    def setDependencies(self, pom):
-        depMgmt = self.dependencyManagement
-
-        dependencies = set()
-
-        if self.parent:
-            dependencies.add(self.parent)
-
-        # process actual dependencies
-        dependency_elems = pom.findall('dependencies/dependency')
-        for dep in dependency_elems:
-            groupId = self._replaceProperties(dep.findtext('groupId'))
-            artifactId = self._replaceProperties(dep.findtext('artifactId'))
-            version = dep.findtext('version')
-            if version is not None:
-                version = self._replaceProperties(version)
-
-            coordinate = ':'.join([groupId, artifactId,
-                                   version if version else ''])
-            # check config for relocated pom files
-            relocation = self._client._cfg.relocatePoms.find(coordinate)
-            if relocation is not None:
-                log.debug("Relocating %s with relocation %s", coordinate,
-                          ':'.join(relocation))
-                if relocation[0]:
-                    groupId = relocation[0]
-                if relocation[1]:
-                    artifactId = relocation[1]
-                if relocation[2]:
-                    version = relocation[2]
-                log.info("Relocated %s to %s", coordinate,
-                         ':'.join([groupId, artifactId, version if
-                                   version else '']))
-
-            if self._client._cfg.excludePoms.find(coordinate):
-                log.warning("%s is missing dependency %s, explicitly excluded",
-                            ':'.join(self.getGAV()),
-                            coordinate)
-                raise errors.MissingProjectError(project=coordinate)
-
-            scope = dep.findtext('scope')
-            optional = dep.findtext('optional')
-
-            # process compile deps
-            if optional is None or optional == 'false':
-                if version is None:
-                    if (groupId, artifactId) in depMgmt:
-                        version = depMgmt[(groupId, artifactId)][0]
-                        version = self._replaceProperties(version)
-                    else:
-                        # FIXME: Default to the latest released version if no
-                        # version is specified. I'm not sure if this is the
-                        # correct behavior, but let's try it for now.
-                        version = 'latest.release'
-
-                if scope is None:
-                    if (groupId, artifactId) in depMgmt:
-                        scope = depMgmt[(groupId, artifactId)][1]
-
-                if scope in (None, 'compile', 'import'):
-                    if (any(ch in version for ch in ('+', '[', '(', ']', ')'))
-                            or 'latest.' in version):
-                        # fetch the maven metadata file
-                        path = self._client.constructPath(
-                            groupId,
-                            artifactId,
-                            artifactName='maven-metadata',
-                            extension='xml',
-                            )
-                        mavenMetadata = self._client.retrieve_artifact(path)
-                        if mavenMetadata is not None:
-                            mavenMetadata = etree.fromstring(mavenMetadata)
-                            if version == 'latest.release':
-                                version = mavenMetadata.findtext(
-                                    'versioning/release')
-                            elif version == 'latest.integration':
-                                version = mavenMetadata.findtext(
-                                    'versioning/latest')
-                            else:
-                                versions = [Version(v.text.strip())
-                                            for v in mavenMetadata.findall(
-                                                "versioning/versions/version")]
-                                version = pickVersion(version, versions)
-                                if version is None:
-                                    raise errors.ArtifactoryError(
-                                        "No vaild versions for this range")
-                        else:
-                            raise RuntimeError(
-                                "Cannot find maven-metadata.xml for project"
-                                " %s:%s" % (groupId, artifactId))
-                    try:
-                        dep_pom = createPomPackage(groupId, artifactId, version,
-                                                   self._client, self._cache)
-                    except errors.MissingProjectError:
-                        log.warning(
-                            '%s missing dependent project: %s',
-                            ':'.join(self.getGAV()),
-                            ':'.join([groupId, artifactId, version]),
-                            )
-                        raise
-                    else:
-                        if dep_pom is not None:
-                            dependencies.add(dep_pom)
-
-        # process depMgmt dependencies to find imports
-        dependencyManagementDependencies = pom.findall(
-            'dependencyManagement/dependencies/dependency')
-        for dep in dependencyManagementDependencies:
-            groupId = self._replaceProperties(dep.findtext('groupId'))
-            artifactId = self._replaceProperties(dep.findtext('artifactId'))
-            version = self._replaceProperties(dep.findtext('version'))
-
-            scope = dep.findtext('scope')
-            if scope is not None and scope == 'import':
-                try:
-                    import_pom = createPomPackage(groupId, artifactId, version,
-                                                  self._client, self._cache)
-                except errors.MissingProjectError:
-                    log.warning('%s missing import project: %s',
-                                ':'.join(self.getGAV()),
-                                ':'.join([groupId, artifactId, version]))
-                    raise
-                else:
-                    dependencies.add(import_pom)
-
-        # process distributionManagement for relocation
-        relocation = pom.find("distributionManagement/relocation")
-        if relocation is not None:
-            groupId = relocation.findtext("groupId")
-            if groupId is None:
-                groupId = self.groupId
-            groupId = self._replaceProperties(groupId)
-
-            artifactId = relocation.findtext("artifactId")
-            if artifactId is None:
-                artifactId = self.artifactId
-            artifactId = self._replaceProperties(artifactId)
-
-            version = relocation.findtext("version")
-            if version is None:
-                version = self.version
-            version = self._replaceProperties(version)
-
-            try:
-                relocate_pom = createPomPackage(groupId, artifactId, version,
-                                                self._client, self._cache)
-            except errors.MissingProjectError:
-                log.warning('%s missing relocation project: %s',
-                            ':'.join(self.getGAV()),
-                            ':'.join([groupId, artifactId, self.version]))
-                raise
-            else:
-                dependencies.add(relocate_pom)
-
-        self.dependencies = dependencies
-
-    def setDependencyManagement(self, pom):
-        dependencyManagement = {}
-        if self.parent is not None:
-            dependencyManagement.update(self.parent.dependencyManagement)
-
-        dependencyManagementDependencies = pom.findall(
-            'dependencyManagement/dependencies/dependency')
-        for dep in dependencyManagementDependencies:
-            groupId = self._replaceProperties(dep.findtext('groupId'))
-            artifactId = self._replaceProperties(dep.findtext('artifactId'))
-            version = self._replaceProperties(dep.findtext('version'))
-
-            scope = dep.findtext('scope')
-            if scope is not None and scope == 'import':
-                try:
-                    import_pom = createPomPackage(groupId, artifactId, version,
-                                                  self._client, self._cache)
-                except errors.MissingProjectError:
-                    log.warning('%s missing import project: %s',
-                                ':'.join(self.getGAV()),
-                                ':'.join([groupId, artifactId, version]))
-                    raise
-                dependencyManagement.update(import_pom.dependencyManagement)
-            else:
-                dependencyManagement[(groupId, artifactId)] = (version, scope)
-        self.dependencyManagement = dependencyManagement
-
-    def setParent(self, pom):
-        parent_pom = None
-        parent = pom.find('parent')
-        if parent is not None:
-            groupId = parent.findtext('groupId')
-            if groupId is not None:
-                groupId = groupId.strip()
-            artifactId = parent.findtext('artifactId')
-            if artifactId is not None:
-                artifactId = artifactId.strip()
-            version = parent.findtext('version')
-            if version is not None:
-                version = version.strip()
-
-            try:
-                parent_pom = createPomPackage(groupId, artifactId, version,
-                                              self._client, self._cache)
-            except errors.MissingProjectError:
-                log.warning('%s missing parent project: %s',
-                            ':'.join([
-                                pom.findtext('groupId') or groupId,
-                                pom.findtext('artifactId'),
-                                pom.findtext('version') or version,
-                                ]),
-                            ':'.join([groupId, artifactId, version]))
-                raise
-        self.parent = parent_pom
-
-    def setProfile(self, pom):
-        activeProfiles = []
-        defaultProfiles = []
-        for p in pom.findall("profiles/profile"):
-            if p.findtext("activation/activeByDefault") == "true":
-                defaultProfiles.append(p)
-            else:
-                jdk = p.findtext("activation/jdk")
-                if jdk is not None:
-                    # attempt some clean update
-                    if jdk.startswith('[') and jdk.endswith(','):
-                        # assume they left off the )
-                        jdk += ')'
-
-                    if jdk.startswith('!'):
-                        vr = VersionRange.fromstring(jdk[1:])
-                        if (vr.version and "1.8" != vr.version) \
-                                or (not vr.version and "1.8" not in vr):
-                            activeProfiles.append(p)
-                    else:
-                        vr = VersionRange.fromstring(jdk)
-                        if (vr.version and "1.8" == vr.version) \
-                                or (not vr.version and "1.8" in vr):
-                            activeProfiles.append(p)
-
-        if activeProfiles:
-            profiles = activeProfiles
+        :param str spec: a maven version range spec or gradle dynamic version
+        :param versions: list of available versions for this artifact
+        :type versions: [:py:class:`pymaven.Version`, ...]
+        :return: the newest version that matches the spec
+        :rtype: str or None
+        """
+        if '+' in spec:
+            # this is a gradle dynamic version
+            for artifact in artifacts:
+                if str(artifact.version).startswith(spec[:-1]):
+                    return str(artifact.version)
         else:
-            profiles = defaultProfiles
-
-        for profile in profiles:
-            properties = profile.find("properties")
-            if properties is not None:
-                for prop in properties.iterchildren():
-                    self.properties[prop.tag] = prop.text
-
-    def setProperties(self, pom):
-        properties = {}
-        project_properties = pom.find('properties')
-        if project_properties is not None:
-            for prop in project_properties.iterchildren():
-                if prop.tag == 'property':
-                    name = prop.get('name')
-                    value = prop.get('value')
-                else:
-                    name = prop.tag
-                    value = prop.text
-                properties[name] = value
-
-        if self.parent is not None:
-            properties.update(self.parent.properties)
-            properties['parent.groupId'] = self.parent.groupId
-            properties['parent.artifactId'] = self.parent.artifactId
-            properties['parent.version'] = self.parent.version
-            properties['project.parent.groupId'] = self.parent.groupId
-            properties['project.parent.artifactId'] = self.parent.artifactId
-            properties['project.parent.version'] = self.parent.version
-
-        # maven built-in properties
-        artifactId = pom.findtext('artifactId')
-        groupId = pom.findtext('groupId')
-        if groupId is None:
-            groupId = pom.findtext('parent/groupId')
-        version = pom.findtext('version')
-        if version is None:
-            version = pom.findtext('parent/version')
-
-        # built-in properties
-        properties['artifactId'] = artifactId
-        properties['groupId'] = groupId
-        properties['version'] = version
-        properties['project.artifactId'] = artifactId
-        properties['project.groupId'] = groupId
-        properties['project.version'] = version
-        properties['pom.artifactId'] = artifactId
-        properties['pom.groupId'] = groupId
-        properties['pom.version'] = version
-
-        # get prerequisites
-        prereqs = pom.find("prerequisites")
-        if prereqs is not None:
-            for elem in prereqs:
-                properties['prerequisites.' + elem.tag] = elem.text
-                properties['project.prerequisites.' + elem.tag] = elem.text
-
-        self.properties = properties
-
-    def setVersion(self, pom):
-        version = pom.findtext('version')
-        if version is None:
-            version = pom.findtext('parent/version')
-        self.version = self._replaceProperties(version)
+            return super(PomPackage, self).pick_version(spec, artifacts)

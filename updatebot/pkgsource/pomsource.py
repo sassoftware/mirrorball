@@ -22,7 +22,7 @@ Module for interacting with packages defined by pom files
 import logging
 
 from artifactory.errors import MissingProjectError
-from artifactory.pompackage import createPomPackage
+from artifactory.pompackage import PomPackage
 from conary.lib import graph
 import artifactory
 
@@ -51,7 +51,7 @@ class PomSource(object):
         self._ui = ui
 
         self._exclusions = cfg.excludePoms.copy()
-        self._inclusions = MavenCoordinateGlobList()
+        self._inclusions = None
 
         # process excludePackages
         if cfg.packageAll:
@@ -59,6 +59,7 @@ class PomSource(object):
             self._exclusions.extend(cfg.package)
         else:
             # cfg.package is an explicity include list
+            self._inclusions = MavenCoordinateGlobList()
             self._inclusions.extend(cfg.package)
 
         self._pkgMap = {}  # map group, artifact, version to package
@@ -69,7 +70,7 @@ class PomSource(object):
         searchKwargs = {}
         if repo:
             searchKwargs = {'repos': repo}
-        if self._inclusions:
+        if self._inclusions is not None:
             searchFunc = client.gavc_search
             searchArgs = [package.split(':') for package in self._cfg.package]
         else:
@@ -139,8 +140,9 @@ class PomSource(object):
             if gav not in self._pkgMap:
                 # this is a new package
                 try:
-                    pkg = createPomPackage(*gav, client=client,
-                                           cache=self._pkgMap)
+                    location = client.constructPath(*gav)
+                    pkg = PomPackage("%s:%s:pom:%s" % gav, location, client,
+                                     self._pkgMap)
                 except MissingProjectError:
                     log.error("Could not load %s:%s:%s", *gav)
                     continue
