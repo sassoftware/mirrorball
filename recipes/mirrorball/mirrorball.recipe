@@ -9,7 +9,7 @@ class MirrorBall(PackageRecipe):
     git_version = 'tip'
     branch = 'master'
     platform = "centos"
-    platver = "6"
+    platver = "7"
     version = branch + '.' + git_version
 
     buildRequires = [   'python:rpm',

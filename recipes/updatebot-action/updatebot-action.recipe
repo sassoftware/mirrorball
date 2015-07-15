@@ -35,6 +35,7 @@ class UpdateBotAction(PackageRecipe):
     platform = None
     action = None
     cmd = None
+    platver = None
 
     def setup(r):
 
@@ -43,12 +44,21 @@ class UpdateBotAction(PackageRecipe):
         else:
             r.macros.platform = r.name
 
-        r.macros.python = 'python2.6'
+        if r.platver:
+            r.macros.platver = r.platver 
+        else:
+            r.macros.platver = 6
+
+        if r.macros.platver == "6":
+            r.macros.python = 'python2.6'
+        if r.macros.platver == "7":
+            r.macros.python = 'python2.7'
+
         r.macros.logfile = '%(destdir)s/updatebot.log'
 
         if r.action:
             r.macros.action = r.action
-            
+
         r.cmd = '%(python)s /usr/bin/%(action)s %(platform)s %(logfile)s'
 
         r.do_action()
