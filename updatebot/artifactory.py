@@ -105,7 +105,7 @@ class Updater(UpdaterSuperClass):
                 or binVersion.getSourceVersion() != srcVersion):
             return srcVersion, True
         else:
-            log.info('not building %s' % leaf)
+            log.info('not building %s', leaf)
             return srcVersion, False
 
     def _build(self, buildSet, buildReqs, cache):
@@ -135,10 +135,11 @@ class Updater(UpdaterSuperClass):
             if dep not in buildPackages
             ]))
 
-        rmakeCfg.configKey(
-            'resolveTroves',
-            ' '.join('%s=%s/%s' % r for r in resolveTroves),
-            )
+        if resolveTroves:
+            rmakeCfg.configKey(
+                'resolveTroves',
+                ' '.join('%s=%s/%s' % r for r in resolveTroves),
+                )
 
         # make a new buidler with rmakeCfg to do the actual build
         builder = Builder(self._cfg, self._ui, rmakeCfg=rmakeCfg)

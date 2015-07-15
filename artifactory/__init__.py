@@ -10,8 +10,10 @@ import os
 
 from conary.lib import util
 
+from pymaven.client import MavenClient
 import requests
 
+from .errors import MissingArtifactError
 from .pompackage import PomPackage
 
 
@@ -52,58 +54,7 @@ def repos(func):
     return wrapper
 
 
-class Struct(object):
-    def __init__(self):
-        self.status_code = None
-        self.text = None
-
-    def json(self):
-        return json.loads(self.text)
-
-
-class Cache(object):
-    def __init__(self, cacheDir='/tmp/artifactory_cache'):
-        self.cacheDir = cacheDir
-        util.mkdirChain(self.cacheDir)
-
-    def cache(self, method, uri, query_params=None, res=None):
-        if query_params is None:
-            query_params = {}
-
-        key = method + ' ' + uri
-        if query_params:
-            key += '?' + '&'.join(('%s=%s' % kv for kv in query_params.iteritems()))
-
-        h = hashlib.sha1(key).hexdigest()
-        dh = '%s.data' % h
-
-        hpath = os.path.join(self.cacheDir, h)
-        dhpath = os.path.join(self.cacheDir, dh)
-
-        if os.path.exists(hpath) and os.path.exists(dhpath) and not res:
-            log.debug('hit %s with key %s', key, h)
-            data = json.load(open(dhpath))
-            data['text'] = open(hpath).read().decode('utf-8')
-            res = Struct()
-            for k, v in data.iteritems():
-                setattr(res, k, v)
-
-        elif res is not None:
-            log.debug("Caching response %s with key %s", key, h)
-            with open(hpath, 'wb') as fh:
-                fh.write(res.text.encode('utf-8'))
-            with open(dhpath, 'wb') as fh:
-                json.dump({
-                    'status_code': res.status_code,
-                    'method': method,
-                    'uri': uri,
-                    'param': query_params,
-                }, fh)
-
-        return res
-
-
-class Client(object):
+class Client(MavenClient):
     """
     Client for talking to artfactory api
     """
@@ -120,50 +71,30 @@ class Client(object):
         :param UpdateBotConfig cfg: cfg object to use for configuring the client
         :param dict headers: dictionary of headers to use for all requests
         """
-        # append a / to url if it doesn't end with one
         self._cfg = cfg
-        self._url = cfg.repositoryUrl + '/'
-        self._api_url = urljoin(self._url, "api/")
-
-        self._cache = Cache()
-
-    def _get(self, uri, **kwargs):
-        res = self._request('GET', uri, **kwargs)
-        return res
-
-    def _post(self, uri,  **kwargs):
-        res = self._request('POST', uri, **kwargs)
-        return res
-
-    def _head(self, uri, **kwargs):
-        res = self._request('HEAD', uri, return_json=False, **kwargs)
-        return res
-
-    def _request(self, method, uri, return_json=True, **kwargs):
-        url = urljoin(self._url, uri)
-        res = self._cache.cache(method, uri, kwargs.get('params'))
-        if not res:
-            log.debug('requesting %s %s', method, url)
-            res = requests.request(method, url, **kwargs)
-            self._cache.cache(method, uri, kwargs.get('params'), res)
-        if return_json:
-            return res.json()
-        return res
+        self._url = cfg.repositoryUrl
+        if not self._url.endswith('/'):
+            self._url = self._url + '/'
+        super(Client, self).__init__(
+            *[urljoin(self._url, repo) for repo in cfg.repositoryPaths])
 
     def _search(self, path, **kwargs):
         log.debug("search(%s, kwargs=%s)", path, kwargs)
         if 'auth' not in kwargs:
-            kwargs['auth'] = self._cfg.artifactoryUser.find(self._cfg.repositoryUrl)
+            kwargs['auth'] = self._cfg.artifactoryUser.find(
+                self._cfg.repositoryUrl)
 
-        res = self._get(urljoin("api/search/", path), **kwargs)
-        urls = [r['uri'] for r in res.get('results', [])]
+        repo = self._repos[0]
+        uri = urljoin("api/search/", path)
+        res = repo._get(urljoin(self._url, uri), **kwargs)
+        urls = [r['uri'] for r in res.json.get('results', [])]
 
         for url in urls:
-            res = self._get(url, return_json=False)
+            res = repo._get(url)
             if res.status_code == requests.codes.not_found:
                 log.warn('error fetching %s', url)
                 continue
-            yield res.json()
+            yield res.json
 
     def constructPath(self, groupId, artifactId, version=None,
                       artifactName=None, extension='pom', relative=False):
@@ -201,24 +132,33 @@ class Client(object):
             artifactName,
             extension,
             )
+        return path
 
+    def checkPath(self, path, relative=False):
+        client = self._repos[0]
         for repo in self._cfg.repositoryPaths:
             if relative:
                 uri = repo + '/' + path
             else:
                 uri = repo + path
 
-            if self._head(uri).status_code == requests.codes.ok:
-                return uri
+            try:
+                res = client._head(urljoin(self._url, uri))
+                if res.status_code == requests.codes.ok:
+                    return uri
+            except requests.HTTPError:
+                pass
 
     def artifactUrl(self, group, artifact, version, extension='pom'):
         path = self.constructPath(group, artifact, version, extension=extension,
                                   relative=True)
+        path = self.checkPath(path, relative=True)
         return urljoin(self._url, path)
 
     def checkJar(self, group, artifact, version):
         path = self.constructPath(group, artifact, version, extension='jar',
                                   relative=True)
+        path = self.checkPath(path, relative=True)
         if path:
             return True
         return False
@@ -313,6 +253,10 @@ class Client(object):
         return self._search('versions/', **kwargs)
 
     def retrieve_artifact(self, path, stream=False):
+        path = self.checkPath(path, relative=True)
+        if path is None:
+            raise MissingArtifactError(path=path)
+
         res = self._request('GET', path, stream=stream, return_json=False)
         if res.status_code == requests.codes.ok:
             if stream:
