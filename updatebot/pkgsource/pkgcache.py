@@ -60,7 +60,7 @@ class Package(object):
 
     @property
     def sourcerpm(self):
-        return self._pkg.sourcepkg.location
+        return os.path.basename(self._pkg.sourcepkg.location)
 
     def getConaryVersion(self):
         assert self.arch == 'src'
