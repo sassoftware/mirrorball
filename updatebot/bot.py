@@ -225,6 +225,20 @@ class Bot(object):
             expectedRemovals = removeObsoleted | updateRemovesPackage
 
 
+        if not expectedRemovals:
+            ##
+            # We are going to put together a list of all the removed pkgs
+            # it is needed to check the group for stuff we want out
+            ##
+
+            removeObsoleted = set([ x for x in
+                itertools.chain(*self._cfg.removeObsoleted.values()) ])
+            updateRemovesPackage = set([ x for x in
+                itertools.chain(*self._cfg.updateRemovesPackages.values()) ])
+
+            expectedRemovals = removeObsoleted | updateRemovesPackage
+
+
         # Populate rpm source object from yum metadata.
         self._pkgSource.load()
 
@@ -305,6 +319,7 @@ class Bot(object):
             # Disabled handled in seperate job
             # Mirror out what we have done
             #self._updater.mirror()
+
 
         log.info('update completed successfully')
         log.info('updated %s packages and sent %s advisories'

@@ -20,6 +20,7 @@ Module for managing monitors.
 """
 
 import os
+import itertools
 
 from rmake.cmdline import monitor
 

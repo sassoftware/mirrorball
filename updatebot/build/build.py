@@ -171,9 +171,12 @@ class Builder(object):
 
         # Use default tmpDir when building with rMake since the specified
         # tmpDir may not exist in the build root.
+
         rmakeCfg.resetToDefault('tmpDir')
 
         return rmakeCfg
+
+        self._conaryhelper = ConaryHelper(self._cfg)
 
     def build(self, troveSpecs):
         """

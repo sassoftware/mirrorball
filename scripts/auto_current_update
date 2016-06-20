@@ -38,3 +38,4 @@ if __name__ == '__main__':
     sys.excepthook = util.genExcepthook(debug=False)
 
     sys.exit(main(sys.argv, update))
+

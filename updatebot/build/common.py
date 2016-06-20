@@ -204,6 +204,7 @@ class AbstractStatusMonitor(object):
         data = []
         mtype, payload = msg
         # DEBUG
+
         log.debug('mtype is %s' % str(mtype))
         if mtype == MessageTypes.LOG:
             # mtype == 0 in this situation

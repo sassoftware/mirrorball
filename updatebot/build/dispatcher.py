@@ -64,7 +64,6 @@ class AbstractDispatcher(object):
             ', '.join([ '%s:%s' % (x, self._jobs[x][1]) for x in self._jobs
             if self._jobs[x][1] not in self._completed]))
 
-
         if not len(self._jobs):
             log.debug('_jobs empty... guess we need to wait')
             log.debug('%s' % str(self._jobs))

@@ -548,7 +548,7 @@ class Updater(object):
         if len(manifest) < self._getManifestFromPkgSource(srpm):
             needsUpdate = True
 
-        log.info('Elapsed Time Sanitize Trove : %s' % (time.time() - start))
+        log.debug('Elapsed Time Sanitize Trove : %s' % (time.time() - start))
 
         return needsUpdate
 

@@ -22,6 +22,7 @@ Module for interacting with repository metadata.
 from updatebot.pkgsource.pomsource import PomSource
 from updatebot.pkgsource.rpmsource import RpmSource
 from updatebot.pkgsource.yumsource import YumSource
+from updatebot.pkgsource.pkgcache import PkgCache
 from updatebot.pkgsource.errors import UnsupportedRepositoryError
 
 
@@ -35,6 +36,8 @@ def PackageSource(cfg, ui):
         return YumSource(cfg, ui)
     elif cfg.repositoryFormat == 'artifactory':
         return PomSource(cfg, ui)
+    elif cfg.repositoryFormat == 'pkgcache':
+        return PkgCache(cfg, ui)
     else:
         raise UnsupportedRepositoryError(repo=cfg.repositoryFormat,
                                          supported=['artifactory', 'yum'])

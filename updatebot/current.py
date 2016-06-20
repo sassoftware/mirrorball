@@ -402,7 +402,6 @@ class Bot(BotSuperClass):
             log.info('Target and Source labels match... no need to promote')
             return toPromote
 
-
         # Get all of the nevras for the target and source labels.
         log.info('querying target nevras')
         targetNevras = self._getNevrasForLabel(self._cfg.targetLabel)
@@ -487,18 +486,12 @@ class Bot(BotSuperClass):
                     toUpdate.add(srcPkg)
                     continue
 
-            ## DEBUG PLEASE REMOVE
-            #if 'kernel' in binPkg.getNevra():
-            #    kernels.append(binPkg)
 
             #if binPkg.getNevra() not in sourceLatest:
             if NEVRA(*binPkg.getNevra()) not in sourceLatest:
-                #log.debug('UPDATING : %s' % binPkg)
+                log.debug('UPDATING : %s' % binPkg)
                 toUpdateMap.setdefault(srcPkg, set()).add(binPkg)
                 toUpdate.add(srcPkg)
-
-
-        #import epdb;epdb.st()
 
         # add a source to a specific bucket, used to "promote" newer versions
         # forward.
@@ -655,7 +648,6 @@ class Bot(BotSuperClass):
         # Figure out what packages need to be updated.
         # These will be used later so lets do this once
         sourceNevras, sourceLatest = self._getSourceNevraLatestMaps()
-
 
         updatePkgs = self._getUpdatePackages(sourceNevras, sourceLatest)
 

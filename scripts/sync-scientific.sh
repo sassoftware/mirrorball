@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
 #
 # Copyright (c) SAS Institute, Inc.
 #
@@ -19,7 +19,19 @@
 SOURCE=rsync://rsync.scientificlinux.org/scientific/
 DEST=/l/scientific/
 
-date
-rsync -arv --progress --bwlimit=600 --exclude iso --exclude 3* --exclude 4* --exclude RHAPS* --exclude livecd --exclude mirrorlist --exclude obsolete --exclude virtual-images $SOURCE $DEST
-
-./hardlink.py $DEST
+rm -f rsync.log
+./sync-lib.sh "$SOURCE" "$DEST" \
+    --exclude "5*" \
+    --exclude "6rolling/" \
+    --exclude "6x/" \
+    --exclude "*.drpm" \
+    --exclude "iso" \
+    --exclude "livecd" \
+    --exclude "mirrorlist" \
+    --exclude "obsolete" \
+    --exclude "repoview" \
+    --exclude ".repoview.new" \
+    --exclude "RHAPS*" \
+    --exclude "sites" \
+    --exclude "virtual?images" \
+    "$@" || exit 1

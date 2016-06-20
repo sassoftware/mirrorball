@@ -7,7 +7,7 @@ loadInstalled('python')
 class MirrorBall(PackageRecipe):
     name = 'mirrorball'
     git_version = 'tip'
-    branch = 'master'
+    branch = 'production'
     platform = "centos"
     platver = "6"
     version = branch + '.' + git_version
@@ -37,6 +37,7 @@ class MirrorBall(PackageRecipe):
         for mod in ('repomd', 'rpmutils', 'updatebot', 'artifactory'):
             r.Install(mod, '%(sitepkgs)s/')
             r.CompilePython('%%(sitepkgs)s/%s' % mod)
+
 
         r.Install('scripts/auto_update', '%(bindir)s/update', mode=0755)
         r.Install('scripts/auto_buildgroups', '%(bindir)s/buildgroups', mode=0755)
