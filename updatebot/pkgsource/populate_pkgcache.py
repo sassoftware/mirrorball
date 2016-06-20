@@ -202,7 +202,7 @@ class PkgCacheLoader(object):
                 repo = distro_repos.append(obj)
                 pkg_hashes = []
 
-            for pkg in packages.get(name):
+            for pkg in packages.get(name, []):
                 if pkg.hash in pkg_hashes:
                     log.info('found package in cache %s' % pkg.nevra.name)
                     continue
