@@ -77,7 +77,7 @@ class PkgCache(PackageSource):
     def __init__(self, cfg, ui):
         PackageSource.__init__(self, cfg, ui)
 
-        self._api = prism_rest_client.open(self._cfg.pkgcacheUri)
+        self._api = prism_rest_client.open(self._cfg.pkgcacheUri, verify=False)
 
         self._loaded = False
         self._cfg.synthesizeSources = False
