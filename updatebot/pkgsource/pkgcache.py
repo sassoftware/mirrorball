@@ -88,15 +88,18 @@ class PkgCache(PackageSource):
         NOTE: This method should be implmented by all backends.
         """
 
+        log.info('loading package source from cache')
         distros = dict(((x.name, x.version), x) for x in self._api.distros)
         distro = distros.get((self._cfg.platformName,
             self._cfg.upstreamProductVersion))
 
         self._distro = distro
 
+        log.info('fetching packages for %s', self._distro.name)
         pkgs = self._distro.packages
         for pkg in pkgs:
             self._distro._cache[pkg._data.id] = pkg
+        log.info('finished fetching packages')
 
         for pkg in self._distro.packages:
             if pkg.nevra.arch in self._excludeArch:
