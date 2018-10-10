@@ -81,9 +81,19 @@ for nevra in itertools.chain(*[ x for x in names.values() if len(x) > 1 ]):
 
 toCreate = set(srcNevras.values())
 
-import epdb; epdb.st()
+#import epdb; epdb.st()
 
 order = {}
+
+# Verify location map
+notFound = {}
+for loc, binPkg in pkgSource.locationMap.iteritems():
+    if binPkg not in pkgSource.binPkgMap:
+        log.error('binPkg from location %s not in binPkgMap', loc)
+        notFound[loc] = binPkg
+
+import epdb; epdb.st()
+
 
 def srtByRPMVerCmp(a, b):
     from updatebot.lib import util

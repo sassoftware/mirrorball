@@ -290,7 +290,7 @@ class Updater(object):
             labels=labels, latest=False, missingOk=True)
 
         # Return binary versions
-        bins = [ x for x in itertools.chain(*srcMap.itervalues()) ]
+        log.debug([ x for x in itertools.chain(*srcMap.itervalues()) ].join(' '))
 
         binMap = {}
         for srcTrv, binaries in srcMap.iteritems():
@@ -396,6 +396,7 @@ class Updater(object):
             # Create packages that do not have manifests.
             # TODO: might want to make this a config option?
             log.info('no manifest found for %s, will create package' % nvf[0])
+            log.error(e)
             return True
 
 
@@ -403,8 +404,12 @@ class Updater(object):
             # Some manifests were created with double slashes, need to
             # normalize the path to work around this problem.
             line = os.path.normpath(line).split('?')[0]
-            if line in self._pkgSource.locationMap:
-                binPkg = self._pkgSource.locationMap[line]
+            if (line in self._pkgSource.locationMap or
+                    (os.path.basename(line) in self._pkgSource.locationMap and
+                        line.endswith('src.rpm'))):
+                binPkg = self._pkgSource.locationMap.get(line,
+                        self._pkgSource.locationMap.get(
+                            os.path.basename(line), None))
                 srcPkg = self._pkgSource.binPkgMap[binPkg]
             elif (line.strip().endswith('.src.rpm') and
                   self._cfg.synthesizeSources):

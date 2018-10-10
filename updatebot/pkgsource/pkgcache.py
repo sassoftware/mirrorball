@@ -26,6 +26,8 @@ log = logging.getLogger('updatebot.pkgsource')
 
 import prism_rest_client
 
+from rpmutils import NEVRA
+from updatebot.pkgsource.yumsource import loaded
 from updatebot.pkgsource.yumsource import YumSource as PackageSource
 
 class Package(object):
@@ -62,12 +64,40 @@ class Package(object):
     def sourcerpm(self):
         return os.path.basename(self._pkg.sourcepkg.location)
 
+    @property
+    def buildTimestamp(self):
+        return 1
+
     def getConaryVersion(self):
         assert self.arch == 'src'
         filename = os.path.basename(self.location)
         nvr = '.'.join(filename.split('.')[:-2])
         v = '_'.join(nvr.split('-')[-2:])
         return v
+
+    def getNevra(self):
+        return NEVRA(self.name, str(self.epoch), self.version, self.release, self.arch)
+
+    def getFileName(self):
+        return '%s-%s-%s.%s.rpm' % (self.name, self.version, self.release, self.arch)
+
+    def __hash__(self):
+        return hash((self.getNevra(), os.path.basename(self.location)))
+
+    def __cmp__(self, other):
+        assert isinstance(other, self.__class__)
+        c = cmp(self.getNevra(), other.getNevra())
+        if c != 0: return c
+        # If the filename matches, assume that the files are identical, even if
+        # they are in different paths in the mirror.
+        return cmp(os.path.basename(self.location),
+                   os.path.basename(other.location))
+
+    def __str__(self):
+        return self.getFileName()
+
+    __repr__ = __str__
+
 
 class PkgCache(PackageSource):
     """
@@ -82,6 +112,7 @@ class PkgCache(PackageSource):
         self._loaded = False
         self._cfg.synthesizeSources = False
 
+    @loaded
     def load(self):
         """
         Method to parse all package data into data structures listed above.
