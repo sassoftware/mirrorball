@@ -32,6 +32,7 @@ class UpdateBotAction(PackageRecipe):
                         'python-psycopg2', 
                         'pymaven',
                         'python-requests',
+                        'python-prism_rest_client:python',
                     ]
 
     platform = None
